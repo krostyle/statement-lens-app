@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id               String        @id @default(uuid())
+  email            String        @unique
+  password         String
+  name             String?
+  resetToken       String?
+  resetTokenExpiry DateTime?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  statements       Statement[]
+  categories       Category[]
+  transactions     Transaction[]
+  budgets          Budget[]
+}
+
+model Statement {
+  id           String        @id @default(uuid())
+  userId       String
+  bank         String
+  month        String
+  fileName     String
+  s3Key        String
+  s3Url        String
+  status       String        @default("pending")
+  errorMessage String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+}
+
+model Category {
+  id           String        @id @default(uuid())
+  userId       String
+  name         String
+  color        String
+  icon         String?
+  isDefault    Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+  budgets      Budget[]
+
+  @@unique([userId, name])
+}
+
+model Budget {
+  id            String   @id @default(uuid())
+  userId        String
+  categoryId    String
+  monthlyAmount Float
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, categoryId])
+}
+
+model Transaction {
+  id               String     @id @default(uuid())
+  userId           String
+  statementId      String?
+  categoryId       String
+  date             DateTime
+  description      String
+  merchant         String
+  amount           Float
+  currency         String     @default("CLP")
+  isInstallment    Boolean    @default(false)
+  installmentNum   Int?
+  installmentTotal Int?
+  notes            String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statement        Statement? @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  category         Category   @relation(fields: [categoryId], references: [id])
+}

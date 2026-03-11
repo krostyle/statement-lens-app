@@ -1,0 +1,53 @@
+import { anthropicClient } from './anthropic.client';
+
+export interface ParsedTransaction {
+  date: string;
+  description: string;
+  merchant: string;
+  amount: number;
+  currency: string;
+  isInstallment: boolean;
+  installmentNum: number | null;
+  installmentTotal: number | null;
+  suggestedCategory: string;
+}
+
+export class PdfParserService {
+  async extractText(buffer: Buffer): Promise<string> {
+    const { PDFParse } = await import('pdf-parse');
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    return result.text;
+  }
+
+  async parseTransactions(
+    rawText: string,
+    bank: string,
+    categories: string[]
+  ): Promise<ParsedTransaction[]> {
+    const categoriesList = categories.join(', ');
+
+    const message = await anthropicClient.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 16000,
+      system: `You are a parser for Chilean credit card statements.
+Extract ALL transactions and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
+Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category"}
+amount: negative=expense, positive=credit/payment.`,
+      messages: [
+        {
+          role: 'user',
+          content: `Bank: ${bank}\nCategories: ${categoriesList}\n\nStatement text:\n${rawText}`,
+        },
+      ],
+    });
+
+    const content = message.content[0];
+    if (content.type !== 'text') throw new Error('Unexpected response from Claude');
+
+    const raw = content.text.trim();
+    // Strip markdown code fences if Claude wraps the response (```json ... ```)
+    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+    return JSON.parse(jsonText) as ParsedTransaction[];
+  }
+}
