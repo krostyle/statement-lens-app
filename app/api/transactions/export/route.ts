@@ -1,5 +1,6 @@
 import { auth } from '@/src/infrastructure/auth/nextauth.config';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
+import type { Prisma } from '@prisma/client';
 
 function escapeCsv(value: string | number | boolean | null | undefined): string {
   if (value === null || value === undefined) return '';
@@ -19,7 +20,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const userId = session.user.id;
 
-  const where: Parameters<typeof prisma.transaction.findMany>[0]['where'] = { userId };
+  const where: Prisma.TransactionWhereInput = { userId };
 
   const categoryId = searchParams.get('categoryId');
   if (categoryId) where.categoryId = categoryId;
