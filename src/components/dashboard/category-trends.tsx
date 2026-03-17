@@ -62,7 +62,7 @@ export function CategoryTrends() {
               width={80}
             />
             <Tooltip
-              formatter={(value: number) => formatCurrency(value)}
+              formatter={(value) => formatCurrency(Number(value))}
               contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e4e4e7' }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
