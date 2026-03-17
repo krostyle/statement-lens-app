@@ -3,17 +3,14 @@ import Credentials from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
 import { loginSchema } from '@/src/lib/validations/auth.schema';
+import { authConfig } from './auth.config';
 
 class InvalidCredentialsError extends CredentialsSignin {
   code = 'invalid_credentials';
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: 'jwt' },
-  pages: {
-    signIn: '/login',
-    error: '/login',
-  },
+  ...authConfig,
   providers: [
     Credentials({
       async authorize(credentials) {
@@ -48,18 +45,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
-    },
-    session({ session, token }) {
-      if (token.id && session.user) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
 });
