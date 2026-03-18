@@ -1,9 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { NextResponse } from 'next/server';
+import { auth } from '@/src/infrastructure/auth/auth.edge';
 
-export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET });
-  const isLoggedIn = !!token;
+export default auth((req) => {
+  const isLoggedIn = !!req.auth;
   const pathname = req.nextUrl.pathname;
 
   const isAuthRoute =
@@ -20,7 +19,7 @@ export async function middleware(req: NextRequest) {
   }
 
   return NextResponse.next();
-}
+});
 
 export const config = {
   matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
