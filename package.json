@@ -26,7 +26,7 @@
     "next": "16.1.6",
     "next-auth": "5.0.0-beta.30",
     "nodemailer": "^8.0.2",
-    "pdf-parse": "^2.4.5",
+    "pdf-parse": "1.1.1",
     "pg": "^8.20.0",
     "radix-ui": "^1.4.3",
     "react": "19.2.3",

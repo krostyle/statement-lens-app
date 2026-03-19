@@ -1,25 +1,5 @@
 import { anthropicClient } from './anthropic.client';
 
-// pdfjs-dist (used by pdf-parse v2) accesses browser canvas APIs at module
-// load time. Vercel's serverless runtime does not expose them, so we polyfill
-// the bare minimum before any dynamic import of pdf-parse triggers them.
-if (typeof globalThis.DOMMatrix === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).DOMMatrix = class DOMMatrix {
-    constructor(_init?: string | number[]) {}
-  };
-}
-if (typeof globalThis.ImageData === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).ImageData = class ImageData {
-    constructor(public width: number, public height: number) {}
-  };
-}
-if (typeof globalThis.Path2D === 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).Path2D = class Path2D {};
-}
-
 export interface ParsedTransaction {
   date: string;
   description: string;
@@ -34,10 +14,9 @@ export interface ParsedTransaction {
 
 export class PdfParserService {
   async extractText(buffer: Buffer): Promise<string> {
-    const { PDFParse } = await import('pdf-parse');
-    const parser = new PDFParse({ data: buffer });
-    const result = await parser.getText();
-    return result.text;
+    const pdfParse = (await import('pdf-parse')).default;
+    const data = await pdfParse(buffer);
+    return data.text;
   }
 
   async parseTransactions(
