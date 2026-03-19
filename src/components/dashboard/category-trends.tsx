@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 
 interface TrendsData {
   months: string[];
@@ -34,7 +35,18 @@ export function CategoryTrends() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-zinc-900">Tendencias por categoría</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[260px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
   if (!data || data.months.length === 0 || data.series.length === 0) return null;
 
   // Transform into recharts format: [{month: 'Ene', Cat1: 100, Cat2: 200}, ...]

@@ -14,6 +14,7 @@ import {
 } from '@/src/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import { TransactionForm } from './transaction-form';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
@@ -33,8 +34,10 @@ export function TransactionsView() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (selectedStatementId && selectedStatementId !== 'all') params.set('statementId', selectedStatementId);
@@ -51,6 +54,7 @@ export function TransactionsView() {
     setTotal(txData.total ?? 0);
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
+    setLoading(false);
   }, [search, selectedStatementId, page]);
 
   useEffect(() => {
@@ -161,7 +165,16 @@ export function TransactionsView() {
             </tr>
           </thead>
           <tbody>
-            {transactions.map((t) => (
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
+                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
+              </tr>
+            ))}
+            {!loading && transactions.map((t) => (
               <tr key={t.id} className="border-b border-zinc-50 hover:bg-zinc-50">
                 <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
                 <td className="px-4 py-3">
@@ -186,7 +199,7 @@ export function TransactionsView() {
                 </td>
               </tr>
             ))}
-            {transactions.length === 0 && (
+            {!loading && transactions.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
                   Sin transacciones

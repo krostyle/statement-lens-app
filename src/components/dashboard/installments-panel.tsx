@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 
 interface Installment {
   id: string;
@@ -43,7 +44,18 @@ export function InstallmentsPanel({ statementId, month }: Props) {
       .finally(() => setLoading(false));
   }, [statementId, month]);
 
-  if (loading) return null;
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[120px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
   if (!data || !Array.isArray(data.installments) || data.installments.length === 0) return null;
 
   return (

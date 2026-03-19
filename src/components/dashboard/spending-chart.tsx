@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 
 interface Merchant { merchant: string; total: number; count: number }
 
@@ -12,12 +13,15 @@ interface Props {
 
 export function SpendingChart({ metricsUrl }: Props) {
   const [merchants, setMerchants] = useState<Merchant[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     fetch(metricsUrl)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then((m) => setMerchants(m.topMerchants ?? []))
-      .catch(() => setMerchants([]));
+      .catch(() => setMerchants([]))
+      .finally(() => setLoading(false));
   }, [metricsUrl]);
 
   return (
@@ -35,7 +39,14 @@ export function SpendingChart({ metricsUrl }: Props) {
             </tr>
           </thead>
           <tbody>
-            {merchants.map((m, i) => {
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
+                <td className="py-2"><Skeleton className="h-4 w-36" /></td>
+                <td className="py-2 text-right"><Skeleton className="h-4 w-8 ml-auto" /></td>
+                <td className="py-2 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+              </tr>
+            ))}
+            {!loading && merchants.map((m, i) => {
               const max = merchants[0]?.total ?? 1;
               const pct = Math.round((m.total / max) * 100);
               return (
@@ -54,7 +65,7 @@ export function SpendingChart({ metricsUrl }: Props) {
                 </tr>
               );
             })}
-            {merchants.length === 0 && (
+            {!loading && merchants.length === 0 && (
               <tr><td colSpan={3} className="py-4 text-center text-zinc-400">Sin datos</td></tr>
             )}
           </tbody>

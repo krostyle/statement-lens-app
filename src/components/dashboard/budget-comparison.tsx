@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { CheckCircle2, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import type { BudgetResponseDTO } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 
@@ -45,8 +46,16 @@ export function BudgetComparison({ metricsUrl }: BudgetComparisonProps) {
         <CardHeader>
           <CardTitle className="text-base">Presupuestos vs Gasto real</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-zinc-400">Cargando...</p>
+        <CardContent className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <Skeleton className="h-4 w-4 rounded-full shrink-0" />
+              <Skeleton className="h-4 flex-1" />
+              <Skeleton className="h-4 w-20 shrink-0" />
+              <Skeleton className="h-4 w-20 shrink-0" />
+              <Skeleton className="h-4 w-24 shrink-0" />
+            </div>
+          ))}
         </CardContent>
       </Card>
     );

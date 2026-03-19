@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 
 const COLORS = ['#f97316','#ef4444','#3b82f6','#22c55e','#a855f7','#ec4899','#6366f1','#f59e0b','#14b8a6','#0ea5e9','#84cc16','#6b7280'];
 
@@ -13,8 +14,10 @@ interface Props {
 
 export function CategoryBreakdown({ metricsUrl }: Props) {
   const [data, setData] = useState<{ categoryId: string; total: number; name?: string }[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     Promise.all([
       fetch(metricsUrl).then((r) => r.ok ? r.json() : Promise.reject(r.status)),
       fetch('/api/categories').then((r) => r.json()),
@@ -27,8 +30,21 @@ export function CategoryBreakdown({ metricsUrl }: Props) {
           name: catMap.get(tc.categoryId) ?? tc.categoryId,
         }))
       );
-    });
+    }).finally(() => setLoading(false));
   }, [metricsUrl]);
+
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Gasto por categoría</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Skeleton className="h-[280px] w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card>

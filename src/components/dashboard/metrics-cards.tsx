@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { TrendingUp, TrendingDown, DollarSign, Calendar } from 'lucide-react';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import type { MetricsFilterMode } from '@/src/adapters/presenters/metrics.presenter';
 
 interface MetricsData {
@@ -21,13 +22,34 @@ interface Props {
 
 export function MetricsCards({ metricsUrl }: Props) {
   const [metrics, setMetrics] = useState<MetricsData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    setLoading(true);
     fetch(metricsUrl)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
       .then(setMetrics)
-      .catch(() => setMetrics(null));
+      .catch(() => setMetrics(null))
+      .finally(() => setLoading(false));
   }, [metricsUrl]);
+
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i}>
+            <CardHeader>
+              <Skeleton className="h-4 w-32" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-8 w-24 mb-2" />
+              <Skeleton className="h-3 w-20" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
   if (!metrics) return null;
 

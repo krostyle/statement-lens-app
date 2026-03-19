@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/src/components/ui/dialog";
 import { CategoryForm } from "./category-form";
+import { Skeleton } from "@/src/components/ui/skeleton";
 import type { CategoryResponseDTO } from "@/src/application/dtos/category.dto";
 
 function translateApiError(raw: string | undefined): string {
@@ -24,16 +25,19 @@ function translateApiError(raw: string | undefined): string {
 
 export function CategoriesView() {
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CategoryResponseDTO | null>(null);
   const [deleteError, setDeleteError] = useState("");
 
   const load = async () => {
+    setLoading(true);
     const res = await fetch("/api/categories");
-    if (!res.ok) return;
+    if (!res.ok) { setLoading(false); return; }
     const data = await res.json();
     setCategories(Array.isArray(data) ? data : []);
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -91,7 +95,14 @@ export function CategoriesView() {
       </Dialog>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map((c) => (
+        {loading && Array.from({ length: 6 }).map((_, i) => (
+          <div key={`skeleton-${i}`} className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4">
+            <Skeleton className="h-9 w-9 rounded-lg shrink-0" />
+            <Skeleton className="h-4 w-28 flex-1" />
+            <Skeleton className="h-7 w-16 rounded-md" />
+          </div>
+        ))}
+        {!loading && categories.map((c) => (
           <div
             key={c.id}
             className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white p-4"
@@ -116,7 +127,7 @@ export function CategoriesView() {
             </div>
           </div>
         ))}
-        {categories.length === 0 && (
+        {!loading && categories.length === 0 && (
           <p className="col-span-3 py-8 text-center text-zinc-400">
             Sin categorías
           </p>

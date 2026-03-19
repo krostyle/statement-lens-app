@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { DialogContent, DialogHeader, DialogTitle } from '@/src/components/ui/dialog';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
 import { Badge } from '@/src/components/ui/badge';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
 
 interface StatementTransaction {
@@ -48,7 +49,26 @@ export function StatementTransactions({ statement }: Props) {
 
       <div className="overflow-auto flex-1 rounded-lg border border-zinc-200">
         {loading ? (
-          <div className="py-12 text-center text-sm text-zinc-400">Cargando transacciones...</div>
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 border-b border-zinc-100 bg-zinc-50">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
+                <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
+                <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Array.from({ length: 6 }).map((_, i) => (
+                <tr key={i} className="border-b border-zinc-50">
+                  <td className="px-4 py-2.5"><Skeleton className="h-4 w-20" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-4 w-36" /></td>
+                  <td className="px-4 py-2.5"><Skeleton className="h-5 w-20 rounded-full" /></td>
+                  <td className="px-4 py-2.5 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         ) : transactions.length === 0 ? (
           <div className="py-12 text-center text-sm text-zinc-400">Sin transacciones</div>
         ) : (

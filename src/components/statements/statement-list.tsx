@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Trash2, RefreshCw, Upload, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
@@ -13,6 +13,7 @@ import {
 } from '@/src/components/ui/dialog';
 import { UploadDropzone } from './upload-dropzone';
 import { StatementTransactions } from './statement-transactions';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import { formatDate } from '@/src/lib/utils';
 import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
 
@@ -30,31 +31,14 @@ const statusVariant = (s: string) => {
   return 'secondary';
 };
 
-/** Indeterminate progress for pending/processing — uses createdAt so elapsed time survives navigation */
-function ProcessingStatus({ status, createdAt }: { status: string; createdAt: string }) {
-  const [elapsed, setElapsed] = useState(0);
-
-  useEffect(() => {
-    const start = new Date(createdAt).getTime();
-    const tick = () => setElapsed(Math.floor((Date.now() - start) / 1000));
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [createdAt]);
-
-  const fmt = elapsed < 60
-    ? `${elapsed}s`
-    : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
-
+/** Indeterminate progress for pending/processing */
+function ProcessingStatus({ status }: { status: string }) {
   return (
     <div className="flex flex-col gap-1.5 w-40">
-      <div className="flex items-center justify-between gap-2">
-        <Badge variant={statusVariant(status)} className="flex items-center gap-1">
-          <Loader2 className="h-3 w-3 animate-spin" />
-          {statusLabel[status]}
-        </Badge>
-        <span className="text-xs text-zinc-400 tabular-nums">{fmt}</span>
-      </div>
+      <Badge variant={statusVariant(status)} className="flex items-center gap-1 w-fit">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        {statusLabel[status]}
+      </Badge>
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">
         <div
           className="h-full w-1/3 rounded-full bg-primary/70"
@@ -67,18 +51,20 @@ function ProcessingStatus({ status, createdAt }: { status: string; createdAt: st
 
 export function StatementsView() {
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StatementResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StatementResponseDTO | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     const res = await fetch('/api/statements');
     const data = await res.json();
     const list: StatementResponseDTO[] = Array.isArray(data) ? data : [];
     setStatements(list);
+    setLoading(false);
     return list;
-  };
+  }, []);
 
   const startPolling = () => {
     if (pollingRef.current) return;
@@ -179,7 +165,17 @@ export function StatementsView() {
             </tr>
           </thead>
           <tbody>
-            {statements.map((s) => (
+            {loading && Array.from({ length: 3 }).map((_, i) => (
+              <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
+                <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
+              </tr>
+            ))}
+            {!loading && statements.map((s) => (
               <tr key={s.id} className="border-b border-zinc-50 hover:bg-zinc-50">
                 <td
                   className={`px-4 py-3 font-medium text-zinc-900 ${s.status === 'done' ? 'cursor-pointer hover:text-primary' : ''}`}
@@ -193,7 +189,7 @@ export function StatementsView() {
                 </td>
                 <td className="px-4 py-3">
                   {s.status === 'pending' || s.status === 'processing' ? (
-                    <ProcessingStatus status={s.status} createdAt={s.createdAt} />
+                    <ProcessingStatus status={s.status} />
                   ) : (
                     <div className="flex flex-col gap-1">
                       <Badge variant={statusVariant(s.status)}>
@@ -222,7 +218,7 @@ export function StatementsView() {
                 </td>
               </tr>
             ))}
-            {statements.length === 0 && (
+            {!loading && statements.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
                   Sin estados de cuenta
