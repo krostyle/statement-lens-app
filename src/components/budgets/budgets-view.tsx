@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pencil, Trash2, Plus, Tag } from 'lucide-react';
+import { Pencil, Trash2, Plus, Tag, Sparkles } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -16,6 +16,7 @@ import { formatCurrency } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { BudgetResponseDTO } from '@/src/application/use-cases/budgets/list-budgets.use-case';
+import { BudgetRecommendationDialog } from './budget-recommendation-dialog';
 
 export function BudgetsView() {
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
@@ -27,6 +28,7 @@ export function BudgetsView() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [recommendOpen, setRecommendOpen] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -97,6 +99,19 @@ export function BudgetsView() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => setRecommendOpen(true)}>
+          <Sparkles className="h-4 w-4 mr-2" />
+          Sugerir con IA
+        </Button>
+      </div>
+
+      <BudgetRecommendationDialog
+        open={recommendOpen}
+        onClose={() => setRecommendOpen(false)}
+        onApplied={() => { setRecommendOpen(false); load(); }}
+      />
+
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

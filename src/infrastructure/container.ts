@@ -9,6 +9,7 @@ import { NodemailerEmailService } from './email/email.service';
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
+import { BudgetRecommendationService } from './ai/budget-recommendation.service';
 
 import { RegisterUseCase } from '@/src/application/use-cases/auth/register.use-case';
 import { ForgotPasswordUseCase, ResetPasswordUseCase } from '@/src/application/use-cases/auth/recover-password.use-case';
@@ -25,6 +26,7 @@ import { UpdateStatementUseCase } from '@/src/application/use-cases/statements/u
 import { AnalyzeFinancesUseCase } from '@/src/application/use-cases/analysis/analyze-finances.use-case';
 import { ListBudgetsUseCase } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import { UpsertBudgetUseCase } from '@/src/application/use-cases/budgets/upsert-budget.use-case';
+import { RecommendBudgetsUseCase } from '@/src/application/use-cases/budgets/recommend-budgets.use-case';
 
 // Repositories
 const userRepo = new UserPrismaRepository();
@@ -64,6 +66,10 @@ export const analyzeFinancesUseCase = new AnalyzeFinancesUseCase(transactionRepo
 
 export const listBudgetsUseCase = new ListBudgetsUseCase(budgetRepo);
 export const upsertBudgetUseCase = new UpsertBudgetUseCase(budgetRepo, categoryRepo);
+export const budgetRecommendationService = new BudgetRecommendationService();
+export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
+  transactionRepo, categoryRepo, budgetRepo, budgetRecommendationService
+);
 
 // Raw repos (needed in some API routes)
 export { userRepo, categoryRepo, statementRepo, transactionRepo };
