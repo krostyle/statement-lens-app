@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { formatCurrency } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 
@@ -31,24 +32,27 @@ interface Props {
 export function InstallmentsPanel({ statementId, month }: Props) {
   const [data, setData] = useState<InstallmentsData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [bank, setBank] = useState('all');
 
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
     if (statementId) params.set('statementId', statementId);
     else if (month) params.set('month', month);
+    if (bank !== 'all') params.set('bank', bank);
 
     fetch(`/api/installments?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
-  }, [statementId, month]);
+  }, [statementId, month, bank]);
 
   if (loading) {
     return (
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
           <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+          <Skeleton className="h-8 w-36 rounded-md" />
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[120px] w-full" />
@@ -60,8 +64,18 @@ export function InstallmentsPanel({ statementId, month }: Props) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
         <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+        <Select value={bank} onValueChange={setBank}>
+          <SelectTrigger className="h-8 w-36 text-xs">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los bancos</SelectItem>
+            <SelectItem value="santander">Santander</SelectItem>
+            <SelectItem value="falabella">Falabella</SelectItem>
+          </SelectContent>
+        </Select>
       </CardHeader>
       <CardContent className="p-0">
         <div className="overflow-x-auto">

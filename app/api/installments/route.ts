@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   const statementId = searchParams.get('statementId');
   const month = searchParams.get('month');
 
+  const bank = searchParams.get('bank');
   const where: Prisma.TransactionWhereInput = { userId, isInstallment: true };
 
   if (statementId) {
@@ -22,6 +23,10 @@ export async function GET(request: Request) {
       gte: new Date(Date.UTC(y, m - 1, 1)),
       lt: new Date(Date.UTC(y, m, 1)),
     };
+  }
+
+  if (bank && ['santander', 'falabella'].includes(bank)) {
+    where.statement = { bank: bank as 'santander' | 'falabella' };
   }
 
   // Fetch matching installment transactions ordered most-recent first
