@@ -5,6 +5,7 @@ export interface User {
   name?: string | null;
   resetToken?: string | null;
   resetTokenExpiry?: Date | null;
+  monthlyIncome?: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

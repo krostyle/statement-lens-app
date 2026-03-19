@@ -30,20 +30,32 @@ export function BudgetsView() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [recommendOpen, setRecommendOpen] = useState(false);
 
+  // Income state
+  const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null);
+  const [incomeOpen, setIncomeOpen] = useState(false);
+  const [incomeInput, setIncomeInput] = useState('');
+  const [savingIncome, setSavingIncome] = useState(false);
+
   const load = async () => {
     setLoading(true);
-    const [catRes, budRes] = await Promise.all([
+    const [catRes, budRes, incRes] = await Promise.all([
       fetch('/api/categories'),
       fetch('/api/budgets'),
+      fetch('/api/user/income'),
     ]);
     if (catRes.ok) setCategories(await catRes.json());
     if (budRes.ok) setBudgets(await budRes.json());
+    if (incRes.ok) {
+      const { monthlyIncome: inc } = await incRes.json();
+      setMonthlyIncome(inc);
+    }
     setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
 
   const budgetMap = new Map(budgets.map((b) => [b.categoryId, b]));
+  const totalBudgeted = budgets.reduce((sum, b) => sum + b.monthlyAmount, 0);
 
   const formatThousands = (raw: string) => {
     const digits = raw.replace(/\D/g, '');
@@ -93,24 +105,133 @@ export function BudgetsView() {
     setDeleteTarget(null);
   };
 
+  const openIncomeDialog = () => {
+    setIncomeInput(monthlyIncome ? formatThousands(String(monthlyIncome)) : '');
+    setIncomeOpen(true);
+  };
+
+  const handleSaveIncome = async () => {
+    const parsed = parseInt(incomeInput.replace(/\./g, ''), 10);
+    if (isNaN(parsed) || parsed <= 0) return;
+    setSavingIncome(true);
+    const res = await fetch('/api/user/income', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ monthlyIncome: parsed }),
+    });
+    setSavingIncome(false);
+    if (res.ok) {
+      const { monthlyIncome: inc } = await res.json();
+      setMonthlyIncome(inc);
+      setIncomeOpen(false);
+    }
+  };
+
   const editingCategoryName = editingCategoryId
     ? categories.find((c) => c.id === editingCategoryId)?.name
     : '';
 
+  const budgetPct = monthlyIncome && monthlyIncome > 0
+    ? Math.min((totalBudgeted / monthlyIncome) * 100, 100)
+    : null;
+  const isOverBudget = monthlyIncome ? totalBudgeted > monthlyIncome : false;
+
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      {/* Income + AI row */}
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-zinc-500">Ingreso mensual:</div>
+          {loading ? (
+            <Skeleton className="h-5 w-28" />
+          ) : monthlyIncome ? (
+            <button
+              onClick={openIncomeDialog}
+              className="font-semibold text-zinc-900 hover:text-brand-600 transition-colors text-sm flex items-center gap-1"
+            >
+              {formatCurrency(monthlyIncome)}
+              <Pencil className="h-3 w-3 text-zinc-400" />
+            </button>
+          ) : (
+            <button
+              onClick={openIncomeDialog}
+              className="text-sm text-brand-600 hover:underline font-medium"
+            >
+              + Agregar ingreso
+            </button>
+          )}
+        </div>
         <Button variant="outline" onClick={() => setRecommendOpen(true)}>
           <Sparkles className="h-4 w-4 mr-2" />
           Sugerir con IA
         </Button>
       </div>
 
+      {/* Budget progress bar */}
+      {monthlyIncome && totalBudgeted > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-zinc-500">Presupuestado</span>
+            <span className={isOverBudget ? 'text-red-600 font-semibold' : 'text-zinc-700 font-semibold'}>
+              {formatCurrency(totalBudgeted)} / {formatCurrency(monthlyIncome)}
+            </span>
+          </div>
+          <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${isOverBudget ? 'bg-red-500' : budgetPct! > 80 ? 'bg-amber-400' : 'bg-brand-500'}`}
+              style={{ width: `${budgetPct}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-zinc-400">
+            <span>
+              {isOverBudget
+                ? `Excedes tu ingreso por ${formatCurrency(totalBudgeted - monthlyIncome)}`
+                : `Disponible para ahorro: ${formatCurrency(monthlyIncome - totalBudgeted)} (${Math.round(100 - budgetPct!)}%)`}
+            </span>
+            <span className="text-zinc-400">Meta: 20% ahorro</span>
+          </div>
+        </div>
+      )}
+
       <BudgetRecommendationDialog
         open={recommendOpen}
         onClose={() => setRecommendOpen(false)}
         onApplied={() => { setRecommendOpen(false); load(); }}
       />
+
+      {/* Income dialog */}
+      <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Ingreso mensual neto</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="income-amount">Monto mensual (CLP)</Label>
+              <Input
+                id="income-amount"
+                type="text"
+                inputMode="numeric"
+                placeholder="Ej. 1.200.000"
+                value={incomeInput}
+                onChange={(e) => setIncomeInput(formatThousands(e.target.value))}
+                onKeyDown={(e) => e.key === 'Enter' && handleSaveIncome()}
+              />
+            </div>
+            <p className="text-xs text-zinc-400">
+              Ingresa tu sueldo líquido mensual. Se usa para la regla 50/30/20 al generar sugerencias con IA.
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIncomeOpen(false)} disabled={savingIncome}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveIncome} disabled={savingIncome}>
+              {savingIncome ? 'Guardando...' : 'Guardar'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
@@ -239,7 +360,7 @@ export function BudgetsView() {
               <tr className="border-t-2 border-zinc-200 bg-zinc-50">
                 <td className="px-4 py-3 font-semibold text-zinc-700">Total presupuestado</td>
                 <td className="px-4 py-3 text-right font-bold text-zinc-900">
-                  {formatCurrency(budgets.reduce((sum, b) => sum + b.monthlyAmount, 0))}
+                  {formatCurrency(totalBudgeted)}
                 </td>
                 <td />
               </tr>

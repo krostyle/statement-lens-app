@@ -29,4 +29,8 @@ export class UserPrismaRepository implements IUserRepository {
       data: { resetToken: token, resetTokenExpiry: expiry },
     });
   }
+
+  async updateIncome(id: string, monthlyIncome: number | null): Promise<User> {
+    return prisma.user.update({ where: { id }, data: { monthlyIncome } });
+  }
 }

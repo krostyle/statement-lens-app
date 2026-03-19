@@ -68,7 +68,7 @@ export const listBudgetsUseCase = new ListBudgetsUseCase(budgetRepo);
 export const upsertBudgetUseCase = new UpsertBudgetUseCase(budgetRepo, categoryRepo);
 export const budgetRecommendationService = new BudgetRecommendationService();
 export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
-  transactionRepo, categoryRepo, budgetRepo, budgetRecommendationService
+  transactionRepo, categoryRepo, budgetRepo, userRepo, budgetRecommendationService
 );
 
 // Raw repos (needed in some API routes)

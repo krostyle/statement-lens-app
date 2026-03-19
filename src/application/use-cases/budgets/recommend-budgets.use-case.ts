@@ -1,6 +1,7 @@
 import type { ITransactionRepository } from '@/src/domain/repositories/transaction.repository';
 import type { ICategoryRepository } from '@/src/domain/repositories/category.repository';
 import type { IBudgetRepository } from '@/src/domain/repositories/budget.repository';
+import type { IUserRepository } from '@/src/domain/repositories/user.repository';
 import type { BudgetRecommendationService } from '@/src/infrastructure/ai/budget-recommendation.service';
 
 export interface BudgetRecommendationDTO {
@@ -18,6 +19,7 @@ export class RecommendBudgetsUseCase {
     private readonly transactionRepo: ITransactionRepository,
     private readonly categoryRepo: ICategoryRepository,
     private readonly budgetRepo: IBudgetRepository,
+    private readonly userRepo: IUserRepository,
     private readonly budgetRecommendationService: BudgetRecommendationService
   ) {}
 
@@ -25,11 +27,14 @@ export class RecommendBudgetsUseCase {
     const now = new Date();
     const from = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
 
-    const [transactions, categories, budgets] = await Promise.all([
+    const [transactions, categories, budgets, user] = await Promise.all([
       this.transactionRepo.findByUserId(userId, { from }),
       this.categoryRepo.findByUserId(userId),
       this.budgetRepo.findByUserId(userId),
+      this.userRepo.findById(userId),
     ]);
+
+    const monthlyIncome = user?.monthlyIncome ?? null;
 
     // Sum expenses (amount < 0) per category
     const spendMap = new Map<string, number>();
@@ -55,7 +60,7 @@ export class RecommendBudgetsUseCase {
 
     if (input.length === 0) return [];
 
-    const aiResults = await this.budgetRecommendationService.recommend(input);
+    const aiResults = await this.budgetRecommendationService.recommend(input, monthlyIncome);
 
     return aiResults.map((item) => {
       const inputItem = input.find((i) => i.categoryId === item.categoryId);
