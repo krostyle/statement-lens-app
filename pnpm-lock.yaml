@@ -8,9 +8,6 @@ dependencies:
   '@anthropic-ai/sdk':
     specifier: ^0.78.0
     version: 0.78.0(zod@4.3.6)
-  '@auth/prisma-adapter':
-    specifier: ^2.11.1
-    version: 2.11.1(@prisma/client@7.4.2)(nodemailer@8.0.2)
   '@aws-sdk/client-s3':
     specifier: ^3.1006.0
     version: 3.1006.0
@@ -178,41 +175,6 @@ packages:
       oauth4webapi: 3.8.5
       preact: 10.24.3
       preact-render-to-string: 6.5.11(preact@10.24.3)
-    dev: false
-
-  /@auth/core@0.41.1(nodemailer@8.0.2):
-    resolution: {integrity: sha512-t9cJ2zNYAdWMacGRMT6+r4xr1uybIdmYa49calBPeTqwgAFPV/88ac9TEvCR85pvATiSPt8VaNf+Gt24JIT/uw==}
-    peerDependencies:
-      '@simplewebauthn/browser': ^9.0.1
-      '@simplewebauthn/server': ^9.0.2
-      nodemailer: ^7.0.7
-    peerDependenciesMeta:
-      '@simplewebauthn/browser':
-        optional: true
-      '@simplewebauthn/server':
-        optional: true
-      nodemailer:
-        optional: true
-    dependencies:
-      '@panva/hkdf': 1.2.1
-      jose: 6.2.1
-      nodemailer: 8.0.2
-      oauth4webapi: 3.8.5
-      preact: 10.24.3
-      preact-render-to-string: 6.5.11(preact@10.24.3)
-    dev: false
-
-  /@auth/prisma-adapter@2.11.1(@prisma/client@7.4.2)(nodemailer@8.0.2):
-    resolution: {integrity: sha512-Ke7DXP0Fy0Mlmjz/ZJLXwQash2UkA4621xCM0rMtEczr1kppLc/njCbUkHkIQ/PnmILjqSPEKeTjDPsYruvkug==}
-    peerDependencies:
-      '@prisma/client': '>=2.26.0 || >=3 || >=4 || >=5 || >=6'
-    dependencies:
-      '@auth/core': 0.41.1(nodemailer@8.0.2)
-      '@prisma/client': 7.4.2(prisma@7.4.2)(typescript@5.9.3)
-    transitivePeerDependencies:
-      - '@simplewebauthn/browser'
-      - '@simplewebauthn/server'
-      - nodemailer
     dev: false
 
   /@aws-crypto/crc32@5.2.0:
