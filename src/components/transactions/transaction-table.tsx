@@ -148,7 +148,14 @@ export function TransactionsView() {
           key={editing?.id ?? 'create'}
           categories={categories}
           transaction={editing}
-          onSuccess={() => { setOpen(false); load(); }}
+          onSuccess={(updated) => {
+            setOpen(false);
+            if (updated) {
+              setTransactions((prev) => prev.map((t) => t.id === updated.id ? updated : t));
+            } else {
+              load();
+            }
+          }}
           onCancel={() => setOpen(false)}
         />
       </Dialog>

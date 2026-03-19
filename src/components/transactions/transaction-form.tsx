@@ -37,12 +37,13 @@ type EditInput = z.infer<typeof editSchema>;
 interface Props {
   categories: CategoryResponseDTO[];
   transaction?: TransactionResponseDTO | null;
-  onSuccess: () => void;
+  onSuccess: (updated?: TransactionResponseDTO) => void;
   onCancel: () => void;
 }
 
 export function TransactionForm({ categories, transaction, onSuccess, onCancel }: Props) {
   const isEdit = !!transaction;
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
   // ── Edit form ────────────────────────────────────────────────────────────
   const editForm = useForm<EditInput>({
@@ -69,7 +70,8 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
       body: JSON.stringify({ categoryId: data.categoryId, description: data.description }),
     });
     if (res.ok) {
-      onSuccess();
+      const updated: TransactionResponseDTO = await res.json();
+      onSuccess(updated);
     } else {
       const body = await res.json().catch(() => ({}));
       editForm.setError('categoryId', { message: body?.error ?? 'Error al guardar' });
@@ -142,7 +144,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
                       <SelectValue placeholder="Seleccionar categoría..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {categories.map((c) => (
+                      {sortedCategories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
