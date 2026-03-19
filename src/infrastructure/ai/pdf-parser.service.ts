@@ -33,7 +33,7 @@ export class PdfParserService {
 Extract ALL transactions and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
 Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category"}
 amount: negative=expense, positive=credit/payment.
-CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. Example: "Cuota 3/12 $50.000 Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12.`,
+CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.`,
       messages: [
         {
           role: 'user',
