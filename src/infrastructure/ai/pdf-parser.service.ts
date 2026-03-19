@@ -32,7 +32,8 @@ export class PdfParserService {
       system: `You are a parser for Chilean credit card statements.
 Extract ALL transactions and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
 Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category"}
-amount: negative=expense, positive=credit/payment.`,
+amount: negative=expense, positive=credit/payment.
+CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. Example: "Cuota 3/12 $50.000 Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12.`,
       messages: [
         {
           role: 'user',

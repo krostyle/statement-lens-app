@@ -31,6 +31,7 @@ import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.
 const editSchema = z.object({
   categoryId: z.string().uuid(),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
+  amount: z.number({ message: 'Ingresa un número válido' }),
 });
 type EditInput = z.infer<typeof editSchema>;
 
@@ -51,6 +52,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     defaultValues: {
       categoryId: transaction?.categoryId ?? '',
       description: transaction?.description ?? '',
+      amount: transaction?.amount ?? 0,
     },
   });
 
@@ -67,7 +69,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoryId: data.categoryId, description: data.description }),
+      body: JSON.stringify({ categoryId: data.categoryId, description: data.description, amount: data.amount }),
     });
     if (res.ok) {
       const updated: TransactionResponseDTO = await res.json();
@@ -107,11 +109,17 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
                   <p className="text-xs text-zinc-400 uppercase tracking-wide">Comercio</p>
                   <p className="font-medium text-zinc-900">{transaction.merchant}</p>
                 </div>
-                <div className="text-right">
+                <div className="text-right space-y-1">
                   <p className="text-xs text-zinc-400 uppercase tracking-wide">Monto</p>
-                  <p className={`font-semibold ${transaction.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {transaction.amount < 0 ? '−' : '+'}{formatCurrency(Math.abs(transaction.amount), transaction.currency)}
-                  </p>
+                  <Input
+                    type="number"
+                    step="1"
+                    className="h-8 text-sm w-36 text-right"
+                    {...editRegister('amount', { valueAsNumber: true })}
+                  />
+                  {editErrors.amount && (
+                    <p className="text-xs text-destructive">{editErrors.amount.message}</p>
+                  )}
                 </div>
               </div>
               <div className="space-y-1">
