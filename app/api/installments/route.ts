@@ -37,7 +37,7 @@ export async function GET(request: Request) {
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount))}`;
+    const key = `${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }
