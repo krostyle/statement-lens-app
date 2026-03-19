@@ -13,12 +13,14 @@ import {
   DialogFooter,
 } from '@/src/components/ui/dialog';
 import { formatCurrency } from '@/src/lib/utils';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { BudgetResponseDTO } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 
 export function BudgetsView() {
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
   const [budgets, setBudgets] = useState<BudgetResponseDTO[]>([]);
+  const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [amount, setAmount] = useState('');
@@ -27,12 +29,14 @@ export function BudgetsView() {
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const load = async () => {
+    setLoading(true);
     const [catRes, budRes] = await Promise.all([
       fetch('/api/categories'),
       fetch('/api/budgets'),
     ]);
     if (catRes.ok) setCategories(await catRes.json());
     if (budRes.ok) setBudgets(await budRes.json());
+    setLoading(false);
   };
 
   useEffect(() => { load(); }, []);
@@ -153,7 +157,19 @@ export function BudgetsView() {
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-100">
-            {categories.map((c) => {
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <tr key={`skeleton-${i}`}>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-7 w-7 rounded-md shrink-0" />
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-7 w-20 ml-auto" /></td>
+              </tr>
+            ))}
+            {!loading && categories.map((c) => {
               const budget = budgetMap.get(c.id);
               return (
                 <tr key={c.id} className="hover:bg-zinc-50 transition-colors">
@@ -195,7 +211,7 @@ export function BudgetsView() {
                 </tr>
               );
             })}
-            {categories.length === 0 && (
+            {!loading && categories.length === 0 && (
               <tr>
                 <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
                   Sin categorías. Crea categorías primero.
