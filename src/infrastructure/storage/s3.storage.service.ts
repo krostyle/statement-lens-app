@@ -28,7 +28,15 @@ export class S3StorageService {
     return Buffer.concat(chunks);
   }
 
-  async getSignedDownloadUrl(key: string, expiresIn = 3600): Promise<string> {
-    return getSignedUrl(s3Client, new GetObjectCommand({ Bucket: S3_BUCKET, Key: key }), { expiresIn });
+  async getSignedDownloadUrl(key: string, expiresIn = 3600, fileName?: string): Promise<string> {
+    return getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: key,
+        ...(fileName ? { ResponseContentDisposition: `attachment; filename="${fileName}"` } : {}),
+      }),
+      { expiresIn }
+    );
   }
 }

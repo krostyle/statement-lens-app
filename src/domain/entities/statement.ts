@@ -16,3 +16,4 @@ export interface Statement {
 }
 
 export type CreateStatementInput = Pick<Statement, 'userId' | 'bank' | 'month' | 'fileName' | 's3Key' | 's3Url'>;
+export type UpdateStatementInput = Pick<Statement, 'bank' | 'month' | 'fileName'>;

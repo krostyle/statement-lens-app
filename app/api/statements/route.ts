@@ -39,14 +39,15 @@ export async function POST(request: Request) {
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const statementId = crypto.randomUUID();
-    const s3Key = `${session.user.id}/${statementId}/${file.name}`;
+    const normalizedFileName = `${bank}_${month}.pdf`;
+    const s3Key = `${session.user.id}/${statementId}/${normalizedFileName}`;
     const s3Url = await s3Service.upload(s3Key, buffer);
 
     const statement = await statementRepo.create({
       userId: session.user.id,
       bank: bank as 'santander' | 'falabella',
       month,
-      fileName: file.name,
+      fileName: normalizedFileName,
       s3Key,
       s3Url,
     });

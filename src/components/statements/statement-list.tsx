@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Trash2, RefreshCw, Upload, RotateCcw, Loader2 } from 'lucide-react';
+import { Trash2, RefreshCw, Upload, RotateCcw, Loader2, Pencil, Download } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import {
@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from '@/src/components/ui/dialog';
 import { UploadDropzone } from './upload-dropzone';
+import { StatementEditForm } from './statement-edit-form';
 import { StatementTransactions } from './statement-transactions';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { formatDate } from '@/src/lib/utils';
@@ -55,6 +56,7 @@ export function StatementsView() {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StatementResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StatementResponseDTO | null>(null);
+  const [editTarget, setEditTarget] = useState<StatementResponseDTO | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = useCallback(async () => {
@@ -147,6 +149,20 @@ export function StatementsView() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit dialog */}
+      <Dialog open={!!editTarget} onOpenChange={(v) => { if (!v) setEditTarget(null); }}>
+        {editTarget && (
+          <StatementEditForm
+            statement={editTarget}
+            onSuccess={(updated) => {
+              setEditTarget(null);
+              setStatements((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
+            }}
+            onCancel={() => setEditTarget(null)}
+          />
+        )}
+      </Dialog>
+
       {/* Transactions detail dialog */}
       <Dialog open={!!selected} onOpenChange={(v) => { if (!v) setSelected(null); }}>
         {selected && <StatementTransactions statement={selected} />}
@@ -209,6 +225,14 @@ export function StatementsView() {
                     {s.status === 'error' && (
                       <Button variant="ghost" size="icon" title="Reintentar procesamiento" onClick={() => handleReprocess(s.id)}>
                         <RotateCcw className="h-3.5 w-3.5 text-brand-600" />
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="icon" title="Editar" onClick={() => setEditTarget(s)}>
+                      <Pencil className="h-3.5 w-3.5 text-zinc-500" />
+                    </Button>
+                    {(s.status === 'done' || s.status === 'error') && (
+                      <Button variant="ghost" size="icon" title="Descargar PDF" onClick={() => window.open(`/api/statements/${s.id}/download`, '_blank')}>
+                        <Download className="h-3.5 w-3.5 text-zinc-500" />
                       </Button>
                     )}
                     <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(s)}>

@@ -21,6 +21,7 @@ import { UpdateTransactionUseCase } from '@/src/application/use-cases/transactio
 import { DeleteTransactionUseCase } from '@/src/application/use-cases/transactions/delete-transaction.use-case';
 import { ListTransactionsUseCase } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 import { ListStatementsUseCase } from '@/src/application/use-cases/statements/list-statements.use-case';
+import { UpdateStatementUseCase } from '@/src/application/use-cases/statements/update-statement.use-case';
 import { AnalyzeFinancesUseCase } from '@/src/application/use-cases/analysis/analyze-finances.use-case';
 import { ListBudgetsUseCase } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import { UpsertBudgetUseCase } from '@/src/application/use-cases/budgets/upsert-budget.use-case';
@@ -58,6 +59,7 @@ export const deleteTransactionUseCase = new DeleteTransactionUseCase(transaction
 export const listTransactionsUseCase = new ListTransactionsUseCase(transactionRepo);
 
 export const listStatementsUseCase = new ListStatementsUseCase(statementRepo);
+export const updateStatementUseCase = new UpdateStatementUseCase(statementRepo);
 export const analyzeFinancesUseCase = new AnalyzeFinancesUseCase(transactionRepo, financialAnalysisService);
 
 export const listBudgetsUseCase = new ListBudgetsUseCase(budgetRepo);

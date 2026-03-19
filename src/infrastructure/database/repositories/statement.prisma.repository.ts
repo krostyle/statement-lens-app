@@ -1,5 +1,5 @@
 import type { IStatementRepository } from '@/src/domain/repositories/statement.repository';
-import type { Statement, CreateStatementInput, StatementStatus } from '@/src/domain/entities/statement';
+import type { Statement, CreateStatementInput, StatementStatus, UpdateStatementInput } from '@/src/domain/entities/statement';
 import { prisma } from '../prisma.client';
 
 export class StatementPrismaRepository implements IStatementRepository {
@@ -26,6 +26,11 @@ export class StatementPrismaRepository implements IStatementRepository {
       where: { id },
       data: { status, ...(errorMessage !== undefined ? { errorMessage } : { errorMessage: null }) },
     });
+    return s as Statement;
+  }
+
+  async update(id: string, data: UpdateStatementInput): Promise<Statement> {
+    const s = await prisma.statement.update({ where: { id }, data });
     return s as Statement;
   }
 
