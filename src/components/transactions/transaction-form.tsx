@@ -30,6 +30,7 @@ import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.
 
 const editSchema = z.object({
   categoryId: z.string().uuid(),
+  merchant: z.string().min(1, 'El comercio no puede estar vacío'),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
   amount: z.number({ message: 'Ingresa un número válido' }),
 });
@@ -51,6 +52,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     resolver: zodResolver(editSchema),
     defaultValues: {
       categoryId: transaction?.categoryId ?? '',
+      merchant: transaction?.merchant ?? '',
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
     },
@@ -69,7 +71,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoryId: data.categoryId, description: data.description, amount: data.amount }),
+      body: JSON.stringify({ categoryId: data.categoryId, merchant: data.merchant, description: data.description, amount: data.amount }),
     });
     if (res.ok) {
       const updated: TransactionResponseDTO = await res.json();
@@ -105,9 +107,12 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
           <div className="flex flex-col gap-4">
             <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-4 space-y-3">
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="flex-1 space-y-1">
                   <p className="text-xs text-zinc-400 uppercase tracking-wide">Comercio</p>
-                  <p className="font-medium text-zinc-900">{transaction.merchant}</p>
+                  <Input {...editRegister('merchant')} className="h-8 text-sm font-medium" />
+                  {editErrors.merchant && (
+                    <p className="text-xs text-destructive">{editErrors.merchant.message}</p>
+                  )}
                 </div>
                 <div className="text-right space-y-1">
                   <p className="text-xs text-zinc-400 uppercase tracking-wide">Monto</p>
