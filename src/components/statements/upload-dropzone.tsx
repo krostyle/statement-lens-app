@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { Upload } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Label } from '@/src/components/ui/label';
-import { Input } from '@/src/components/ui/input';
+import { MonthPicker } from '@/src/components/ui/month-picker';
 import {
   Select,
   SelectContent,
@@ -29,7 +29,7 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
   const [bank, setBank] = useState('santander');
   const [month, setMonth] = useState(() => {
     const now = new Date();
-    return `${String(now.getMonth() + 1).padStart(2, '0')}-${now.getFullYear()}`;
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   });
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -48,14 +48,12 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
       setError('El archivo no puede superar los 10 MB.');
       return;
     }
-    if (!/^(0[1-9]|1[0-2])-\d{4}$/.test(month)) {
-      setError('El mes debe tener el formato MM-YYYY (ej. 03-2025).');
+    if (!month) {
+      setError('Selecciona un mes.');
       return;
     }
 
-    // Convert MM-YYYY → YYYY-MM for storage
-    const [mm, yyyy] = month.split('-');
-    const monthISO = `${yyyy}-${mm}`;
+    const monthISO = month;
 
     setUploading(true);
 
@@ -112,12 +110,8 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Mes (MM-YYYY)</Label>
-            <Input
-              value={month}
-              onChange={(e) => setMonth(e.target.value)}
-              placeholder="03-2025"
-            />
+            <Label>Mes</Label>
+            <MonthPicker value={month} onChange={setMonth} />
           </div>
         </div>
 

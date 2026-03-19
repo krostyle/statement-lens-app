@@ -4,7 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { Trash2, RefreshCw, Upload, RotateCcw, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
-import { Dialog } from '@/src/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/src/components/ui/dialog';
 import { UploadDropzone } from './upload-dropzone';
 import { StatementTransactions } from './statement-transactions';
 import { formatDate } from '@/src/lib/utils';
@@ -63,6 +69,7 @@ export function StatementsView() {
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<StatementResponseDTO | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<StatementResponseDTO | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const load = async () => {
@@ -111,8 +118,8 @@ export function StatementsView() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar estado de cuenta y sus transacciones?')) return;
     await fetch(`/api/statements/${id}`, { method: 'DELETE' });
+    setDeleteTarget(null);
     load();
   };
 
@@ -138,13 +145,29 @@ export function StatementsView() {
         />
       </Dialog>
 
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar estado de cuenta</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar «{deleteTarget?.fileName}»? Se eliminarán también todas sus transacciones. Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Transactions detail dialog */}
       <Dialog open={!!selected} onOpenChange={(v) => { if (!v) setSelected(null); }}>
         {selected && <StatementTransactions statement={selected} />}
       </Dialog>
 
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Archivo</th>
@@ -192,7 +215,7 @@ export function StatementsView() {
                         <RotateCcw className="h-3.5 w-3.5 text-brand-600" />
                       </Button>
                     )}
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(s.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(s)}>
                       <Trash2 className="h-3.5 w-3.5 text-red-500" />
                     </Button>
                   </div>

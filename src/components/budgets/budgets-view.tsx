@@ -24,6 +24,7 @@ export function BudgetsView() {
   const [amount, setAmount] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
 
   const load = async () => {
     const [catRes, budRes] = await Promise.all([
@@ -81,9 +82,9 @@ export function BudgetsView() {
   };
 
   const handleDelete = async (categoryId: string) => {
-    if (!confirm('¿Eliminar esta meta mensual?')) return;
     const res = await fetch(`/api/budgets/${categoryId}`, { method: 'DELETE' });
     if (res.ok || res.status === 204) load();
+    setDeleteTarget(null);
   };
 
   const editingCategoryName = editingCategoryId
@@ -92,6 +93,21 @@ export function BudgetsView() {
 
   return (
     <div className="space-y-4">
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar meta mensual</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar esta meta mensual? Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget)}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -127,8 +143,8 @@ export function BudgetsView() {
         </DialogContent>
       </Dialog>
 
-      <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="rounded-xl border border-zinc-200 bg-white overflow-x-auto">
+        <table className="w-full min-w-[400px] text-sm">
           <thead>
             <tr className="border-b border-zinc-100 bg-zinc-50">
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
@@ -165,7 +181,7 @@ export function BudgetsView() {
                           <Button variant="ghost" size="icon" onClick={() => openDialog(c.id)}>
                             <Pencil className="h-3.5 w-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(c.id)}>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(c.id)}>
                             <Trash2 className="h-3.5 w-3.5 text-red-500" />
                           </Button>
                         </>

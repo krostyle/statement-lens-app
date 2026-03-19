@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
-import { LayoutDashboard, ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, X } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 import {
   Sidebar,
@@ -17,6 +17,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from '@/src/components/ui/sidebar';
 
 const navItems = [
@@ -31,6 +32,7 @@ export function AppSidebar() {
   const pathname = usePathname();
   const { data: session } = useSession();
   const [signingOut, setSigningOut] = useState(false);
+  const { setOpenMobile, isMobile } = useSidebar();
 
   const displayName = session?.user?.name ?? session?.user?.email ?? 'Usuario';
   const initial = displayName[0].toUpperCase();
@@ -49,6 +51,12 @@ export function AppSidebar() {
             <p className="text-sm font-bold text-white leading-tight">Statement Lens</p>
             <p className="text-xs text-blue-300/70">Finanzas personales</p>
           </div>
+          <button
+            className="ml-auto flex md:hidden items-center justify-center rounded p-1 hover:bg-white/10"
+            onClick={() => setOpenMobile(false)}
+          >
+            <X className="h-4 w-4 text-white" />
+          </button>
         </div>
       </SidebarHeader>
 
@@ -64,6 +72,7 @@ export function AppSidebar() {
                       asChild
                       isActive={isActive}
                       className={isActive ? 'bg-brand-600 text-white hover:bg-brand-600 hover:text-white' : ''}
+                      onClick={() => { if (isMobile) setOpenMobile(false); }}
                     >
                       <Link href={href}>
                         <Icon />

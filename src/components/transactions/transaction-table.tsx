@@ -5,7 +5,13 @@ import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download } from 'lucid
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
-import { Dialog } from '@/src/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/src/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
 import { TransactionForm } from './transaction-form';
@@ -22,6 +28,7 @@ export function TransactionsView() {
   const [selectedStatementId, setSelectedStatementId] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
 
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -65,8 +72,8 @@ export function TransactionsView() {
     categories.find((c) => c.id === id)?.name ?? id;
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar transacción?')) return;
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+    setDeleteTarget(null);
     load();
   };
 
@@ -117,6 +124,21 @@ export function TransactionsView() {
         </div>
       </div>
 
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar transacción</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar «{deleteTarget?.merchant}»? Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={open} onOpenChange={setOpen}>
         <TransactionForm
           categories={categories}
@@ -127,8 +149,8 @@ export function TransactionsView() {
       </Dialog>
 
       {/* Table */}
-      <div className="overflow-hidden rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+        <table className="w-full min-w-[600px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
@@ -157,7 +179,7 @@ export function TransactionsView() {
                     <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
                       <Pencil className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(t.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(t)}>
                       <Trash2 className="h-3.5 w-3.5 text-red-500" />
                     </Button>
                   </div>

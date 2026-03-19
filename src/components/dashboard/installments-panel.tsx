@@ -52,8 +52,8 @@ export function InstallmentsPanel({ statementId, month }: Props) {
         <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
       </CardHeader>
       <CardContent className="p-0">
-        <div className="overflow-hidden">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px] text-sm">
             <thead className="border-b border-zinc-100 bg-zinc-50">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-zinc-500">Compra</th>

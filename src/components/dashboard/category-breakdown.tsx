@@ -36,15 +36,15 @@ export function CategoryBreakdown({ metricsUrl }: Props) {
         <CardTitle>Gasto por categoría</CardTitle>
       </CardHeader>
       <CardContent>
-        <ResponsiveContainer width="100%" height={240}>
+        <ResponsiveContainer width="100%" height={280}>
           <PieChart>
-            <Pie data={data} dataKey="total" nameKey="name" cx="50%" cy="50%" outerRadius={80}>
+            <Pie data={data} dataKey="total" nameKey="name" cx="50%" cy="50%" outerRadius={75}>
               {data.map((_, i) => (
                 <Cell key={i} fill={COLORS[i % COLORS.length]} />
               ))}
             </Pie>
             <Tooltip formatter={(v) => formatCurrency(Number(v))} />
-            <Legend />
+            <Legend verticalAlign="bottom" iconSize={10} wrapperStyle={{ fontSize: '12px' }} />
           </PieChart>
         </ResponsiveContainer>
       </CardContent>

@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { Pencil, Trash2, Plus, Tag } from "lucide-react";
 import { Button } from "@/src/components/ui/button";
-import { Dialog } from "@/src/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/src/components/ui/dialog";
 import { CategoryForm } from "./category-form";
 import type { CategoryResponseDTO } from "@/src/application/dtos/category.dto";
 
@@ -20,6 +26,7 @@ export function CategoriesView() {
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CategoryResponseDTO | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<CategoryResponseDTO | null>(null);
   const [deleteError, setDeleteError] = useState("");
 
   const load = async () => {
@@ -32,9 +39,9 @@ export function CategoriesView() {
   useEffect(() => { load(); }, []);
 
   const handleDelete = async (id: string) => {
-    if (!confirm("¿Eliminar categoría?")) return;
     setDeleteError("");
     const res = await fetch(`/api/categories/${id}`, { method: "DELETE" });
+    setDeleteTarget(null);
     if (res.ok) {
       load();
     } else {
@@ -68,6 +75,21 @@ export function CategoriesView() {
         />
       </Dialog>
 
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar categoría</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar «{deleteTarget?.name}»? Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>Eliminar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {categories.map((c) => (
           <div
@@ -87,7 +109,7 @@ export function CategoriesView() {
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => handleDelete(c.id)}
+                onClick={() => setDeleteTarget(c)}
               >
                 <Trash2 className="h-3.5 w-3.5 text-red-500" />
               </Button>
