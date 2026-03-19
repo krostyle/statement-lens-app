@@ -92,7 +92,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
 
   if (isEdit && transaction) {
     return (
-      <DialogContent>
+      <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
         <form onSubmit={editHandleSubmit(onEditSubmit)} className="flex flex-col gap-4">
           <DialogHeader>
             <DialogTitle>Editar transacción</DialogTitle>
