@@ -145,6 +145,7 @@ export function TransactionsView() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <TransactionForm
+          key={editing?.id ?? 'create'}
           categories={categories}
           transaction={editing}
           onSuccess={() => { setOpen(false); load(); }}

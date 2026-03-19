@@ -28,7 +28,10 @@ import { formatCurrency, formatDate } from '@/src/lib/utils';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 
-const editSchema = z.object({ categoryId: z.string().uuid() });
+const editSchema = z.object({
+  categoryId: z.string().uuid(),
+  description: z.string().min(1, 'La descripción no puede estar vacía'),
+});
 type EditInput = z.infer<typeof editSchema>;
 
 interface Props {
@@ -44,7 +47,10 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
   // ── Edit form ────────────────────────────────────────────────────────────
   const editForm = useForm<EditInput>({
     resolver: zodResolver(editSchema),
-    defaultValues: { categoryId: transaction?.categoryId ?? '' },
+    defaultValues: {
+      categoryId: transaction?.categoryId ?? '',
+      description: transaction?.description ?? '',
+    },
   });
 
   // ── Create form ──────────────────────────────────────────────────────────
@@ -53,14 +59,14 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     defaultValues: { currency: 'CLP', isInstallment: false },
   });
 
-  const { formState: { isSubmitting: editSubmitting }, control: editControl, handleSubmit: editHandleSubmit, formState: { errors: editErrors } } = editForm;
+  const { formState: { isSubmitting: editSubmitting, errors: editErrors }, control: editControl, handleSubmit: editHandleSubmit, register: editRegister } = editForm;
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = createForm;
 
   const onEditSubmit = async (data: EditInput) => {
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoryId: data.categoryId }),
+      body: JSON.stringify({ categoryId: data.categoryId, description: data.description }),
     });
     if (res.ok) {
       onSuccess();
@@ -106,9 +112,12 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
                   </p>
                 </div>
               </div>
-              <div>
+              <div className="space-y-1">
                 <p className="text-xs text-zinc-400 uppercase tracking-wide">Descripción</p>
-                <p className="text-sm text-zinc-600">{transaction.description}</p>
+                <Input {...editRegister('description')} className="h-8 text-sm" />
+                {editErrors.description && (
+                  <p className="text-xs text-destructive">{editErrors.description.message}</p>
+                )}
               </div>
               <div>
                 <p className="text-xs text-zinc-400 uppercase tracking-wide">Fecha</p>
@@ -153,7 +162,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
               Cancelar
             </Button>
             <Button type="submit" disabled={editSubmitting}>
-              {editSubmitting ? 'Guardando...' : 'Guardar categoría'}
+              {editSubmitting ? 'Guardando...' : 'Guardar cambios'}
             </Button>
           </DialogFooter>
         </form>
