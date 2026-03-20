@@ -59,7 +59,9 @@ ${input}`,
     if (content.type !== 'text') throw new Error('Unexpected response from Claude');
 
     const raw = content.text.trim();
-    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    return JSON.parse(jsonText) as BudgetRecommendationItem[];
+    const start = raw.indexOf('[');
+    const end = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) throw new Error('No JSON array found in Claude response');
+    return JSON.parse(raw.slice(start, end + 1)) as BudgetRecommendationItem[];
   }
 }
