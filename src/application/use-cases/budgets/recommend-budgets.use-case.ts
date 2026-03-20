@@ -14,6 +14,10 @@ export interface BudgetRecommendationDTO {
   trend: 'over' | 'under' | 'none';
 }
 
+function roundTo1000(n: number): number {
+  return Math.max(1000, Math.round(n / 1000) * 1000);
+}
+
 export class RecommendBudgetsUseCase {
   constructor(
     private readonly transactionRepo: ITransactionRepository,
@@ -48,7 +52,6 @@ export class RecommendBudgetsUseCase {
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    // Only categories with at least 1 transaction in the period
     const input = Array.from(spendMap.entries())
       .filter(([catId]) => categoryMap.has(catId))
       .map(([catId, totalSpend]) => ({
@@ -60,19 +63,63 @@ export class RecommendBudgetsUseCase {
 
     if (input.length === 0) return [];
 
-    const aiResults = await this.budgetRecommendationService.recommend(input, monthlyIncome);
+    // Claude classifies categories and provides reasons only
+    const classifications = await this.budgetRecommendationService.classify(input, monthlyIncome);
 
-    return aiResults.map((item) => {
-      const inputItem = input.find((i) => i.categoryId === item.categoryId);
+    // Server-side amount calculation with strict savings rules
+    const needsAvgTotal = input
+      .filter((i) => classifications.find((c) => c.categoryId === i.categoryId)?.bucket === 'needs')
+      .reduce((sum, i) => sum + i.avgSpend, 0);
+
+    const wantsAvgTotal = input
+      .filter((i) => classifications.find((c) => c.categoryId === i.categoryId)?.bucket === 'wants')
+      .reduce((sum, i) => sum + i.avgSpend, 0);
+
+    return classifications.map((c) => {
+      const item = input.find((i) => i.categoryId === c.categoryId);
+      if (!item) return null;
+
+      // Determine trend
+      let trend: 'over' | 'under' | 'none';
+      if (!item.currentBudget) {
+        trend = 'none';
+      } else if (item.avgSpend > item.currentBudget) {
+        trend = 'over';
+      } else {
+        trend = 'under';
+      }
+
+      // Base savings-oriented recommendation
+      let base: number;
+      if (trend === 'over') {
+        base = item.avgSpend * 0.70; // 30% reduction mandatory
+      } else if (trend === 'under') {
+        base = item.currentBudget!; // keep current budget, never inflate
+      } else {
+        base = item.avgSpend * 0.85; // 15% savings buffer for new categories
+      }
+
+      // Apply 50/30/20 ceiling if income is set — take the more aggressive (lower) value
+      let recommendedAmount: number;
+      if (monthlyIncome && monthlyIncome > 0) {
+        const bucketBudget = c.bucket === 'needs' ? monthlyIncome * 0.5 : monthlyIncome * 0.3;
+        const bucketAvgTotal = c.bucket === 'needs' ? needsAvgTotal : wantsAvgTotal;
+        const proportional =
+          bucketAvgTotal > 0 ? (item.avgSpend / bucketAvgTotal) * bucketBudget : base;
+        recommendedAmount = roundTo1000(Math.min(base, proportional));
+      } else {
+        recommendedAmount = roundTo1000(base);
+      }
+
       return {
         categoryId: item.categoryId,
-        categoryName: inputItem?.name ?? item.categoryId,
-        avgMonthlySpend: inputItem ? Math.round(inputItem.avgSpend) : 0,
-        currentBudget: inputItem?.currentBudget ?? null,
-        recommendedAmount: item.recommendedAmount,
-        reason: item.reason,
-        trend: item.trend,
+        categoryName: item.name,
+        avgMonthlySpend: Math.round(item.avgSpend),
+        currentBudget: item.currentBudget,
+        recommendedAmount,
+        reason: c.reason,
+        trend,
       };
-    });
+    }).filter(Boolean) as BudgetRecommendationDTO[];
   }
 }
