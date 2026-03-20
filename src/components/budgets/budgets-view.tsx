@@ -91,8 +91,14 @@ export function BudgetsView() {
     });
     setSaving(false);
     if (res.ok) {
+      const updated = await res.json();
+      setBudgets((prev) => {
+        const exists = prev.some((b) => b.categoryId === editingCategoryId);
+        return exists
+          ? prev.map((b) => b.categoryId === editingCategoryId ? { ...b, monthlyAmount: updated.monthlyAmount } : b)
+          : [...prev, updated];
+      });
       setOpen(false);
-      load();
     } else {
       const j = await res.json().catch(() => ({}));
       setError(j?.error ?? 'Error al guardar.');
@@ -101,7 +107,9 @@ export function BudgetsView() {
 
   const handleDelete = async (categoryId: string) => {
     const res = await fetch(`/api/budgets/${categoryId}`, { method: 'DELETE' });
-    if (res.ok || res.status === 204) load();
+    if (res.ok || res.status === 204) {
+      setBudgets((prev) => prev.filter((b) => b.categoryId !== categoryId));
+    }
     setDeleteTarget(null);
   };
 
@@ -178,7 +186,7 @@ export function BudgetsView() {
           </div>
           <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
             <div
-              className={`h-full rounded-full transition-all ${isOverBudget ? 'bg-red-500' : budgetPct! > 80 ? 'bg-amber-400' : 'bg-brand-500'}`}
+              className={`h-full rounded-full transition-all ${isOverBudget ? 'bg-red-500' : budgetPct! > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
               style={{ width: `${budgetPct}%` }}
             />
           </div>
