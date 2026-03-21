@@ -45,6 +45,7 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
   const [recommendations, setRecommendations] = useState<BudgetRecommendationDTO[]>([]);
   const [rows, setRows] = useState<Record<string, RowState>>({});
   const [errorMsg, setErrorMsg] = useState('');
+  const [applyError, setApplyError] = useState('');
 
   const fetchRecommendations = async () => {
     setPhase('loading');
@@ -96,12 +97,20 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
 
   const handleApply = async () => {
     if (selectedRows.length === 0) return;
+    setApplyError('');
+
+    const budgets = selectedRows.map(([categoryId, r]) => ({
+      categoryId,
+      monthlyAmount: parseInt(r.amount.replace(/\./g, ''), 10),
+    }));
+
+    if (budgets.some((b) => isNaN(b.monthlyAmount) || b.monthlyAmount <= 0)) {
+      setApplyError('Todos los montos seleccionados deben ser mayores a 0.');
+      return;
+    }
+
     setPhase('applying');
     try {
-      const budgets = selectedRows.map(([categoryId, r]) => ({
-        categoryId,
-        monthlyAmount: parseInt(r.amount.replace(/\./g, ''), 10),
-      }));
       const res = await fetch('/api/budgets/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -213,15 +222,20 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
           </div>
         )}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose} disabled={phase === 'applying'}>
-            Cancelar
-          </Button>
-          {phase === 'review' && (
-            <Button onClick={handleApply} disabled={selectedRows.length === 0}>
-              Aplicar seleccionadas ({selectedRows.length})
-            </Button>
+        <DialogFooter className="flex-col items-end gap-2 sm:flex-row sm:items-center">
+          {applyError && (
+            <p className="text-xs text-destructive w-full sm:w-auto">{applyError}</p>
           )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={onClose} disabled={phase === 'applying'}>
+              Cancelar
+            </Button>
+            {phase === 'review' && (
+              <Button onClick={handleApply} disabled={selectedRows.length === 0}>
+                Aplicar seleccionadas ({selectedRows.length})
+              </Button>
+            )}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
