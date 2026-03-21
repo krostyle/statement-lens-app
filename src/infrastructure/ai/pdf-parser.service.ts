@@ -46,8 +46,11 @@ CRITICAL for installments: amount must be the monthly installment amount (cuota 
     if (content.type !== 'text') throw new Error('Unexpected response from Claude');
 
     const raw = content.text.trim();
-    // Strip markdown code fences if Claude wraps the response (```json ... ```)
-    const jsonText = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
-    return JSON.parse(jsonText) as ParsedTransaction[];
+    const start = raw.indexOf('[');
+    const end = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) {
+      throw new Error(`Claude response missing JSON array. Response preview: ${raw.slice(0, 200)}`);
+    }
+    return JSON.parse(raw.slice(start, end + 1)) as ParsedTransaction[];
   }
 }
