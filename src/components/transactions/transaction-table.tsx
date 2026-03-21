@@ -27,6 +27,7 @@ export function TransactionsView() {
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [search, setSearch] = useState('');
   const [selectedStatementId, setSelectedStatementId] = useState('all');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
@@ -41,6 +42,7 @@ export function TransactionsView() {
     const params = new URLSearchParams();
     if (search) params.set('search', search);
     if (selectedStatementId && selectedStatementId !== 'all') params.set('statementId', selectedStatementId);
+    if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
     params.set('page', String(page));
 
     const [txRes, catRes] = await Promise.all([
@@ -55,7 +57,7 @@ export function TransactionsView() {
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
     setLoading(false);
-  }, [search, selectedStatementId, page]);
+  }, [search, selectedStatementId, selectedCategoryId, page]);
 
   useEffect(() => {
     load();
@@ -64,7 +66,7 @@ export function TransactionsView() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, selectedStatementId]);
+  }, [search, selectedStatementId, selectedCategoryId]);
 
   useEffect(() => {
     fetch('/api/statements')
@@ -104,6 +106,17 @@ export function TransactionsView() {
             })}
           </SelectContent>
         </Select>
+        <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Todas las categorías" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las categorías</SelectItem>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Input
           placeholder="Buscar por comercio o descripción..."
           value={search}
@@ -115,6 +128,7 @@ export function TransactionsView() {
             href={`/api/transactions/export?${new URLSearchParams({
               ...(search ? { search } : {}),
               ...(selectedStatementId && selectedStatementId !== 'all' ? { statementId: selectedStatementId } : {}),
+              ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
             }).toString()}`}
             download="transacciones.csv"
           >
