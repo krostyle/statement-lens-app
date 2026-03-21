@@ -24,12 +24,7 @@ interface InstallmentsData {
   totalDebt: number;
 }
 
-interface Props {
-  statementId?: string;
-  month?: string;
-}
-
-export function InstallmentsPanel({ statementId, month }: Props) {
+export function InstallmentsPanel() {
   const [data, setData] = useState<InstallmentsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [bank, setBank] = useState('all');
@@ -37,21 +32,22 @@ export function InstallmentsPanel({ statementId, month }: Props) {
   useEffect(() => {
     setLoading(true);
     const params = new URLSearchParams();
-    if (statementId) params.set('statementId', statementId);
-    else if (month) params.set('month', month);
     if (bank !== 'all') params.set('bank', bank);
 
     fetch(`/api/installments?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
-  }, [statementId, month, bank]);
+  }, [bank]);
 
   if (loading) {
     return (
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-          <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+          <div>
+            <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+            <p className="text-xs text-zinc-400 mt-0.5">Estado actual, independiente del filtro</p>
+          </div>
           <Skeleton className="h-8 w-36 rounded-md" />
         </CardHeader>
         <CardContent>
@@ -65,7 +61,10 @@ export function InstallmentsPanel({ statementId, month }: Props) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between gap-4 pb-2">
-        <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+        <div>
+            <CardTitle className="text-base font-semibold text-zinc-900">Cuotas activas</CardTitle>
+            <p className="text-xs text-zinc-400 mt-0.5">Estado actual, independiente del filtro</p>
+          </div>
         <Select value={bank} onValueChange={setBank}>
           <SelectTrigger className="h-8 w-36 text-xs">
             <SelectValue />

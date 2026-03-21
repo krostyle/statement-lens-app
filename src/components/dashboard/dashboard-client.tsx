@@ -49,59 +49,52 @@ export function DashboardClient() {
       </div>
 
       {/* Filter bar */}
-      <div className="space-y-2">
-        <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Segmented control */}
+        <div className="flex rounded-lg border border-zinc-200 bg-zinc-50 p-0.5 gap-0.5">
           <Button
-            variant={filterMode === 'statement' ? 'default' : 'outline'}
+            variant={filterMode === 'statement' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilterMode('statement')}
           >
-            Por estado de cuenta
+            Estado de cuenta
           </Button>
-          {filterMode === 'statement' && (
-            <Select value={selectedStatementId} onValueChange={setSelectedStatementId}>
-              <SelectTrigger className="w-56">
-                <SelectValue placeholder="Seleccionar estado..." />
-              </SelectTrigger>
-              <SelectContent>
-                {statements.map((s) => {
-                  const [year, month] = s.month.split('-');
-                  const label = `${s.bank} — ${month}-${year}`;
-                  return (
-                    <SelectItem key={s.id} value={s.id}>
-                      {label}
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
           <Button
-            variant={filterMode === 'month' ? 'default' : 'outline'}
+            variant={filterMode === 'month' ? 'default' : 'ghost'}
             size="sm"
             onClick={() => setFilterMode('month')}
           >
             Por mes
           </Button>
-          {filterMode === 'month' && (
-            <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
-          )}
         </div>
-        <p className="text-xs text-zinc-400">
-          {filterMode === 'statement'
-            ? 'Muestra solo las transacciones del estado de cuenta seleccionado.'
-            : 'Agrupa todos los bancos del mes seleccionado.'}
-        </p>
+        {filterMode === 'statement' && (
+          <Select value={selectedStatementId} onValueChange={setSelectedStatementId}>
+            <SelectTrigger className="w-56">
+              <SelectValue placeholder="Seleccionar estado..." />
+            </SelectTrigger>
+            <SelectContent>
+              {statements.map((s) => {
+                const [year, month] = s.month.split('-');
+                const label = `${s.bank} — ${month}-${year}`;
+                return (
+                  <SelectItem key={s.id} value={s.id}>
+                    {label}
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+        )}
+        {filterMode === 'month' && (
+          <MonthPicker value={selectedMonth} onChange={setSelectedMonth} />
+        )}
       </div>
 
       <MetricsCards metricsUrl={metricsUrl} />
 
       <BudgetComparison metricsUrl={metricsUrl} />
 
-      <InstallmentsPanel
-        statementId={filterMode === 'statement' && selectedStatementId !== 'none' ? selectedStatementId : undefined}
-        month={filterMode === 'month' && selectedMonth ? selectedMonth : undefined}
-      />
+      <InstallmentsPanel />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <CategoryBreakdown metricsUrl={metricsUrl} />

@@ -63,8 +63,11 @@ export function buildMetrics(params: {
     monthlyTrend = groupByMonth(scopeTxs);
   }
 
+  // categories & merchants → always scoped to the selected period
+  const analysisTxs = currentTxs;
+
   const categoryMap = new Map<string, number>();
-  for (const t of scopeTxs) {
+  for (const t of analysisTxs) {
     if (t.amount >= 0) continue;
     categoryMap.set(t.categoryId, (categoryMap.get(t.categoryId) ?? 0) + Math.abs(t.amount));
   }
@@ -80,7 +83,7 @@ export function buildMetrics(params: {
     dailyAverage,
     topCategories,
     monthlyTrend,
-    topMerchants: getTopMerchants(scopeTxs),
+    topMerchants: getTopMerchants(analysisTxs),
     subscriptions: detectSubscriptions(scopeTxs),
   };
 }
