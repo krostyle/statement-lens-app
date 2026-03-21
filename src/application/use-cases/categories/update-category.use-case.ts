@@ -17,6 +17,7 @@ export class UpdateCategoryUseCase {
       name: updated.name,
       color: updated.color,
       icon: updated.icon,
+      type: updated.type,
       isDefault: updated.isDefault,
     };
   }
