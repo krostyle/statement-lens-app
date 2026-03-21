@@ -50,6 +50,7 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
   const fetchRecommendations = async () => {
     setPhase('loading');
     setErrorMsg('');
+    setApplyError('');
     try {
       const res = await fetch('/api/budgets/recommend', { method: 'POST' });
       if (!res.ok) throw new Error('Error al obtener recomendaciones');
@@ -98,25 +99,36 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
   const handleApply = async () => {
     if (selectedRows.length === 0) return;
     setApplyError('');
-
-    const budgets = selectedRows.map(([categoryId, r]) => ({
-      categoryId,
-      monthlyAmount: parseInt(r.amount.replace(/\./g, ''), 10),
-    }));
-
-    if (budgets.some((b) => isNaN(b.monthlyAmount) || b.monthlyAmount <= 0)) {
-      setApplyError('Todos los montos seleccionados deben ser mayores a 0.');
-      return;
-    }
-
     setPhase('applying');
+
     try {
-      const res = await fetch('/api/budgets/batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budgets }),
-      });
-      if (!res.ok) throw new Error('Error al aplicar presupuestos');
+      const toApply: { categoryId: string; monthlyAmount: number }[] = [];
+      const toDelete: string[] = [];
+
+      for (const [categoryId, r] of selectedRows) {
+        const amount = parseInt(r.amount.replace(/\./g, ''), 10);
+        const hasExistingBudget = recommendations.find((rec) => rec.categoryId === categoryId)?.currentBudget != null;
+
+        if (!amount || amount <= 0) {
+          if (hasExistingBudget) toDelete.push(categoryId);
+        } else {
+          toApply.push({ categoryId, monthlyAmount: amount });
+        }
+      }
+
+      await Promise.all([
+        toApply.length > 0
+          ? fetch('/api/budgets/batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ budgets: toApply }),
+            }).then((r) => { if (!r.ok) throw new Error(); })
+          : Promise.resolve(),
+        ...toDelete.map((categoryId) =>
+          fetch(`/api/budgets/${categoryId}`, { method: 'DELETE' })
+        ),
+      ]);
+
       onApplied();
     } catch {
       setErrorMsg('Error al guardar los presupuestos. Intenta de nuevo.');
