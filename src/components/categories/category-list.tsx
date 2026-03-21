@@ -75,7 +75,14 @@ export function CategoriesView() {
         <CategoryForm
           key={editing?.id ?? 'new'}
           category={editing}
-          onSuccess={() => { setOpen(false); load(); }}
+          onSuccess={(updated) => {
+            setOpen(false);
+            if (editing) {
+              setCategories((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+            } else {
+              setCategories((prev) => [...prev, updated]);
+            }
+          }}
           onCancel={() => setOpen(false)}
         />
       </Dialog>

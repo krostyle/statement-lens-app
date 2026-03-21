@@ -28,7 +28,7 @@ type FormInput = z.infer<typeof formSchema>;
 
 interface Props {
   category?: CategoryResponseDTO | null;
-  onSuccess: () => void;
+  onSuccess: (category: CategoryResponseDTO) => void;
   onCancel: () => void;
 }
 
@@ -61,7 +61,8 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
       });
 
       if (res.ok) {
-        onSuccess();
+        const updated = await res.json();
+        onSuccess(updated);
       } else {
         const json = await res.json().catch(() => ({}));
         setServerError(translateApiError(json?.error));
@@ -72,7 +73,7 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
   };
 
   return (
-    <DialogContent>
+    <DialogContent onOpenAutoFocus={(e) => e.preventDefault()}>
       <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar categoría' : 'Nueva categoría'}</DialogTitle>
