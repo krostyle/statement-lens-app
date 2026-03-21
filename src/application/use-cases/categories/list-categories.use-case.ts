@@ -12,6 +12,7 @@ export class ListCategoriesUseCase {
       name: c.name,
       color: c.color,
       icon: c.icon,
+      type: c.type,
       isDefault: c.isDefault,
     }));
   }

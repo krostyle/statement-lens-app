@@ -50,13 +50,14 @@ export class RecommendBudgetsUseCase {
     if (spendMap.size === 0) return [];
 
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-    const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+    const categoryMap = new Map(categories.map((c) => [c.id, { name: c.name, type: c.type ?? null }]));
 
     const input = Array.from(spendMap.entries())
       .filter(([catId]) => categoryMap.has(catId))
       .map(([catId, totalSpend]) => ({
         categoryId: catId,
-        name: categoryMap.get(catId)!,
+        name: categoryMap.get(catId)!.name,
+        type: categoryMap.get(catId)!.type as 'needs' | 'wants' | null,
         avgSpend: totalSpend / 3,
         currentBudget: budgetMap.get(catId) ?? null,
       }));

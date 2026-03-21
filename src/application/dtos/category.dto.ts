@@ -8,6 +8,7 @@ export interface UpdateCategoryDTO {
   name?: string;
   color?: string;
   icon?: string;
+  type?: 'needs' | 'wants' | null;
 }
 
 export interface CategoryResponseDTO {
@@ -16,5 +17,6 @@ export interface CategoryResponseDTO {
   name: string;
   color: string;
   icon?: string | null;
+  type?: 'needs' | 'wants' | null;
   isDefault: boolean;
 }
