@@ -73,6 +73,7 @@ export function CategoriesView() {
 
       <Dialog open={open} onOpenChange={setOpen}>
         <CategoryForm
+          key={editing?.id ?? 'new'}
           category={editing}
           onSuccess={() => { setOpen(false); load(); }}
           onCancel={() => setOpen(false)}
