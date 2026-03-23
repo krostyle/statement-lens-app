@@ -26,6 +26,7 @@ export interface TransactionFiltersDTO {
   from?: string;
   to?: string;
   search?: string;
+  isInstallment?: boolean;
 }
 
 export interface TransactionResponseDTO {

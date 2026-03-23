@@ -28,6 +28,7 @@ export function TransactionsView() {
   const [search, setSearch] = useState('');
   const [selectedStatementId, setSelectedStatementId] = useState('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
+  const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
@@ -43,6 +44,7 @@ export function TransactionsView() {
     if (search) params.set('search', search);
     if (selectedStatementId && selectedStatementId !== 'all') params.set('statementId', selectedStatementId);
     if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
+    if (selectedInstallment !== 'all') params.set('isInstallment', selectedInstallment);
     params.set('page', String(page));
 
     const [txRes, catRes] = await Promise.all([
@@ -57,7 +59,7 @@ export function TransactionsView() {
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
     setLoading(false);
-  }, [search, selectedStatementId, selectedCategoryId, page]);
+  }, [search, selectedStatementId, selectedCategoryId, selectedInstallment, page]);
 
   useEffect(() => {
     load();
@@ -66,7 +68,7 @@ export function TransactionsView() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, selectedStatementId, selectedCategoryId]);
+  }, [search, selectedStatementId, selectedCategoryId, selectedInstallment]);
 
   useEffect(() => {
     fetch('/api/statements')
@@ -115,6 +117,16 @@ export function TransactionsView() {
             {categories.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
+          </SelectContent>
+        </Select>
+        <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Tipo de pago" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos</SelectItem>
+            <SelectItem value="true">En cuotas</SelectItem>
+            <SelectItem value="false">Sin cuotas</SelectItem>
           </SelectContent>
         </Select>
         <Input
@@ -182,6 +194,7 @@ export function TransactionsView() {
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
+              <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
               <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
               <th className="px-4 py-3" />
             </tr>
@@ -192,6 +205,7 @@ export function TransactionsView() {
                 <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                 <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
               </tr>
@@ -205,6 +219,15 @@ export function TransactionsView() {
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant="secondary">{getCategoryName(t.categoryId)}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  {t.isInstallment && t.installmentNum != null && t.installmentTotal != null ? (
+                    <Badge variant="outline" className="text-xs font-normal">
+                      {t.installmentNum}/{t.installmentTotal}
+                    </Badge>
+                  ) : (
+                    <span className="text-zinc-300">—</span>
+                  )}
                 </td>
                 <td className={`px-4 py-3 text-right font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
                   {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
@@ -223,7 +246,7 @@ export function TransactionsView() {
             ))}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
                   Sin transacciones
                 </td>
               </tr>

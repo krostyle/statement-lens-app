@@ -19,6 +19,7 @@ function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 
       { description: { contains: filters.search, mode: 'insensitive' } },
     ];
   }
+  if (filters?.isInstallment !== undefined) where.isInstallment = filters.isInstallment;
   return where;
 }
 

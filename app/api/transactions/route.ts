@@ -12,6 +12,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get('page') ?? 1));
 
+  const isInstallmentParam = searchParams.get('isInstallment');
   const result = await listTransactionsUseCase.execute(
     session.user.id,
     {
@@ -20,6 +21,7 @@ export async function GET(request: Request) {
       from: searchParams.get('from') ?? undefined,
       to: searchParams.get('to') ?? undefined,
       search: searchParams.get('search') ?? undefined,
+      isInstallment: isInstallmentParam === 'true' ? true : isInstallmentParam === 'false' ? false : undefined,
     },
     page,
     PAGE_SIZE

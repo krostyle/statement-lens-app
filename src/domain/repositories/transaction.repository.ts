@@ -6,6 +6,7 @@ export interface TransactionFilters {
   from?: Date;
   to?: Date;
   search?: string;
+  isInstallment?: boolean;
   skip?: number;
   take?: number;
 }
