@@ -25,6 +25,8 @@ export class ListTransactionsUseCase {
       to: filters?.to ? new Date(filters.to) : undefined,
       search: filters?.search,
       isInstallment: filters?.isInstallment,
+      minInstallmentTotal: filters?.minInstallmentTotal,
+      maxInstallmentTotal: filters?.maxInstallmentTotal,
     };
 
     const [transactions, total] = await Promise.all([

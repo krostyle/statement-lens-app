@@ -22,6 +22,8 @@ export async function GET(request: Request) {
       to: searchParams.get('to') ?? undefined,
       search: searchParams.get('search') ?? undefined,
       isInstallment: isInstallmentParam === 'true' ? true : isInstallmentParam === 'false' ? false : undefined,
+      minInstallmentTotal: searchParams.get('minInstallmentTotal') ? Number(searchParams.get('minInstallmentTotal')) : undefined,
+      maxInstallmentTotal: searchParams.get('maxInstallmentTotal') ? Number(searchParams.get('maxInstallmentTotal')) : undefined,
     },
     page,
     PAGE_SIZE

@@ -27,6 +27,8 @@ export interface TransactionFiltersDTO {
   to?: string;
   search?: string;
   isInstallment?: boolean;
+  minInstallmentTotal?: number;
+  maxInstallmentTotal?: number;
 }
 
 export interface TransactionResponseDTO {

@@ -44,7 +44,9 @@ export function TransactionsView() {
     if (search) params.set('search', search);
     if (selectedStatementId && selectedStatementId !== 'all') params.set('statementId', selectedStatementId);
     if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
-    if (selectedInstallment !== 'all') params.set('isInstallment', selectedInstallment);
+    if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
+    else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
+    else if (selectedInstallment === 'false') params.set('isInstallment', 'false');
     params.set('page', String(page));
 
     const [txRes, catRes] = await Promise.all([
@@ -120,12 +122,13 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
         <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Tipo de pago" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="true">En cuotas</SelectItem>
+            <SelectItem value="multi">En cuotas (2+)</SelectItem>
+            <SelectItem value="single">Cuota única</SelectItem>
             <SelectItem value="false">Sin cuotas</SelectItem>
           </SelectContent>
         </Select>
