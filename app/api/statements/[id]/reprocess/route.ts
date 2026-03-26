@@ -22,7 +22,7 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
   // Download PDF from S3 and reprocess
   const buffer = await s3Service.download(statement.s3Key);
-  processStatement(id, session.user.id, buffer, statement.bank).catch(console.error);
+  processStatement(id, session.user.id, buffer, statement.bank, statement.month).catch(console.error);
 
   return NextResponse.json({ message: 'Reprocesamiento iniciado.' });
 }

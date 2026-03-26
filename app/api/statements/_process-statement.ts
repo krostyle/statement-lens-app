@@ -4,7 +4,8 @@ export async function processStatement(
   statementId: string,
   userId: string,
   buffer: Buffer,
-  bank: string
+  bank: string,
+  month: string   // "YYYY-MM" — used as the billing date for installment rows
 ) {
   await statementRepo.updateStatus(statementId, 'processing');
   try {
@@ -18,12 +19,19 @@ export async function processStatement(
     const othersCategory = categories.find((c) => c.name === 'Otros');
     const defaultCategoryId = othersCategory?.id ?? categories[0]?.id;
 
+    // For installment transactions, use the statement's billing month as the
+    // effective date (1st of month, UTC). Banks typically store the original
+    // purchase date on every cuota row, which would wrongly attribute the
+    // spend to the purchase month instead of the actual billing month.
+    const [y, m] = month.split('-').map(Number);
+    const billingDate = new Date(Date.UTC(y, m - 1, 1));
+
     await transactionRepo.createMany(
       parsed.map((t) => ({
         userId,
         statementId,
         categoryId: categoryMap.get(t.suggestedCategory) ?? defaultCategoryId ?? '',
-        date: new Date(t.date),
+        date: t.isInstallment ? billingDate : new Date(t.date),
         description: t.description,
         merchant: t.merchant,
         amount: t.amount,

@@ -53,7 +53,7 @@ export async function POST(request: Request) {
     });
 
     // Process asynchronously (fire and forget)
-    processStatement(statement.id, session.user.id, buffer, bank).catch(console.error);
+    processStatement(statement.id, session.user.id, buffer, bank, month).catch(console.error);
 
     return NextResponse.json({
       id: statement.id,
