@@ -12,6 +12,17 @@ export interface ParsedTransaction {
   suggestedCategory: string;
 }
 
+function getBankHints(bank: string): string {
+  if (bank === 'liderbci') {
+    return `\nLiderBCI-specific rules:
+- Installment rows show 4 monetary values: [Monto Operación] [Monto Total] [NN/TT] [Valor Cuota Mensual]. Use ONLY the last value (Valor Cuota Mensual) as the amount. Example: "$ 399.990 $ 486.480 02/12 $ 40.540" → amount=-40540, installmentNum=2, installmentTotal=12.
+- GLASS LIDER.CL entries are cashback/discount credits → amount must be POSITIVE (already shown as negative in the statement text).
+- PAGO entries are payments → amount must be POSITIVE.
+- Skip summary/totals lines (lines that only contain a subtotal like "$ 1.091.960" with no date or description).`;
+  }
+  return '';
+}
+
 export class PdfParserService {
   async extractText(buffer: Buffer): Promise<string> {
     const pdfParse = (await import('pdf-parse')).default;
@@ -33,7 +44,7 @@ export class PdfParserService {
 Extract ALL transactions and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
 Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category"}
 amount: negative=expense, positive=credit/payment.
-CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.`,
+CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.${getBankHints(bank)}`,
       messages: [
         {
           role: 'user',

@@ -1,4 +1,4 @@
-export type StatementBank = 'santander' | 'falabella';
+export type StatementBank = 'santander' | 'falabella' | 'liderbci';
 export type StatementStatus = 'pending' | 'processing' | 'done' | 'error';
 
 export interface Statement {

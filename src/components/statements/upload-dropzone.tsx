@@ -106,6 +106,7 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
               <SelectContent>
                 <SelectItem value="santander">Santander</SelectItem>
                 <SelectItem value="falabella">Falabella</SelectItem>
+                <SelectItem value="liderbci">LiderBCI</SelectItem>
               </SelectContent>
             </Select>
           </div>

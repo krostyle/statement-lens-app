@@ -24,8 +24,8 @@ export async function POST(request: Request) {
     if (!file || !bank || !month) {
       return NextResponse.json({ error: 'Missing required fields: file, bank, month' }, { status: 400 });
     }
-    if (!['santander', 'falabella'].includes(bank)) {
-      return NextResponse.json({ error: 'Invalid bank. Use santander or falabella' }, { status: 400 });
+    if (!['santander', 'falabella', 'liderbci'].includes(bank)) {
+      return NextResponse.json({ error: 'Invalid bank. Use santander, falabella or liderbci' }, { status: 400 });
     }
 
     const existing = await statementRepo.findByUserId(session.user.id);
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     const statement = await statementRepo.create({
       userId: session.user.id,
-      bank: bank as 'santander' | 'falabella',
+      bank: bank as 'santander' | 'falabella' | 'liderbci',
       month,
       fileName: normalizedFileName,
       s3Key,

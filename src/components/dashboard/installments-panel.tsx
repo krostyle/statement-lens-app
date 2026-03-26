@@ -73,6 +73,7 @@ export function InstallmentsPanel() {
             <SelectItem value="all">Todos los bancos</SelectItem>
             <SelectItem value="santander">Santander</SelectItem>
             <SelectItem value="falabella">Falabella</SelectItem>
+            <SelectItem value="liderbci">LiderBCI</SelectItem>
           </SelectContent>
         </Select>
       </CardHeader>
