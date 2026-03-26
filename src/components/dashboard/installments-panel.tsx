@@ -70,7 +70,7 @@ export function InstallmentsPanel() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los bancos</SelectItem>
+            <SelectItem value="all">Todas las tarjetas</SelectItem>
             <SelectItem value="santander">Santander</SelectItem>
             <SelectItem value="falabella">Falabella</SelectItem>
             <SelectItem value="liderbci">LiderBCI</SelectItem>

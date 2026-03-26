@@ -25,8 +25,8 @@ export async function GET(request: Request) {
     };
   }
 
-  if (bank && ['santander', 'falabella'].includes(bank)) {
-    where.statement = { bank: bank as 'santander' | 'falabella' };
+  if (bank && ['santander', 'falabella', 'liderbci'].includes(bank)) {
+    where.statement = { bank: bank as 'santander' | 'falabella' | 'liderbci' };
   }
 
   // Fetch matching installment transactions ordered most-recent first
@@ -42,7 +42,7 @@ export async function GET(request: Request) {
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }
