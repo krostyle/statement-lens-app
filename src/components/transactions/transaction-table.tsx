@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from '@/src/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { MonthPicker } from '@/src/components/ui/month-picker';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { TransactionForm } from './transaction-form';
@@ -21,12 +22,19 @@ import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
 import type { PaginatedTransactionsDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 
+const BANK_LABELS: Record<string, string> = {
+  santander: 'Santander',
+  falabella: 'Falabella',
+  liderbci: 'LiderBCI',
+};
+
 export function TransactionsView() {
   const [transactions, setTransactions] = useState<TransactionResponseDTO[]>([]);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [search, setSearch] = useState('');
-  const [selectedStatementId, setSelectedStatementId] = useState('all');
+  const [selectedBank, setSelectedBank] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [open, setOpen] = useState(false);
@@ -38,11 +46,20 @@ export function TransactionsView() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  // Map statementId → bank for display in table rows
+  const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
+
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (search) params.set('search', search);
-    if (selectedStatementId && selectedStatementId !== 'all') params.set('statementId', selectedStatementId);
+    if (selectedBank && selectedBank !== 'all') params.set('bank', selectedBank);
+    if (selectedMonth) {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      params.set('from', new Date(Date.UTC(y, m - 1, 1)).toISOString());
+      // Last millisecond of the selected month
+      params.set('to', new Date(Date.UTC(y, m, 1) - 1).toISOString());
+    }
     if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
     if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
@@ -61,7 +78,7 @@ export function TransactionsView() {
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
     setLoading(false);
-  }, [search, selectedStatementId, selectedCategoryId, selectedInstallment, page]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, page]);
 
   useEffect(() => {
     load();
@@ -70,7 +87,7 @@ export function TransactionsView() {
   // Reset to page 1 when filters change
   useEffect(() => {
     setPage(1);
-  }, [search, selectedStatementId, selectedCategoryId, selectedInstallment]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment]);
 
   useEffect(() => {
     fetch('/api/statements')
@@ -81,6 +98,12 @@ export function TransactionsView() {
   const getCategoryName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? id;
 
+  const getBankLabel = (statementId?: string | null) => {
+    if (!statementId) return null;
+    const bank = statementBankMap.get(statementId);
+    return bank ? (BANK_LABELS[bank] ?? bank) : null;
+  };
+
   const handleDelete = async (id: string) => {
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
     setDeleteTarget(null);
@@ -90,26 +113,44 @@ export function TransactionsView() {
   const openCreate = () => { setEditing(null); setOpen(true); };
   const openEdit = (t: TransactionResponseDTO) => { setEditing(t); setOpen(true); };
 
+  const exportParams = new URLSearchParams({
+    ...(search ? { search } : {}),
+    ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
+    ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
+    ...(selectedMonth ? (() => {
+      const [y, m] = selectedMonth.split('-').map(Number);
+      return {
+        from: new Date(Date.UTC(y, m - 1, 1)).toISOString(),
+        to: new Date(Date.UTC(y, m, 1) - 1).toISOString(),
+      };
+    })() : {}),
+  });
+
   return (
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        <Select value={selectedStatementId} onValueChange={setSelectedStatementId}>
-          <SelectTrigger className="w-56">
-            <SelectValue placeholder="Todos los estados..." />
+        {/* Tarjeta */}
+        <Select value={selectedBank} onValueChange={setSelectedBank}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Todas las tarjetas" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos los estados</SelectItem>
-            {statements.map((s) => {
-              const [year, month] = s.month.split('-');
-              return (
-                <SelectItem key={s.id} value={s.id}>
-                  {s.bank} — {month}-{year}
-                </SelectItem>
-              );
-            })}
+            <SelectItem value="all">Todas las tarjetas</SelectItem>
+            <SelectItem value="santander">Santander</SelectItem>
+            <SelectItem value="falabella">Falabella</SelectItem>
+            <SelectItem value="liderbci">LiderBCI</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Mes */}
+        <MonthPicker
+          value={selectedMonth}
+          onChange={setSelectedMonth}
+          placeholder="Todos los meses"
+        />
+
+        {/* Categoría */}
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Todas las categorías" />
@@ -121,6 +162,8 @@ export function TransactionsView() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* Tipo de pago */}
         <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Tipo de pago" />
@@ -132,21 +175,17 @@ export function TransactionsView() {
             <SelectItem value="false">Sin cuotas</SelectItem>
           </SelectContent>
         </Select>
+
+        {/* Búsqueda */}
         <Input
           placeholder="Buscar por comercio o descripción..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="max-w-sm"
         />
+
         <div className="ml-auto flex items-center gap-2">
-          <a
-            href={`/api/transactions/export?${new URLSearchParams({
-              ...(search ? { search } : {}),
-              ...(selectedStatementId && selectedStatementId !== 'all' ? { statementId: selectedStatementId } : {}),
-              ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
-            }).toString()}`}
-            download="transacciones.csv"
-          >
+          <a href={`/api/transactions/export?${exportParams.toString()}`} download="transacciones.csv">
             <Button variant="outline" type="button">
               <Download className="h-4 w-4" /> Exportar CSV
             </Button>
@@ -191,12 +230,13 @@ export function TransactionsView() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[600px] text-sm">
+        <table className="w-full min-w-[640px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
+              <th className="px-4 py-3 text-left font-medium text-zinc-500">Tarjeta</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
               <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
               <th className="px-4 py-3" />
@@ -208,48 +248,55 @@ export function TransactionsView() {
                 <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                 <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
               </tr>
             ))}
-            {!loading && transactions.map((t) => (
-              <tr key={t.id} className="border-b border-zinc-50 hover:bg-zinc-50">
-                <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-zinc-900">{t.merchant}</p>
-                  <p className="text-xs text-zinc-400">{t.description}</p>
-                </td>
-                <td className="px-4 py-3">
-                  <Badge variant="secondary">{getCategoryName(t.categoryId)}</Badge>
-                </td>
-                <td className="px-4 py-3">
-                  {t.isInstallment && t.installmentNum != null && t.installmentTotal != null ? (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {t.installmentNum}/{t.installmentTotal}
-                    </Badge>
-                  ) : (
-                    <span className="text-zinc-300">—</span>
-                  )}
-                </td>
-                <td className={`px-4 py-3 text-right font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
-                </td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(t)}>
-                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                    </Button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {!loading && transactions.map((t) => {
+              const bankLabel = getBankLabel(t.statementId);
+              return (
+                <tr key={t.id} className="border-b border-zinc-50 hover:bg-zinc-50">
+                  <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium text-zinc-900">{t.merchant}</p>
+                    <p className="text-xs text-zinc-400">{t.description}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Badge variant="secondary">{getCategoryName(t.categoryId)}</Badge>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-zinc-500">
+                    {bankLabel ?? <span className="text-zinc-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {t.isInstallment && t.installmentNum != null && t.installmentTotal != null ? (
+                      <Badge variant="outline" className="text-xs font-normal">
+                        {t.installmentNum}/{t.installmentTotal}
+                      </Badge>
+                    ) : (
+                      <span className="text-zinc-300">—</span>
+                    )}
+                  </td>
+                  <td className={`px-4 py-3 text-right font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(t)}>
+                        <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
                   Sin transacciones
                 </td>
               </tr>

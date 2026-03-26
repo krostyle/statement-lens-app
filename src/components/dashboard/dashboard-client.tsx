@@ -16,6 +16,8 @@ import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto'
 
 type FilterMode = 'statement' | 'month';
 
+const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
 export function DashboardClient() {
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [filterMode, setFilterMode] = useState<FilterMode>('statement');
@@ -40,6 +42,23 @@ export function DashboardClient() {
 
   const analysisStatementId = filterMode === 'statement' && selectedStatementId !== 'none' ? selectedStatementId : undefined;
   const analysisMonth = filterMode === 'month' ? selectedMonth : undefined;
+
+  const periodLabel = (() => {
+    if (filterMode === 'statement' && selectedStatementId !== 'none') {
+      const s = statements.find((st) => st.id === selectedStatementId);
+      if (s) {
+        const [y, m] = s.month.split('-');
+        const bankLabel = s.bank.charAt(0).toUpperCase() + s.bank.slice(1);
+        return `${bankLabel} · ${MONTHS_ES[Number(m) - 1]} ${y}`;
+      }
+    }
+    if (filterMode === 'month' && selectedMonth) {
+      const [y, m] = selectedMonth.split('-');
+      return `${MONTHS_ES[Number(m) - 1]} ${y} · todos los estados`;
+    }
+    const now = new Date();
+    return `${MONTHS_ES[now.getMonth()]} ${now.getFullYear()} · mes actual`;
+  })();
 
   return (
     <div className="space-y-6">
@@ -92,7 +111,7 @@ export function DashboardClient() {
 
       <MetricsCards metricsUrl={metricsUrl} />
 
-      <BudgetComparison metricsUrl={metricsUrl} />
+      <BudgetComparison metricsUrl={metricsUrl} periodLabel={periodLabel} />
 
       <InstallmentsPanel />
 

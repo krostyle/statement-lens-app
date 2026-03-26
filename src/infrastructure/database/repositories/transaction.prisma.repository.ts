@@ -7,6 +7,7 @@ function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 
   const where: Prisma.TransactionWhereInput = { userId };
   if (filters?.categoryId) where.categoryId = filters.categoryId;
   if (filters?.statementId) where.statementId = filters.statementId;
+  if (filters?.bank) where.statement = { bank: filters.bank as never };
   if (filters?.from || filters?.to) {
     where.date = {
       ...(filters.from ? { gte: filters.from } : {}),

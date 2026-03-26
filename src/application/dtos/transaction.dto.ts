@@ -23,6 +23,7 @@ export interface UpdateTransactionDTO {
 export interface TransactionFiltersDTO {
   categoryId?: string;
   statementId?: string;
+  bank?: string;
   from?: string;
   to?: string;
   search?: string;

@@ -3,6 +3,7 @@ import type { Transaction, CreateTransactionInput, UpdateTransactionInput } from
 export interface TransactionFilters {
   categoryId?: string;
   statementId?: string;
+  bank?: string;
   from?: Date;
   to?: Date;
   search?: string;

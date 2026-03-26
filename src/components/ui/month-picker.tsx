@@ -74,6 +74,14 @@ export function MonthPicker({ value, onChange, placeholder = 'Seleccionar mes...
             );
           })}
         </div>
+        {value && (
+          <button
+            onClick={() => { onChange(''); setOpen(false); }}
+            className="mt-2 w-full rounded px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors"
+          >
+            Limpiar selección
+          </button>
+        )}
       </PopoverContent>
     </Popover>
   );

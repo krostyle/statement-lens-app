@@ -16,9 +16,10 @@ interface TopCategory {
 
 interface BudgetComparisonProps {
   metricsUrl: string;
+  periodLabel?: string;
 }
 
-export function BudgetComparison({ metricsUrl }: BudgetComparisonProps) {
+export function BudgetComparison({ metricsUrl, periodLabel }: BudgetComparisonProps) {
   const [budgets, setBudgets] = useState<BudgetResponseDTO[]>([]);
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
@@ -45,6 +46,7 @@ export function BudgetComparison({ metricsUrl }: BudgetComparisonProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Presupuestos vs Gasto real</CardTitle>
+          {periodLabel && <p className="text-xs text-zinc-400 mt-0.5">{periodLabel}</p>}
         </CardHeader>
         <CardContent className="space-y-3">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -80,6 +82,7 @@ export function BudgetComparison({ metricsUrl }: BudgetComparisonProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Presupuestos vs Gasto real</CardTitle>
+          {periodLabel && <p className="text-xs text-zinc-400 mt-0.5">{periodLabel}</p>}
         </CardHeader>
         <CardContent>
           <p className="text-sm text-zinc-500">
@@ -99,6 +102,7 @@ export function BudgetComparison({ metricsUrl }: BudgetComparisonProps) {
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Presupuestos vs Gasto real</CardTitle>
+          {periodLabel && <p className="text-xs text-zinc-400 mt-0.5">{periodLabel}</p>}
         </CardHeader>
         <CardContent>
           <p className="text-sm text-zinc-500">

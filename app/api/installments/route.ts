@@ -42,7 +42,11 @@ export async function GET(request: Request) {
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    // Infer the original purchase month: date - (installmentNum - 1) months
+    const purchaseDate = new Date(tx.date);
+    purchaseDate.setUTCMonth(purchaseDate.getUTCMonth() - (tx.installmentNum! - 1));
+    const inferredMonth = `${purchaseDate.getUTCFullYear()}-${String(purchaseDate.getUTCMonth() + 1).padStart(2, '0')}`;
+    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}||${inferredMonth}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }
