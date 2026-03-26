@@ -29,24 +29,25 @@ export async function GET(request: Request) {
     where.statement = { bank: bank as 'santander' | 'falabella' | 'liderbci' };
   }
 
-  // Fetch matching installment transactions ordered most-recent first
+  // Fetch all installment transactions for the user.
+  // Sort by installmentNum DESC as primary so the most-advanced cuota always
+  // wins the dedup map, regardless of what date the bank stores on the row
+  // (many banks record the original purchase date, not the billing-month date,
+  // making date-based sorting unreliable for deduplication purposes).
   const txs = await prisma.transaction.findMany({
     where,
     include: { statement: true },
-    orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
+    orderBy: [{ installmentNum: 'desc' }, { date: 'desc' }],
   });
 
-  // Deduplicate by merchant + installmentTotal + rounded amount.
-  // This is robust against banks encoding "CUOTA X/Y" into the description.
-  // Keep the first (most recent) row per plan.
+  // Deduplicate: one entry per installment plan.
+  // Key = bank + merchant + installmentTotal + rounded monthly amount.
+  // The highest installmentNum always arrives first (sorted above), so
+  // the first time we see a key is the most-advanced state of that plan.
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    // Infer the original purchase month: date - (installmentNum - 1) months
-    const purchaseDate = new Date(tx.date);
-    purchaseDate.setUTCMonth(purchaseDate.getUTCMonth() - (tx.installmentNum! - 1));
-    const inferredMonth = `${purchaseDate.getUTCFullYear()}-${String(purchaseDate.getUTCMonth() + 1).padStart(2, '0')}`;
-    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}||${inferredMonth}`;
+    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }
