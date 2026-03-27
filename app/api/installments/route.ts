@@ -30,20 +30,22 @@ export async function GET(request: Request) {
   }
 
   // Fetch all installment transactions for the user.
-  // Sort by installmentNum DESC as primary so the most-advanced cuota always
-  // wins the dedup map, regardless of what date the bank stores on the row
-  // (many banks record the original purchase date, not the billing-month date,
-  // making date-based sorting unreliable for deduplication purposes).
+  // Sort by date DESC so the row from the most recent statement always wins
+  // the dedup map. Since the date fix ensures every installment row carries
+  // the billing-month date (1st of the statement month) rather than the
+  // original purchase date, "most recent date" == "most recent statement".
+  // This correctly handles the case where a paid plan (last billed in e.g.
+  // Dec 2025) and a new active plan share the same key: the active plan's
+  // more recent billing date wins, so the paid plan never shadows it.
   const txs = await prisma.transaction.findMany({
     where,
     include: { statement: true },
-    orderBy: [{ installmentNum: 'desc' }, { date: 'desc' }],
+    orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
   });
 
   // Deduplicate: one entry per installment plan.
   // Key = bank + merchant + installmentTotal + rounded monthly amount.
-  // The highest installmentNum always arrives first (sorted above), so
-  // the first time we see a key is the most-advanced state of that plan.
+  // The most-recently-billed row arrives first (sorted above) and wins the map.
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
