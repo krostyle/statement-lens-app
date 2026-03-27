@@ -13,7 +13,14 @@ export async function processStatement(
     const categories = await categoryRepo.findByUserId(userId);
     const categoryNames = categories.map((c) => c.name);
 
-    const parsed = await pdfParser.parseTransactions(rawText, bank, categoryNames);
+    const parsed = (await pdfParser.parseTransactions(rawText, bank, categoryNames)).filter((t) => {
+      // Santander (and potentially other banks) include informational "cuota 00/N"
+      // entries in the "INFORMACION COMPRAS EN CUOTAS EN EL PERIODO" section.
+      // These are NOT real charges — the first actual charge is cuota 01/N in
+      // the next statement. Discard any row where installmentNum is 0.
+      if (t.isInstallment && t.installmentNum === 0) return false;
+      return true;
+    });
 
     const categoryMap = new Map(categories.map((c) => [c.name, c.id]));
     const othersCategory = categories.find((c) => c.name === 'Otros');

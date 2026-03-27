@@ -13,6 +13,10 @@ export interface ParsedTransaction {
 }
 
 function getBankHints(bank: string): string {
+  if (bank === 'santander') {
+    return `\nSantander-specific rules:
+- The section "INFORMACION COMPRAS EN CUOTAS EN EL PERIODO" lists purchases that *started* this month as informational entries with installmentNum=00 (e.g. "00/03"). These are NOT real charges — the first actual charge appears as cuota 01/03 in the next statement. SKIP all rows where the installment number is 00.`;
+  }
   if (bank === 'liderbci') {
     return `\nLiderBCI-specific rules:
 - Installment rows show 4 monetary values: [Monto Operación] [Monto Total] [NN/TT] [Valor Cuota Mensual]. Use ONLY the last value (Valor Cuota Mensual) as the amount. Example: "$ 399.990 $ 486.480 02/12 $ 40.540" → amount=-40540, installmentNum=2, installmentTotal=12.
