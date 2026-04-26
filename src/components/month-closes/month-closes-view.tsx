@@ -269,13 +269,18 @@ function CreateMonthCloseDialog({
       )}
 
       {phase === 'loading' && (
-        <div className="flex flex-col items-center gap-3 py-10 text-zinc-500">
-          <Loader2 className="h-7 w-7 animate-spin text-brand-600" />
-          <p className="text-sm text-center">
-            Generando resumen y sugerencias con IA…<br />
-            <span className="text-xs text-zinc-400">Esto puede tardar unos segundos</span>
-          </p>
-        </div>
+        <>
+          <div className="flex flex-col items-center gap-3 py-10 text-zinc-500">
+            <Loader2 className="h-7 w-7 animate-spin text-brand-600" />
+            <p className="text-sm text-center">
+              Generando resumen y sugerencias con IA…<br />
+              <span className="text-xs text-zinc-400">Esto puede tardar unos segundos</span>
+            </p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          </DialogFooter>
+        </>
       )}
 
       {phase === 'error' && (
@@ -332,12 +337,14 @@ export function MonthClosesView() {
         </Button>
       </div>
 
-      {/* Create dialog */}
+      {/* Create dialog — conditionally rendered so state resets on each open */}
       <Dialog open={createOpen} onOpenChange={(v) => { if (!v) setCreateOpen(false); }}>
-        <CreateMonthCloseDialog
-          onClose={() => setCreateOpen(false)}
-          onCreated={handleCreated}
-        />
+        {createOpen && (
+          <CreateMonthCloseDialog
+            onClose={() => setCreateOpen(false)}
+            onCreated={handleCreated}
+          />
+        )}
       </Dialog>
 
       {/* Detail dialog */}
