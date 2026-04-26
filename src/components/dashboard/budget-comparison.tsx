@@ -16,10 +16,11 @@ interface TopCategory {
 
 interface BudgetComparisonProps {
   metricsUrl: string;
+  month: string; // "YYYY-MM"
   periodLabel?: string;
 }
 
-export function BudgetComparison({ metricsUrl, periodLabel }: BudgetComparisonProps) {
+export function BudgetComparison({ metricsUrl, month, periodLabel }: BudgetComparisonProps) {
   const [budgets, setBudgets] = useState<BudgetResponseDTO[]>([]);
   const [topCategories, setTopCategories] = useState<TopCategory[]>([]);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
@@ -28,7 +29,7 @@ export function BudgetComparison({ metricsUrl, periodLabel }: BudgetComparisonPr
   useEffect(() => {
     setLoading(true);
     Promise.all([
-      fetch('/api/budgets').then((r) => r.json()),
+      fetch(`/api/budgets?month=${month}`).then((r) => r.json()),
       fetch(metricsUrl).then((r) => r.json()),
       fetch('/api/categories').then((r) => r.json()),
     ])
@@ -39,7 +40,7 @@ export function BudgetComparison({ metricsUrl, periodLabel }: BudgetComparisonPr
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [metricsUrl]);
+  }, [metricsUrl, month]);
 
   if (loading) {
     return (

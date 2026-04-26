@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Pencil, Trash2, Plus, Tag, Sparkles } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -12,13 +12,19 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/src/components/ui/dialog';
+import { MonthPicker } from '@/src/components/ui/month-picker';
 import { formatCurrency } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { BudgetResponseDTO } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import { BudgetRecommendationDialog } from './budget-recommendation-dialog';
 
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
 export function BudgetsView() {
+  const [month, setMonth] = useState(currentMonth);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
   const [budgets, setBudgets] = useState<BudgetResponseDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -36,11 +42,11 @@ export function BudgetsView() {
   const [incomeInput, setIncomeInput] = useState('');
   const [savingIncome, setSavingIncome] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     const [catRes, budRes, incRes] = await Promise.all([
       fetch('/api/categories'),
-      fetch('/api/budgets'),
+      fetch(`/api/budgets?month=${month}`),
       fetch('/api/user/income'),
     ]);
     if (catRes.ok) setCategories(await catRes.json());
@@ -50,9 +56,9 @@ export function BudgetsView() {
       setMonthlyIncome(inc);
     }
     setLoading(false);
-  };
+  }, [month]);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const budgetMap = new Map(budgets.map((b) => [b.categoryId, b]));
   const totalBudgeted = budgets.reduce((sum, b) => sum + b.monthlyAmount, 0);
@@ -87,7 +93,7 @@ export function BudgetsView() {
     const res = await fetch(`/api/budgets/${editingCategoryId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ monthlyAmount: parsed }),
+      body: JSON.stringify({ monthlyAmount: parsed, month }),
     });
     setSaving(false);
     if (res.ok) {
@@ -106,7 +112,7 @@ export function BudgetsView() {
   };
 
   const handleDelete = async (categoryId: string) => {
-    const res = await fetch(`/api/budgets/${categoryId}`, { method: 'DELETE' });
+    const res = await fetch(`/api/budgets/${categoryId}?month=${month}`, { method: 'DELETE' });
     if (res.ok || res.status === 204) {
       setBudgets((prev) => prev.filter((b) => b.categoryId !== categoryId));
     }
@@ -146,28 +152,28 @@ export function BudgetsView() {
 
   return (
     <div className="space-y-4">
-      {/* Income + AI row */}
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="text-sm text-zinc-500">Ingreso mensual:</div>
-          {loading ? (
-            <Skeleton className="h-5 w-28" />
-          ) : monthlyIncome ? (
-            <button
-              onClick={openIncomeDialog}
-              className="font-semibold text-zinc-900 hover:text-brand-600 transition-colors text-sm flex items-center gap-1"
-            >
-              {formatCurrency(monthlyIncome)}
-              <Pencil className="h-3 w-3 text-zinc-400" />
-            </button>
-          ) : (
-            <button
-              onClick={openIncomeDialog}
-              className="text-sm text-brand-600 hover:underline font-medium"
-            >
-              + Agregar ingreso
-            </button>
-          )}
+      {/* Month picker + Income + AI row */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
+          <div className="flex items-center gap-2 text-sm text-zinc-500">
+            Ingreso:
+            {loading ? (
+              <Skeleton className="h-5 w-24" />
+            ) : monthlyIncome ? (
+              <button
+                onClick={openIncomeDialog}
+                className="font-semibold text-zinc-900 hover:text-brand-600 transition-colors flex items-center gap-1"
+              >
+                {formatCurrency(monthlyIncome)}
+                <Pencil className="h-3 w-3 text-zinc-400" />
+              </button>
+            ) : (
+              <button onClick={openIncomeDialog} className="text-brand-600 hover:underline font-medium">
+                + Agregar
+              </button>
+            )}
+          </div>
         </div>
         <Button variant="outline" onClick={() => setRecommendOpen(true)}>
           <Sparkles className="h-4 w-4 mr-2" />
@@ -196,13 +202,14 @@ export function BudgetsView() {
                 ? `Excedes tu ingreso por ${formatCurrency(totalBudgeted - monthlyIncome)}`
                 : `Disponible para ahorro: ${formatCurrency(monthlyIncome - totalBudgeted)} (${Math.round(100 - budgetPct!)}%)`}
             </span>
-            <span className="text-zinc-400">Meta: 20% ahorro</span>
+            <span>Meta: 20% ahorro</span>
           </div>
         </div>
       )}
 
       <BudgetRecommendationDialog
         open={recommendOpen}
+        month={month}
         onClose={() => setRecommendOpen(false)}
         onApplied={() => { setRecommendOpen(false); load(); }}
       />
@@ -210,17 +217,12 @@ export function BudgetsView() {
       {/* Income dialog */}
       <Dialog open={incomeOpen} onOpenChange={setIncomeOpen}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Ingreso mensual neto</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Ingreso mensual neto</DialogTitle></DialogHeader>
           <div className="space-y-3 py-2">
             <div className="space-y-1.5">
               <Label htmlFor="income-amount">Monto mensual (CLP)</Label>
               <Input
-                id="income-amount"
-                type="text"
-                inputMode="numeric"
-                placeholder="Ej. 1.200.000"
+                id="income-amount" type="text" inputMode="numeric" placeholder="Ej. 1.200.000"
                 value={incomeInput}
                 onChange={(e) => setIncomeInput(formatThousands(e.target.value))}
                 onKeyDown={(e) => e.key === 'Enter' && handleSaveIncome()}
@@ -231,24 +233,16 @@ export function BudgetsView() {
             </p>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIncomeOpen(false)} disabled={savingIncome}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSaveIncome} disabled={savingIncome}>
-              {savingIncome ? 'Guardando...' : 'Guardar'}
-            </Button>
+            <Button variant="outline" onClick={() => setIncomeOpen(false)} disabled={savingIncome}>Cancelar</Button>
+            <Button onClick={handleSaveIncome} disabled={savingIncome}>{savingIncome ? 'Guardando...' : 'Guardar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Eliminar meta mensual</DialogTitle>
-          </DialogHeader>
-          <p className="text-sm text-zinc-600 py-2">
-            ¿Estás seguro que deseas eliminar esta meta mensual? Esta acción no se puede deshacer.
-          </p>
+          <DialogHeader><DialogTitle>Eliminar meta mensual</DialogTitle></DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">¿Estás seguro que deseas eliminar esta meta mensual?</p>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
             <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget)}>Eliminar</Button>
@@ -269,24 +263,16 @@ export function BudgetsView() {
             <div className="space-y-1.5">
               <Label htmlFor="budget-amount">Meta mensual (CLP)</Label>
               <Input
-                id="budget-amount"
-                type="text"
-                inputMode="numeric"
-                placeholder="Ej. 80.000"
-                value={amount}
-                onChange={handleAmountChange}
+                id="budget-amount" type="text" inputMode="numeric" placeholder="Ej. 80.000"
+                value={amount} onChange={handleAmountChange}
                 onKeyDown={(e) => e.key === 'Enter' && handleSave()}
               />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? 'Guardando...' : 'Guardar'}
-            </Button>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={saving}>{saving ? 'Guardando...' : 'Guardar'}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -303,12 +289,7 @@ export function BudgetsView() {
           <tbody className="divide-y divide-zinc-100">
             {loading && Array.from({ length: 5 }).map((_, i) => (
               <tr key={`skeleton-${i}`}>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-7 w-7 rounded-md shrink-0" />
-                    <Skeleton className="h-4 w-28" />
-                  </div>
-                </td>
+                <td className="px-4 py-3"><div className="flex items-center gap-2"><Skeleton className="h-7 w-7 rounded-md shrink-0" /><Skeleton className="h-4 w-28" /></div></td>
                 <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-20 ml-auto" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-7 w-20 ml-auto" /></td>
               </tr>
@@ -327,9 +308,7 @@ export function BudgetsView() {
                   </td>
                   <td className="px-4 py-3 text-right">
                     {budget ? (
-                      <span className="font-semibold text-zinc-900">
-                        {formatCurrency(budget.monthlyAmount)}
-                      </span>
+                      <span className="font-semibold text-zinc-900">{formatCurrency(budget.monthlyAmount)}</span>
                     ) : (
                       <span className="text-zinc-400">—</span>
                     )}
@@ -338,17 +317,11 @@ export function BudgetsView() {
                     <div className="flex items-center justify-end gap-1">
                       {budget ? (
                         <>
-                          <Button variant="ghost" size="icon" onClick={() => openDialog(c.id)}>
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(c.id)}>
-                            <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => openDialog(c.id)}><Pencil className="h-3.5 w-3.5" /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(c.id)}><Trash2 className="h-3.5 w-3.5 text-red-500" /></Button>
                         </>
                       ) : (
-                        <Button variant="ghost" size="sm" onClick={() => openDialog(c.id)}>
-                          <Plus className="h-3.5 w-3.5 mr-1" /> Agregar
-                        </Button>
+                        <Button variant="ghost" size="sm" onClick={() => openDialog(c.id)}><Plus className="h-3.5 w-3.5 mr-1" /> Agregar</Button>
                       )}
                     </div>
                   </td>
@@ -356,20 +329,14 @@ export function BudgetsView() {
               );
             })}
             {!loading && categories.length === 0 && (
-              <tr>
-                <td colSpan={3} className="px-4 py-8 text-center text-zinc-400">
-                  Sin categorías. Crea categorías primero.
-                </td>
-              </tr>
+              <tr><td colSpan={3} className="px-4 py-8 text-center text-zinc-400">Sin categorías. Crea categorías primero.</td></tr>
             )}
           </tbody>
           {budgets.length > 0 && (
             <tfoot>
               <tr className="border-t-2 border-zinc-200 bg-zinc-50">
                 <td className="px-4 py-3 font-semibold text-zinc-700">Total presupuestado</td>
-                <td className="px-4 py-3 text-right font-bold text-zinc-900">
-                  {formatCurrency(totalBudgeted)}
-                </td>
+                <td className="px-4 py-3 text-right font-bold text-zinc-900">{formatCurrency(totalBudgeted)}</td>
                 <td />
               </tr>
             </tfoot>

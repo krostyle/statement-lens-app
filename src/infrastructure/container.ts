@@ -5,10 +5,12 @@ import { CategoryPrismaRepository } from './database/repositories/category.prism
 import { StatementPrismaRepository } from './database/repositories/statement.prisma.repository';
 import { TransactionPrismaRepository } from './database/repositories/transaction.prisma.repository';
 import { BudgetPrismaRepository } from './database/repositories/budget.prisma.repository';
+import { MonthClosePrismaRepository } from './database/repositories/month-close.prisma.repository';
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
 import { BudgetRecommendationService } from './ai/budget-recommendation.service';
+import { MonthCloseSuggestionsService } from './ai/month-close-suggestions.service';
 
 import { CreateCategoryUseCase } from '@/src/application/use-cases/categories/create-category.use-case';
 import { UpdateCategoryUseCase } from '@/src/application/use-cases/categories/update-category.use-case';
@@ -24,6 +26,8 @@ import { AnalyzeFinancesUseCase } from '@/src/application/use-cases/analysis/ana
 import { ListBudgetsUseCase } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import { UpsertBudgetUseCase } from '@/src/application/use-cases/budgets/upsert-budget.use-case';
 import { RecommendBudgetsUseCase } from '@/src/application/use-cases/budgets/recommend-budgets.use-case';
+import { CreateMonthCloseUseCase } from '@/src/application/use-cases/month-closes/create-month-close.use-case';
+import { ListMonthClosesUseCase } from '@/src/application/use-cases/month-closes/list-month-closes.use-case';
 
 // Repositories
 export const userProfileRepo = new UserProfilePrismaRepository();
@@ -31,11 +35,13 @@ const categoryRepo = new CategoryPrismaRepository();
 const statementRepo = new StatementPrismaRepository();
 const transactionRepo = new TransactionPrismaRepository();
 export const budgetRepo = new BudgetPrismaRepository();
+export const monthCloseRepo = new MonthClosePrismaRepository();
 
 // Services
 export const s3Service = new S3StorageService();
 export const pdfParser = new PdfParserService();
 export const financialAnalysisService = new FinancialAnalysisService();
+const monthCloseSuggestionsService = new MonthCloseSuggestionsService();
 
 // Use cases
 export const createCategoryUseCase = new CreateCategoryUseCase(categoryRepo);
@@ -58,6 +64,11 @@ export const budgetRecommendationService = new BudgetRecommendationService();
 export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
   transactionRepo, categoryRepo, budgetRepo, userProfileRepo, budgetRecommendationService
 );
+
+export const createMonthCloseUseCase = new CreateMonthCloseUseCase(
+  monthCloseRepo, budgetRepo, transactionRepo, categoryRepo, monthCloseSuggestionsService
+);
+export const listMonthClosesUseCase = new ListMonthClosesUseCase(monthCloseRepo);
 
 // Raw repos (needed in some API routes)
 export { categoryRepo, statementRepo, transactionRepo };

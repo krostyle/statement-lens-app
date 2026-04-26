@@ -13,9 +13,14 @@ import { CategoryTrends } from './category-trends';
 
 const MONTHS_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
 
+function currentMonth() {
+  return new Date().toISOString().slice(0, 7);
+}
+
 export function DashboardClient() {
   const [selectedMonth, setSelectedMonth] = useState('');
 
+  const effectiveMonth = selectedMonth || currentMonth();
   const metricsUrl = selectedMonth ? `/api/metrics?month=${selectedMonth}` : '/api/metrics';
 
   const periodLabel = (() => {
@@ -39,7 +44,7 @@ export function DashboardClient() {
 
       <MetricsCards metricsUrl={metricsUrl} />
 
-      <BudgetComparison metricsUrl={metricsUrl} periodLabel={periodLabel} />
+      <BudgetComparison metricsUrl={metricsUrl} month={effectiveMonth} periodLabel={periodLabel} />
 
       <InstallmentsPanel />
 

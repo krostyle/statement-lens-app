@@ -4,6 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { upsertBudgetUseCase } from '@/src/infrastructure/container';
 
 const schema = z.object({
+  month: z.string().regex(/^\d{4}-\d{2}$/),
   budgets: z
     .array(
       z.object({
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
 
   const results = await Promise.all(
     parsed.data.budgets.map((b) =>
-      upsertBudgetUseCase.execute(userId, b.categoryId, b.monthlyAmount)
+      upsertBudgetUseCase.execute(userId, b.categoryId, b.monthlyAmount, parsed.data.month)
     )
   );
 

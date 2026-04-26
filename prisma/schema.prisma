@@ -10,12 +10,13 @@ datasource db {
 /// Clerk manages authentication (email, password, sessions).
 /// clerkId matches the Clerk user ID (format: "user_xxxx").
 model UserProfile {
-  clerkId       String  @id
+  clerkId       String       @id
   monthlyIncome Int?
   statements    Statement[]
   categories    Category[]
   transactions  Transaction[]
   budgets       Budget[]
+  monthCloses   MonthClose[]
 }
 
 model Statement {
@@ -55,13 +56,31 @@ model Budget {
   id            String      @id @default(uuid())
   userId        String
   categoryId    String
+  month         String      // "YYYY-MM" e.g. "2026-04"
   monthlyAmount Float
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
   user          UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, categoryId])
+  @@unique([userId, categoryId, month])
+}
+
+model MonthClose {
+  id            String      @id @default(uuid())
+  userId        String
+  month         String      // "YYYY-MM"
+  totalSpent    Float
+  totalBudget   Float
+  summary       Json        // CategorySummary[]
+  aiSuggestions String
+  notes         String?
+  closedAt      DateTime    @default(now())
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  user          UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+
+  @@unique([userId, month])
 }
 
 model Transaction {

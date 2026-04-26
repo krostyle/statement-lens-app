@@ -22,6 +22,7 @@ interface RowState {
 
 interface Props {
   open: boolean;
+  month: string;
   onClose: () => void;
   onApplied: () => void;
 }
@@ -40,7 +41,7 @@ function formatThousands(raw: string) {
   return parseInt(digits, 10).toLocaleString('es-CL');
 }
 
-export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) {
+export function BudgetRecommendationDialog({ open, month, onClose, onApplied }: Props) {
   const [phase, setPhase] = useState<Phase>('loading');
   const [recommendations, setRecommendations] = useState<BudgetRecommendationDTO[]>([]);
   const [rows, setRows] = useState<Record<string, RowState>>({});
@@ -121,7 +122,7 @@ export function BudgetRecommendationDialog({ open, onClose, onApplied }: Props) 
           ? fetch('/api/budgets/batch', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ budgets: toApply }),
+              body: JSON.stringify({ month, budgets: toApply }),
             }).then((r) => { if (!r.ok) throw new Error(); })
           : Promise.resolve(),
         ...toDelete.map((categoryId) =>

@@ -8,12 +8,22 @@ export class UpsertBudgetUseCase {
     private readonly categoryRepo: ICategoryRepository,
   ) {}
 
-  async execute(userId: string, categoryId: string, monthlyAmount: number): Promise<BudgetResponseDTO> {
+  async execute(
+    userId: string,
+    categoryId: string,
+    monthlyAmount: number,
+    month: string,
+  ): Promise<BudgetResponseDTO> {
     const category = await this.categoryRepo.findById(categoryId);
     if (!category || category.userId !== userId) {
       throw new Error('Category not found');
     }
-    const budget = await this.budgetRepo.upsert({ userId, categoryId, monthlyAmount });
-    return { id: budget.id, categoryId: budget.categoryId, monthlyAmount: budget.monthlyAmount };
+    const budget = await this.budgetRepo.upsert({ userId, categoryId, month, monthlyAmount });
+    return {
+      id: budget.id,
+      categoryId: budget.categoryId,
+      month: budget.month,
+      monthlyAmount: budget.monthlyAmount,
+    };
   }
 }
