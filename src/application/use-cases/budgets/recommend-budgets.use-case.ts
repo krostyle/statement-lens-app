@@ -164,35 +164,46 @@ export class RecommendBudgetsUseCase {
         trend = 'under';
       }
 
-      // ── Base amount ──────────────────────────────────────────────────────
-      // For sporadic: typical already amortised → apply light reduction
-      // For regular over-budget: 45% reduction (stricter than before) since
-      //   the "typical" is already outlier-trimmed → this is genuinely too much
-      // For under-budget: keep current, never inflate
-      let base: number;
-      if (item.sporadic) {
-        base = item.avgSpend * 1.1; // small buffer over amortised amount
-      } else if (trend === 'over') {
-        base = item.avgSpend * 0.65; // 35% reduction on robust avg
-      } else if (trend === 'under') {
-        base = item.currentBudget!;
-      } else {
-        base = item.avgSpend * 0.85; // 15% buffer for new categories
-      }
-
-      // ── Apply 50/30/20 ceiling (more aggressive if income is set) ────────
+      // ── Amount recommendation ────────────────────────────────────────────
+      //
+      // Two strictly separate paths — no arbitrary reduction percentages:
+      //
+      // A) Income defined → anchor everything to 50/30/20.
+      //    proportional = category's fair share of the needs or wants bucket.
+      //    Cap at typical spend so we never suggest MORE than they actually spend.
+      //    For under-budget: also cap at current budget (don't inflate what works).
+      //
+      // B) No income → reflect historical reality, no invented reductions.
+      //    "over" / "under": keep existing budget (they set a target, don't change it).
+      //    "none": use typical spend as the baseline (what they actually spend).
+      //    Sporadic "none": typical is already amortised (total/12), use it directly.
       let recommendedAmount: number;
+
       if (monthlyIncome && monthlyIncome > 0) {
-        const bucketBudget = c.bucket === 'needs' ? monthlyIncome * 0.5 : monthlyIncome * 0.3;
-        const bucketTotal = c.bucket === 'needs' ? needsTypicalTotal : wantsTypicalTotal;
-        // Proportional share of the bucket ceiling
+        // ── Path A: 50/30/20 ─────────────────────────────────────────────
+        const bucketRate   = c.bucket === 'needs' ? 0.5 : 0.3;
+        const bucketBudget = monthlyIncome * bucketRate;
+        const bucketTotal  = c.bucket === 'needs' ? needsTypicalTotal : wantsTypicalTotal;
         const proportional = bucketTotal > 0
           ? (item.avgSpend / bucketTotal) * bucketBudget
-          : base;
-        // Take the lower of savings-target base vs income-proportional ceiling
-        recommendedAmount = roundTo1000(Math.min(base, proportional));
+          : item.avgSpend;
+
+        if (trend === 'under') {
+          // Budget is already working — keep it, but show if 50/30/20 says less
+          recommendedAmount = roundTo1000(Math.min(item.currentBudget!, proportional));
+        } else {
+          // Over budget or no budget → aim for proportional share, never exceed typical
+          recommendedAmount = roundTo1000(Math.min(item.avgSpend, proportional));
+        }
       } else {
-        recommendedAmount = roundTo1000(base);
+        // ── Path B: no income — historical baseline only ──────────────────
+        if (trend === 'over' || trend === 'under') {
+          // User already set a budget — respect it, don't change it
+          recommendedAmount = roundTo1000(item.currentBudget!);
+        } else {
+          // No budget set — suggest what they actually spend (amortised if sporadic)
+          recommendedAmount = roundTo1000(item.avgSpend);
+        }
       }
 
       return {

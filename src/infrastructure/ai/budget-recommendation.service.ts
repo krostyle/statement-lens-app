@@ -38,7 +38,7 @@ export class BudgetRecommendationService {
         max_tokens: 2048,
         system: `Eres un asesor financiero experto en finanzas chilenas. ${incomeContext}
 
-Clasifica cada categoría y escribe una razón breve, concreta y orientada al ahorro.
+Clasifica cada categoría y escribe una razón breve (máx. 12 palabras) ajustada al contexto.
 
 Clasificación:
 - needs: necesidades básicas (vivienda, supermercado, transporte, salud, educación, servicios básicos)
@@ -48,11 +48,15 @@ Regla sobre el campo tipo:
 - Si tipo es 'needs' o 'wants': usa esa clasificación exacta.
 - Si tipo es 'undefined': clasifica por nombre y contexto.
 
-Regla sobre gastos esporádicos:
-- Si el gasto es "esporádico" (pocos meses activos): la razón debe aclarar que el monto sugerido ya refleja amortización anual del gasto excepcional, y que en meses normales se puede gastar menos.
+Regla sobre las razones según contexto:
 
-Regla sobre gastos altos sin presupuesto previo:
-- Menciona el nivel de gasto promedio típico y por qué conviene establecer un límite.
+${monthlyIncome
+  ? `CON INGRESO DEFINIDO: el monto sugerido viene de la regla 50/30/20 (necesidades 50%, gustos 30%, ahorro 20%).
+La razón debe explicar si la categoría cabe dentro de su cuota o si debe reducirse para cumplir la regla.`
+  : `SIN INGRESO DEFINIDO: el monto sugerido refleja el patrón histórico real de gasto, sin recortes inventados.
+La razón debe explicar que este es su gasto habitual y que definir un ingreso permitiría establecer metas de ahorro reales.`}
+
+Si el gasto es esporádico (pocos meses activos): menciona que el monto es una reserva mensual para cubrir el gasto anual de forma gradual.
 
 Responde ÚNICAMENTE con un JSON array. Sin texto previo. Sin markdown. Sin explicaciones.
 Ejemplo de formato: [{"categoryId":"abc","bucket":"wants","reason":"texto corto específico"}]`,
