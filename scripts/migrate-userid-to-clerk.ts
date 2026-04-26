@@ -67,9 +67,14 @@ async function main() {
   console.log('Updating Budget.userId...');
   await prisma.$executeRawUnsafe(`UPDATE "Budget" SET "userId" = $1`, clerkId);
 
-  // 3. Drop the old User table rows (cascade already handled FKs)
-  console.log('Removing old User records...');
-  await prisma.$executeRawUnsafe(`DELETE FROM "User"`);
+  // 3. Drop the old User table rows if it still exists
+  //    (the Prisma migration may have already dropped the table)
+  try {
+    console.log('Removing old User records...');
+    await prisma.$executeRawUnsafe(`DELETE FROM "User"`);
+  } catch {
+    console.log('  (User table already removed by migration — skipping)');
+  }
 
   console.log('\n✅  Migration complete!');
 }
