@@ -8,11 +8,24 @@ export interface BudgetClassification {
 
 export class BudgetRecommendationService {
   async classify(
-    categories: { categoryId: string; name: string; avgSpend: number; currentBudget: number | null; type: 'needs' | 'wants' | null }[],
+    categories: {
+      categoryId: string;
+      name: string;
+      avgSpend: number;
+      currentBudget: number | null;
+      type: 'needs' | 'wants' | null;
+      sporadic: boolean;
+      activeMonths: number;
+    }[],
     monthlyIncome: number | null
   ): Promise<BudgetClassification[]> {
     const input = categories
-      .map((c) => `${c.categoryId}|${c.name}|${Math.round(c.avgSpend)}|${c.currentBudget ?? 'null'}|${c.type ?? 'undefined'}`)
+      .map((c) => {
+        const spendInfo = c.sporadic
+          ? `gastoProm:${Math.round(c.avgSpend)} (esporádico, solo ${c.activeMonths} de 6 meses activo)`
+          : `gastoProm:${Math.round(c.avgSpend)} (${c.activeMonths} de 6 meses activo)`;
+        return `${c.categoryId}|${c.name}|${spendInfo}|presupuestoActual:${c.currentBudget ?? 'sin presupuesto'}|tipo:${c.type ?? 'undefined'}`;
+      })
       .join('\n');
 
     const incomeContext = monthlyIncome
@@ -25,22 +38,28 @@ export class BudgetRecommendationService {
         max_tokens: 2048,
         system: `Eres un asesor financiero experto en finanzas chilenas. ${incomeContext}
 
-Clasifica cada categoría de gasto y escribe una razón breve orientada al ahorro.
+Clasifica cada categoría y escribe una razón breve, concreta y orientada al ahorro.
 
 Clasificación:
-- needs: necesidades básicas (vivienda, alimentación en casa, transporte, salud, educación, servicios básicos)
+- needs: necesidades básicas (vivienda, supermercado, transporte, salud, educación, servicios básicos)
 - wants: gastos discrecionales (restaurantes, entretención, ropa, viajes, suscripciones, tecnología, bar)
 
-Regla importante sobre el campo tipo:
-- Si tipo es 'needs' o 'wants': DEBES usar esa clasificación exacta, solo escribe la razón.
-- Si tipo es 'undefined': clasifica según el nombre de la categoría y el contexto de gasto.
+Regla sobre el campo tipo:
+- Si tipo es 'needs' o 'wants': usa esa clasificación exacta.
+- Si tipo es 'undefined': clasifica por nombre y contexto.
+
+Regla sobre gastos esporádicos:
+- Si el gasto es "esporádico" (pocos meses activos): la razón debe aclarar que el monto sugerido ya refleja amortización anual del gasto excepcional, y que en meses normales se puede gastar menos.
+
+Regla sobre gastos altos sin presupuesto previo:
+- Menciona el nivel de gasto promedio típico y por qué conviene establecer un límite.
 
 Responde ÚNICAMENTE con un JSON array. Sin texto previo. Sin markdown. Sin explicaciones.
-Ejemplo de formato: [{"categoryId":"abc","bucket":"needs","reason":"texto corto"}]`,
+Ejemplo de formato: [{"categoryId":"abc","bucket":"wants","reason":"texto corto específico"}]`,
         messages: [
           {
             role: 'user',
-            content: `Clasifica estas categorías (id|nombre|gastoMensualPromedio|presupuestoActual|tipo):\n\n${input}`,
+            content: `Clasifica estas categorías:\n\n${input}`,
           },
         ],
       });
