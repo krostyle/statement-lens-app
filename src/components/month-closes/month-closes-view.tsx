@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Loader2, CalendarCheck, Trash2, ChevronRight,
   CheckCircle2, XCircle, Plus, TrendingUp, TrendingDown, Minus,
@@ -429,7 +430,7 @@ function CreateMonthCloseDialog({
               />
               {!preflight.checking && preflight.hasBudgets === false && (
                 <p className="text-xs text-zinc-400 pt-1">
-                  Ve a <span className="font-medium text-brand-600">Presupuestos</span> y define metas para este mes primero.
+                  Ve a <Link href="/budgets" className="font-medium text-brand-600 hover:underline">Presupuestos</Link> y define metas para este mes primero.
                 </p>
               )}
             </div>
