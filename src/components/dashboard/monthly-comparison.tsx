@@ -5,7 +5,6 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
 import { formatCurrency } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
-import type { MetricsFilterMode } from '@/src/adapters/presenters/metrics.presenter';
 
 interface Props {
   metricsUrl: string;
@@ -13,28 +12,22 @@ interface Props {
 
 export function MonthlyComparison({ metricsUrl }: Props) {
   const [data, setData] = useState<{ month: string; total: number }[]>([]);
-  const [filterMode, setFilterMode] = useState<MetricsFilterMode>('default');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     fetch(metricsUrl)
       .then((r) => r.ok ? r.json() : Promise.reject(r.status))
-      .then((m) => {
-        setData(m.monthlyTrend ?? []);
-        setFilterMode(m.filterMode ?? 'default');
-      })
+      .then((m) => setData(m.monthlyTrend ?? []))
       .catch(() => setData([]))
       .finally(() => setLoading(false));
   }, [metricsUrl]);
-
-  const title = filterMode === 'statement' ? 'Comparativa por estado de cuenta' : 'Comparativa mensual';
 
   if (loading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
+          <CardTitle>Comparativa mensual</CardTitle>
         </CardHeader>
         <CardContent>
           <Skeleton className="h-[240px] w-full" />
@@ -46,7 +39,7 @@ export function MonthlyComparison({ metricsUrl }: Props) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle>Comparativa mensual</CardTitle>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={240}>

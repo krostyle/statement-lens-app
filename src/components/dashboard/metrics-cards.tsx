@@ -53,11 +53,7 @@ export function MetricsCards({ metricsUrl }: Props) {
 
   if (!metrics) return null;
 
-  const isStatement = metrics.filterMode === 'statement';
   const isUp = metrics.percentChange > 0;
-
-  const currentLabel = isStatement ? 'Gasto este estado' : 'Gasto este mes';
-  const previousLabel = isStatement ? 'Estado anterior' : 'Mes anterior';
   const hasPrevious = metrics.previousMonthTotal > 0;
 
   return (
@@ -65,7 +61,7 @@ export function MetricsCards({ metricsUrl }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-sm font-medium text-zinc-500">
-            {currentLabel}
+            Gasto este mes
             <DollarSign className="h-4 w-4 text-zinc-400" />
           </CardTitle>
         </CardHeader>
@@ -74,7 +70,7 @@ export function MetricsCards({ metricsUrl }: Props) {
           {hasPrevious && (
             <p className={`mt-1 flex items-center gap-1 text-xs ${isUp ? 'text-red-500' : 'text-green-500'}`}>
               {isUp ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-              {Math.abs(metrics.percentChange).toFixed(1)}% vs {isStatement ? 'estado anterior' : 'mes anterior'}
+              {Math.abs(metrics.percentChange).toFixed(1)}% vs mes anterior
             </p>
           )}
         </CardContent>
@@ -83,13 +79,13 @@ export function MetricsCards({ metricsUrl }: Props) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between text-sm font-medium text-zinc-500">
-            {previousLabel}
+            Mes anterior
             <DollarSign className="h-4 w-4 text-zinc-400" />
           </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-2xl font-bold text-zinc-900">
-            {hasPrevious ? formatCurrency(metrics.previousMonthTotal) : <span className="text-zinc-400 text-base">Sin estado anterior</span>}
+            {hasPrevious ? formatCurrency(metrics.previousMonthTotal) : <span className="text-zinc-400 text-base">Sin datos</span>}
           </p>
         </CardContent>
       </Card>

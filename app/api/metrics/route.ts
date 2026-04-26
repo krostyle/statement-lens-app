@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { transactionRepo, statementRepo } from '@/src/infrastructure/container';
+import { transactionRepo } from '@/src/infrastructure/container';
 import { buildMetrics } from '@/src/adapters/presenters/metrics.presenter';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
@@ -22,44 +22,8 @@ export async function GET(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const statementId = searchParams.get('statementId');
   const monthParam = searchParams.get('month');
   const now = new Date();
-
-  if (statementId) {
-    // ── Statement mode ───────────────────────────────────────────────────
-    const stmt = await statementRepo.findById(statementId);
-    if (!stmt || stmt.userId !== userId) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    // Find previous statement from the same bank (ordered by month asc)
-    const allStatements = await statementRepo.findByUserId(userId);
-    const bankStatements = allStatements
-      .filter((s) => s.bank === stmt.bank)
-      .sort((a, b) => a.month.localeCompare(b.month));
-    const idx = bankStatements.findIndex((s) => s.id === statementId);
-    const prevStmt = idx > 0 ? bankStatements[idx - 1] : null;
-
-    // Load transactions by statementId — no date re-filtering, gets the real total
-    const [currentTxs, previousTxs] = await Promise.all([
-      transactionRepo.findByUserId(userId, { statementId }),
-      prevStmt
-        ? transactionRepo.findByUserId(userId, { statementId: prevStmt.id })
-        : Promise.resolve([]),
-    ]);
-
-    return NextResponse.json(
-      buildMetrics({
-        currentTxs,
-        previousTxs,
-        currentPeriod: stmt.month,
-        previousPeriod: prevStmt?.month ?? '',
-        scopeTxs: currentTxs, // categories/merchants scoped to current statement
-        filterMode: 'statement',
-      })
-    );
-  }
 
   if (monthParam) {
     // ── Month mode ───────────────────────────────────────────────────────
@@ -74,7 +38,6 @@ export async function GET(request: Request) {
         currentTxs: filterByMonth(allTxs, currentPeriod),
         previousTxs: filterByMonth(allTxs, previousPeriod),
         currentPeriod,
-        previousPeriod,
         scopeTxs: allTxs,
         filterMode: 'month',
       })
@@ -92,7 +55,6 @@ export async function GET(request: Request) {
       currentTxs: filterByMonth(allTxs, currentPeriod),
       previousTxs: filterByMonth(allTxs, previousPeriod),
       currentPeriod,
-      previousPeriod,
       scopeTxs: allTxs,
       filterMode: 'default',
     })

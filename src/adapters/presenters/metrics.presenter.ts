@@ -6,7 +6,7 @@ import {
   detectSubscriptions,
 } from '@/src/domain/services/transaction.service';
 
-export type MetricsFilterMode = 'default' | 'statement' | 'month';
+export type MetricsFilterMode = 'default' | 'month';
 
 export interface MetricsDTO {
   filterMode: MetricsFilterMode;
@@ -27,17 +27,11 @@ export function buildMetrics(params: {
   previousTxs: Transaction[];
   /** Label for the current period (YYYY-MM). */
   currentPeriod: string;
-  /** Label for the previous period (YYYY-MM or ''). */
-  previousPeriod: string;
-  /**
-   * All transactions in scope for trend chart, merchants, categories.
-   * In statement mode: currentTxs only (analysis focused on current statement).
-   * In default/month mode: full history window.
-   */
+  /** All transactions in scope for trend chart, merchants, categories. */
   scopeTxs: Transaction[];
   filterMode: MetricsFilterMode;
 }): MetricsDTO {
-  const { currentTxs, previousTxs, currentPeriod, previousPeriod, scopeTxs, filterMode } = params;
+  const { currentTxs, previousTxs, currentPeriod, scopeTxs, filterMode } = params;
 
   const currentMonthTotal = calculateTotalExpenses(currentTxs);
   const previousMonthTotal = calculateTotalExpenses(previousTxs);
@@ -50,18 +44,7 @@ export function buildMetrics(params: {
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const dailyAverage = currentMonthTotal / daysInMonth;
 
-  // In statement mode, chart shows exactly 2 bars (previous vs current statement).
-  // In other modes, group by month over the full history window.
-  let monthlyTrend: { month: string; total: number }[];
-  if (filterMode === 'statement') {
-    monthlyTrend = [];
-    if (previousPeriod && previousMonthTotal > 0) {
-      monthlyTrend.push({ month: previousPeriod, total: previousMonthTotal });
-    }
-    monthlyTrend.push({ month: currentPeriod, total: currentMonthTotal });
-  } else {
-    monthlyTrend = groupByMonth(scopeTxs);
-  }
+  const monthlyTrend = groupByMonth(scopeTxs);
 
   // categories & merchants → always scoped to the selected period
   const analysisTxs = currentTxs;
