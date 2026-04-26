@@ -1,14 +1,15 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
-import { userRepo } from '@/src/infrastructure/container';
+import { auth } from '@clerk/nextjs/server';
+import { userProfileRepo } from '@/src/infrastructure/container';
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const user = await userRepo.findById(session.user.id);
-  return NextResponse.json({ monthlyIncome: user?.monthlyIncome ?? null });
+  await userProfileRepo.ensureExists(userId);
+  const profile = await userProfileRepo.findById(userId);
+  return NextResponse.json({ monthlyIncome: profile?.monthlyIncome ?? null });
 }
 
 const schema = z.object({
@@ -16,8 +17,8 @@ const schema = z.object({
 });
 
 export async function PATCH(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -25,6 +26,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Monto inválido' }, { status: 400 });
   }
 
-  const user = await userRepo.updateIncome(session.user.id, parsed.data.monthlyIncome);
-  return NextResponse.json({ monthlyIncome: user.monthlyIncome });
+  const profile = await userProfileRepo.updateIncome(userId, parsed.data.monthlyIncome);
+  return NextResponse.json({ monthlyIncome: profile.monthlyIncome });
 }

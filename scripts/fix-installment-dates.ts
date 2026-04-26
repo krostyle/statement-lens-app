@@ -13,21 +13,25 @@
  *   npx tsx scripts/fix-installment-dates.ts --apply  # commit changes to DB
  */
 
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { PrismaClient } from "@prisma/client";
+import { PrismaPg } from "@prisma/adapter-pg";
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
-  console.error('❌  DATABASE_URL is not set. Set it before running this script.');
+  console.error(
+    "❌  DATABASE_URL is not set. Set it before running this script.",
+  );
   process.exit(1);
 }
 
 const adapter = new PrismaPg({ connectionString });
 const prisma = new PrismaClient({ adapter });
-const DRY_RUN = !process.argv.includes('--apply');
+const DRY_RUN = !process.argv.includes("--apply");
 
 async function main() {
-  console.log(`\n🔍 Mode: ${DRY_RUN ? 'DRY-RUN (no changes written)' : '✅ APPLY (writing to DB)'}\n`);
+  console.log(
+    `\n🔍 Mode: ${DRY_RUN ? "DRY-RUN (no changes written)" : "✅ APPLY (writing to DB)"}\n`,
+  );
 
   // Fetch every installment transaction that belongs to a statement
   const txs = await prisma.transaction.findMany({
@@ -38,7 +42,7 @@ async function main() {
     include: {
       statement: { select: { month: true, bank: true } },
     },
-    orderBy: [{ statement: { month: 'asc' } }, { merchant: 'asc' }],
+    orderBy: [{ statement: { month: "asc" } }, { merchant: "asc" }],
   });
 
   console.log(`Found ${txs.length} installment transactions\n`);
@@ -50,12 +54,12 @@ async function main() {
     const stmtMonth = tx.statement?.month; // e.g. "2026-01"
     if (!stmtMonth) continue;
 
-    const [year, month] = stmtMonth.split('-').map(Number);
+    const [year, month] = stmtMonth.split("-").map(Number);
     // Canonical billing date: 1st of the statement month, UTC midnight
     const billingDate = new Date(Date.UTC(year, month - 1, 1));
 
     const currentDate = new Date(tx.date);
-    const currentYM = `${currentDate.getUTCFullYear()}-${String(currentDate.getUTCMonth() + 1).padStart(2, '0')}`;
+    const currentYM = `${currentDate.getUTCFullYear()}-${String(currentDate.getUTCMonth() + 1).padStart(2, "0")}`;
 
     if (currentYM === stmtMonth) {
       alreadyCorrect++;
@@ -63,9 +67,9 @@ async function main() {
     }
 
     console.log(
-      `  [${tx.statement?.bank ?? '?'}] ${stmtMonth} | ${tx.merchant.padEnd(35)} ` +
-      `cuota ${tx.installmentNum}/${tx.installmentTotal} | ` +
-      `${currentDate.toISOString().slice(0, 10)} → ${billingDate.toISOString().slice(0, 10)}`
+      `  [${tx.statement?.bank ?? "?"}] ${stmtMonth} | ${tx.merchant.padEnd(35)} ` +
+        `cuota ${tx.installmentNum}/${tx.installmentTotal} | ` +
+        `${currentDate.toISOString().slice(0, 10)} → ${billingDate.toISOString().slice(0, 10)}`,
     );
 
     if (!DRY_RUN) {
@@ -90,5 +94,8 @@ async function main() {
 }
 
 main()
-  .catch((e) => { console.error(e); process.exit(1); })
+  .catch((e) => {
+    console.error(e);
+    process.exit(1);
+  })
   .finally(() => prisma.$disconnect());

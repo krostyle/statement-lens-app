@@ -6,20 +6,16 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id               String        @id @default(uuid())
-  email            String        @unique
-  password         String
-  name             String?
-  resetToken       String?
-  resetTokenExpiry DateTime?
-  monthlyIncome    Int?
-  createdAt        DateTime      @default(now())
-  updatedAt        DateTime      @updatedAt
-  statements       Statement[]
-  categories       Category[]
-  transactions     Transaction[]
-  budgets          Budget[]
+/// Clerk user profile — stores only app-specific data.
+/// Clerk manages authentication (email, password, sessions).
+/// clerkId matches the Clerk user ID (format: "user_xxxx").
+model UserProfile {
+  clerkId       String  @id
+  monthlyIncome Int?
+  statements    Statement[]
+  categories    Category[]
+  transactions  Transaction[]
+  budgets       Budget[]
 }
 
 model Statement {
@@ -34,7 +30,7 @@ model Statement {
   errorMessage String?
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   transactions Transaction[]
 }
 
@@ -48,7 +44,7 @@ model Category {
   isDefault    Boolean       @default(false)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   transactions Transaction[]
   budgets      Budget[]
 
@@ -56,20 +52,20 @@ model Category {
 }
 
 model Budget {
-  id            String   @id @default(uuid())
+  id            String      @id @default(uuid())
   userId        String
   categoryId    String
   monthlyAmount Float
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  category      Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  user          UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([userId, categoryId])
 }
 
 model Transaction {
-  id               String     @id @default(uuid())
+  id               String      @id @default(uuid())
   userId           String
   statementId      String?
   categoryId       String
@@ -77,14 +73,14 @@ model Transaction {
   description      String
   merchant         String
   amount           Float
-  currency         String     @default("CLP")
-  isInstallment    Boolean    @default(false)
+  currency         String      @default("CLP")
+  isInstallment    Boolean     @default(false)
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
-  user             User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  statement        Statement? @relation(fields: [statementId], references: [id], onDelete: Cascade)
-  category         Category   @relation(fields: [categoryId], references: [id])
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  statement        Statement?  @relation(fields: [statementId], references: [id], onDelete: Cascade)
+  category         Category    @relation(fields: [categoryId], references: [id])
 }

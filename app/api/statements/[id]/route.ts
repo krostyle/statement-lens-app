@@ -1,30 +1,30 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { statementRepo, s3Service, updateStatementUseCase } from '@/src/infrastructure/container';
 import { updateStatementSchema } from '@/src/lib/validations/statement.schema';
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
   const statement = await statementRepo.findById(id);
   if (!statement) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-  if (statement.userId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  if (statement.userId !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   return NextResponse.json(statement);
 }
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { id } = await params;
     const parsed = updateStatementSchema.safeParse(await request.json());
     if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-    const result = await updateStatementUseCase.execute(id, session.user.id, parsed.data);
+    const result = await updateStatementUseCase.execute(id, userId, parsed.data);
     return NextResponse.json(result);
   } catch (error) {
     const msg = error instanceof Error ? error.message : '';
@@ -37,14 +37,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { id } = await params;
     const statement = await statementRepo.findById(id);
     if (!statement) return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    if (statement.userId !== session.user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (statement.userId !== userId) return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
     await s3Service.delete(statement.s3Key);
     await statementRepo.delete(id);

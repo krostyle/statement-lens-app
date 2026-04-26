@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, statementRepo } from '@/src/infrastructure/container';
 import { buildMetrics } from '@/src/adapters/presenters/metrics.presenter';
 import type { Transaction } from '@/src/domain/entities/transaction';
@@ -18,13 +18,12 @@ function filterByMonth(txs: Transaction[], month: string) {
 }
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
   const statementId = searchParams.get('statementId');
   const monthParam = searchParams.get('month');
-  const userId = session.user.id;
   const now = new Date();
 
   if (statementId) {

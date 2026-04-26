@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { updateTransactionSchema } from '@/src/lib/validations/transaction.schema';
 import { updateTransactionUseCase, deleteTransactionUseCase } from '@/src/infrastructure/container';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { id } = await params;
@@ -14,7 +14,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
-    const transaction = await updateTransactionUseCase.execute(id, session.user.id, parsed.data);
+    const transaction = await updateTransactionUseCase.execute(id, userId, parsed.data);
     return NextResponse.json(transaction);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error';
@@ -24,12 +24,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const { id } = await params;
-    await deleteTransactionUseCase.execute(id, session.user.id);
+    await deleteTransactionUseCase.execute(id, userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error';

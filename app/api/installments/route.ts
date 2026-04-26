@@ -1,13 +1,12 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
 import type { Prisma } from '@prisma/client';
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const userId = session.user.id;
   const { searchParams } = new URL(request.url);
   const statementId = searchParams.get('statementId');
   const month = searchParams.get('month');

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { upsertBudgetUseCase } from '@/src/infrastructure/container';
 
 const schema = z.object({
@@ -15,8 +15,8 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
 
   const results = await Promise.all(
     parsed.data.budgets.map((b) =>
-      upsertBudgetUseCase.execute(session.user.id, b.categoryId, b.monthlyAmount)
+      upsertBudgetUseCase.execute(userId, b.categoryId, b.monthlyAmount)
     )
   );
 

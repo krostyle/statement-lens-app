@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
-import { listStatementsUseCase, s3Service, statementRepo } from '@/src/infrastructure/container';
+import { auth } from '@clerk/nextjs/server';
+import { listStatementsUseCase, s3Service, statementRepo, userProfileRepo } from '@/src/infrastructure/container';
 import { processStatement } from './_process-statement';
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const statements = await listStatementsUseCase.execute(session.user.id);
+  const statements = await listStatementsUseCase.execute(userId);
   return NextResponse.json(statements);
 }
 
 export async function POST(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
     const formData = await request.formData();
@@ -28,7 +28,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid bank. Use santander, falabella or liderbci' }, { status: 400 });
     }
 
-    const existing = await statementRepo.findByUserId(session.user.id);
+    await userProfileRepo.ensureExists(userId);
+    const existing = await statementRepo.findByUserId(userId);
     const duplicate = existing.find((s) => s.bank === bank && s.month === month);
     if (duplicate) {
       return NextResponse.json(
@@ -40,11 +41,11 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(await file.arrayBuffer());
     const statementId = crypto.randomUUID();
     const normalizedFileName = `${bank}_${month}.pdf`;
-    const s3Key = `${session.user.id}/${statementId}/${normalizedFileName}`;
+    const s3Key = `${userId}/${statementId}/${normalizedFileName}`;
     const s3Url = await s3Service.upload(s3Key, buffer);
 
     const statement = await statementRepo.create({
-      userId: session.user.id,
+      userId: userId,
       bank: bank as 'santander' | 'falabella' | 'liderbci',
       month,
       fileName: normalizedFileName,
@@ -53,7 +54,7 @@ export async function POST(request: Request) {
     });
 
     // Process asynchronously (fire and forget)
-    processStatement(statement.id, session.user.id, buffer, bank, month).catch(console.error);
+    processStatement(statement.id, userId, buffer, bank, month).catch(console.error);
 
     return NextResponse.json({
       id: statement.id,

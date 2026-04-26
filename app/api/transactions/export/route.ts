@@ -1,4 +1,4 @@
-import { auth } from '@/src/infrastructure/auth/nextauth.config';
+import { auth } from '@clerk/nextjs/server';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
 import type { Prisma } from '@prisma/client';
 
@@ -12,13 +12,12 @@ function escapeCsv(value: string | number | boolean | null | undefined): string 
 }
 
 export async function GET(request: Request) {
-  const session = await auth();
-  if (!session?.user?.id) {
+  const { userId } = await auth();
+  if (!userId) {
     return new Response('Unauthorized', { status: 401 });
   }
 
   const { searchParams } = new URL(request.url);
-  const userId = session.user.id;
 
   const where: Prisma.TransactionWhereInput = { userId };
 

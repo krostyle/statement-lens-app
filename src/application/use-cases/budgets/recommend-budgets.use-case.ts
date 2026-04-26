@@ -1,7 +1,7 @@
 import type { ITransactionRepository } from '@/src/domain/repositories/transaction.repository';
 import type { ICategoryRepository } from '@/src/domain/repositories/category.repository';
 import type { IBudgetRepository } from '@/src/domain/repositories/budget.repository';
-import type { IUserRepository } from '@/src/domain/repositories/user.repository';
+import type { UserProfilePrismaRepository } from '@/src/infrastructure/database/repositories/user-profile.prisma.repository';
 import type { BudgetRecommendationService } from '@/src/infrastructure/ai/budget-recommendation.service';
 
 export interface BudgetRecommendationDTO {
@@ -23,7 +23,7 @@ export class RecommendBudgetsUseCase {
     private readonly transactionRepo: ITransactionRepository,
     private readonly categoryRepo: ICategoryRepository,
     private readonly budgetRepo: IBudgetRepository,
-    private readonly userRepo: IUserRepository,
+    private readonly userProfileRepo: UserProfilePrismaRepository,
     private readonly budgetRecommendationService: BudgetRecommendationService
   ) {}
 
@@ -35,7 +35,7 @@ export class RecommendBudgetsUseCase {
       this.transactionRepo.findByUserId(userId, { from }),
       this.categoryRepo.findByUserId(userId),
       this.budgetRepo.findByUserId(userId),
-      this.userRepo.findById(userId),
+      this.userProfileRepo.findById(userId),
     ]);
 
     const monthlyIncome = user?.monthlyIncome ?? null;

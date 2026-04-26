@@ -2,10 +2,9 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useSession } from 'next-auth/react';
+import { useClerk, useUser } from '@clerk/nextjs';
 import { useState } from 'react';
 import { LayoutDashboard, ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, X } from 'lucide-react';
-import { signOut } from 'next-auth/react';
 import {
   Sidebar,
   SidebarContent,
@@ -30,16 +29,17 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { data: session } = useSession();
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const [signingOut, setSigningOut] = useState(false);
   const { setOpenMobile, isMobile } = useSidebar();
 
-  const displayName = session?.user?.name ?? session?.user?.email ?? 'Usuario';
+  const displayName = user?.fullName ?? user?.emailAddresses?.[0]?.emailAddress ?? 'Usuario';
   const initial = displayName[0].toUpperCase();
 
   const handleSignOut = async () => {
     setSigningOut(true);
-    await signOut({ callbackUrl: '/login' });
+    await signOut({ redirectUrl: '/sign-in' });
   };
 
   return (
