@@ -1,7 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2, CalendarCheck, Trash2, ChevronRight, CheckCircle2, XCircle, Plus } from 'lucide-react';
+import {
+  Loader2, CalendarCheck, Trash2, ChevronRight,
+  CheckCircle2, XCircle, Plus, TrendingUp, TrendingDown, Minus,
+} from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
@@ -32,15 +35,45 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+function prevMonthStr(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// ─────────────────────────────────────────────────────────
+// Simple inline markdown renderer (handles **bold** and line breaks)
+// ─────────────────────────────────────────────────────────
+function MarkdownText({ text }: { text: string }) {
+  return (
+    <div className="space-y-1.5">
+      {text.split('\n').filter(Boolean).map((line, i) => {
+        const parts = line.split(/(\*\*[^*]+\*\*)/g);
+        return (
+          <p key={i} className="text-sm text-zinc-700 leading-relaxed">
+            {parts.map((part, j) =>
+              part.startsWith('**') && part.endsWith('**')
+                ? <strong key={j} className="font-semibold text-zinc-900">{part.slice(2, -2)}</strong>
+                : <span key={j}>{part}</span>
+            )}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────
 // Detail dialog
 // ─────────────────────────────────────────────────────────
 function MonthCloseDetail({
   mc,
+  previousClose,
   onClose,
   onDeleted,
 }: {
   mc: MonthClose;
+  previousClose: MonthClose | null;
   onClose: () => void;
   onDeleted: () => void;
 }) {
@@ -54,6 +87,24 @@ function MonthCloseDetail({
   const underCategories = mc.summary.filter((s: CategorySummary) => !s.isOverBudget);
   const diff = mc.totalBudget - mc.totalSpent;
   const isOver = mc.totalSpent > mc.totalBudget;
+
+  // Comparison with previous close
+  const hasPrev = previousClose !== null;
+  const spentChange = hasPrev && previousClose!.totalSpent > 0
+    ? ((mc.totalSpent - previousClose!.totalSpent) / previousClose!.totalSpent) * 100
+    : null;
+
+  // Category changes vs previous close
+  const categoryChanges = hasPrev
+    ? mc.summary.map((s) => {
+        const prev = previousClose!.summary.find((p) => p.categoryId === s.categoryId);
+        if (!prev || prev.spent === 0) return null;
+        const change = ((s.spent - prev.spent) / prev.spent) * 100;
+        return { categoryName: s.categoryName, spent: s.spent, prevSpent: prev.spent, change };
+      }).filter((c): c is NonNullable<typeof c> => c !== null)
+        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+        .slice(0, 4)
+    : [];
 
   const handleSaveNotes = async () => {
     setSavingNotes(true);
@@ -119,6 +170,50 @@ function MonthCloseDetail({
         )}
       </div>
 
+      {/* Comparison with previous close */}
+      {hasPrev && (
+        <div>
+          <p className="text-sm font-semibold text-zinc-700 mb-2">
+            Vs. {formatMonth(previousClose!.month)} (cierre anterior)
+          </p>
+          <div className="rounded-xl border border-zinc-200 bg-zinc-50 p-3 space-y-2">
+            {/* Total change */}
+            {spentChange !== null && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-zinc-600 font-medium">Gasto total</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-zinc-500 text-xs">{formatCurrency(previousClose!.totalSpent)} → {formatCurrency(mc.totalSpent)}</span>
+                  <span className={`flex items-center gap-0.5 font-semibold text-xs px-1.5 py-0.5 rounded-full ${
+                    spentChange > 0 ? 'bg-red-100 text-red-700' : spentChange < 0 ? 'bg-emerald-100 text-emerald-700' : 'bg-zinc-100 text-zinc-600'
+                  }`}>
+                    {spentChange > 0 ? <TrendingUp className="h-3 w-3" /> : spentChange < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+                    {spentChange > 0 ? '+' : ''}{spentChange.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+            )}
+            {/* Category changes */}
+            {categoryChanges.length > 0 && (
+              <div className="pt-1 border-t border-zinc-200 space-y-1.5">
+                {categoryChanges.map((c) => (
+                  <div key={c.categoryName} className="flex items-center justify-between text-xs">
+                    <span className="text-zinc-600 truncate max-w-[120px]">{c.categoryName}</span>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-zinc-400">{formatCurrency(c.prevSpent)} → {formatCurrency(c.spent)}</span>
+                      <span className={`flex items-center gap-0.5 font-medium px-1 py-0.5 rounded-full ${
+                        c.change > 5 ? 'bg-red-100 text-red-600' : c.change < -5 ? 'bg-emerald-100 text-emerald-600' : 'bg-zinc-100 text-zinc-500'
+                      }`}>
+                        {c.change > 0 ? '+' : ''}{c.change.toFixed(0)}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Category breakdown */}
       <div>
         <p className="text-sm font-semibold text-zinc-700 mb-2">Desglose por categoría</p>
@@ -162,7 +257,7 @@ function MonthCloseDetail({
       <div>
         <p className="text-sm font-semibold text-zinc-700 mb-2">Sugerencias IA para el próximo mes</p>
         <div className="rounded-xl border border-brand-100 bg-brand-50 p-4">
-          <p className="text-sm text-zinc-700 whitespace-pre-line leading-relaxed">{mc.aiSuggestions}</p>
+          <MarkdownText text={mc.aiSuggestions} />
         </div>
       </div>
 
@@ -203,8 +298,31 @@ function MonthCloseDetail({
 }
 
 // ─────────────────────────────────────────────────────────
+// Requirement row helper
+// ─────────────────────────────────────────────────────────
+function Requirement({ label, status }: { label: string; status: 'loading' | 'ok' | 'fail' }) {
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-zinc-400 shrink-0" />}
+      {status === 'ok'      && <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />}
+      {status === 'fail'    && <XCircle className="h-4 w-4 text-red-500 shrink-0" />}
+      <span className={status === 'fail' ? 'text-red-600' : 'text-zinc-600'}>{label}</span>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // Create dialog
 // ─────────────────────────────────────────────────────────
+interface Preflight {
+  checking: boolean;
+  hasTransactions: boolean | null;
+  hasBudgets: boolean | null;
+  alreadyClosed: boolean | null;
+  transactionCount: number;
+  budgetCount: number;
+}
+
 function CreateMonthCloseDialog({
   onClose,
   onCreated,
@@ -215,9 +333,33 @@ function CreateMonthCloseDialog({
   const [month, setMonth] = useState(currentMonth);
   const [phase, setPhase] = useState<'select' | 'loading' | 'error'>('select');
   const [errorMsg, setErrorMsg] = useState('');
+  const [preflight, setPreflight] = useState<Preflight>({
+    checking: false,
+    hasTransactions: null,
+    hasBudgets: null,
+    alreadyClosed: null,
+    transactionCount: 0,
+    budgetCount: 0,
+  });
+
+  // Check requirements whenever month changes
+  useEffect(() => {
+    if (!month) return;
+    setPreflight((p) => ({ ...p, checking: true }));
+    fetch(`/api/month-closes/preflight?month=${month}`)
+      .then((r) => r.json())
+      .then((d) => setPreflight({ checking: false, ...d }))
+      .catch(() => setPreflight((p) => ({ ...p, checking: false })));
+  }, [month]);
+
+  const canClose =
+    !preflight.checking &&
+    preflight.hasTransactions === true &&
+    preflight.hasBudgets === true &&
+    preflight.alreadyClosed === false;
 
   const handleCreate = async () => {
-    if (!month) return;
+    if (!canClose) return;
     setPhase('loading');
     setErrorMsg('');
     try {
@@ -248,22 +390,59 @@ function CreateMonthCloseDialog({
         <>
           <div className="space-y-4 py-2">
             <p className="text-sm text-zinc-500">
-              Selecciona el mes a cerrar. El sistema generará un resumen de cumplimiento de presupuestos
-              y sugerencias con IA para el próximo mes.
+              Selecciona el mes a cerrar. Se generará un resumen de presupuestos y sugerencias con IA.
             </p>
             <div className="space-y-1.5">
               <p className="text-sm font-medium text-zinc-700">Mes a cerrar</p>
               <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} />
             </div>
-            <div className="rounded-lg border border-zinc-100 bg-zinc-50 p-3 text-xs text-zinc-500 space-y-1">
-              <p>✓ Requiere al menos 1 transacción en el mes</p>
-              <p>✓ Requiere presupuestos definidos para el mes</p>
-              <p>✓ Genera sugerencias con IA (puede tardar unos segundos)</p>
+
+            {/* Requirements checklist */}
+            <div className="rounded-lg border border-zinc-200 bg-zinc-50 p-3 space-y-2">
+              <p className="text-xs font-medium text-zinc-500 mb-1">Requisitos</p>
+              <Requirement
+                label={
+                  preflight.checking ? 'Verificando transacciones…'
+                  : preflight.hasTransactions
+                    ? `${preflight.transactionCount} transacciones en el mes`
+                    : 'Sin transacciones en este mes'
+                }
+                status={preflight.checking ? 'loading' : preflight.hasTransactions ? 'ok' : 'fail'}
+              />
+              <Requirement
+                label={
+                  preflight.checking ? 'Verificando presupuestos…'
+                  : preflight.hasBudgets
+                    ? `${preflight.budgetCount} presupuesto${preflight.budgetCount !== 1 ? 's' : ''} definido${preflight.budgetCount !== 1 ? 's' : ''}`
+                    : 'No hay presupuestos para este mes'
+                }
+                status={preflight.checking ? 'loading' : preflight.hasBudgets ? 'ok' : 'fail'}
+              />
+              <Requirement
+                label={
+                  preflight.checking ? 'Verificando cierre previo…'
+                  : preflight.alreadyClosed === false
+                    ? 'Mes sin cerrar'
+                    : 'Este mes ya fue cerrado'
+                }
+                status={preflight.checking ? 'loading' : preflight.alreadyClosed === false ? 'ok' : 'fail'}
+              />
+              {!preflight.checking && preflight.hasBudgets === false && (
+                <p className="text-xs text-zinc-400 pt-1">
+                  Ve a <span className="font-medium text-brand-600">Presupuestos</span> y define metas para este mes primero.
+                </p>
+              )}
             </div>
+
+            <p className="text-xs text-zinc-400">
+              ✦ La IA analizará el mes y generará sugerencias. Puede tardar unos segundos.
+            </p>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleCreate} disabled={!month}>Cerrar mes</Button>
+            <Button onClick={handleCreate} disabled={!canClose}>
+              Cerrar mes
+            </Button>
           </DialogFooter>
         </>
       )}
@@ -325,6 +504,11 @@ export function MonthClosesView() {
     setSelected(null);
   };
 
+  // Find the close for the calendar month before the selected one
+  const previousClose = selected
+    ? closes.find((c) => c.month === prevMonthStr(selected.month)) ?? null
+    : null;
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -352,6 +536,7 @@ export function MonthClosesView() {
         {selected && (
           <MonthCloseDetail
             mc={selected}
+            previousClose={previousClose}
             onClose={() => setSelected(null)}
             onDeleted={handleDeleted}
           />
@@ -391,6 +576,11 @@ export function MonthClosesView() {
             const isOver = mc.totalSpent > mc.totalBudget;
             const overCount = mc.summary.filter((s: CategorySummary) => s.isOverBudget).length;
             const diff = Math.abs(mc.totalBudget - mc.totalSpent);
+            // Comparison badge for list cards
+            const prev = closes.find((c) => c.month === prevMonthStr(mc.month));
+            const listChange = prev && prev.totalSpent > 0
+              ? ((mc.totalSpent - prev.totalSpent) / prev.totalSpent) * 100
+              : null;
 
             return (
               <Card
@@ -405,6 +595,14 @@ export function MonthClosesView() {
                       {formatMonth(mc.month)}
                     </CardTitle>
                     <div className="flex items-center gap-2">
+                      {listChange !== null && (
+                        <span className={`text-xs font-medium flex items-center gap-0.5 px-1.5 py-0.5 rounded-full ${
+                          listChange > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
+                        }`}>
+                          {listChange > 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                          {listChange > 0 ? '+' : ''}{listChange.toFixed(0)}% vs anterior
+                        </span>
+                      )}
                       {isOver ? (
                         <Badge className="bg-red-100 text-red-700 border-red-200">
                           <XCircle className="h-3 w-3 mr-1" />
