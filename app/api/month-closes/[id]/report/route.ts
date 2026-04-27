@@ -554,7 +554,7 @@ function generateReportHtml(
 
     <!-- Action bar (hidden on print) -->
     <div class="action-bar">
-      <button class="btn" onclick="history.back()">← Volver</button>
+      <button class="btn" onclick="window.close()">✕ Cerrar pestaña</button>
       <button class="btn btn-primary" onclick="window.print()">🖨&nbsp; Imprimir / Guardar como PDF</button>
     </div>
 
