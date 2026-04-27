@@ -65,6 +65,14 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     return prisma.transaction.update({ where: { id }, data }) as Promise<Transaction>;
   }
 
+  async updateMany(ids: string[], userId: string, data: UpdateTransactionInput): Promise<number> {
+    const result = await prisma.transaction.updateMany({
+      where: { id: { in: ids }, userId },
+      data,
+    });
+    return result.count;
+  }
+
   async delete(id: string): Promise<void> {
     await prisma.transaction.delete({ where: { id } });
   }

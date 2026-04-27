@@ -19,6 +19,7 @@ import { ListCategoriesUseCase } from '@/src/application/use-cases/categories/li
 import { CreateTransactionUseCase } from '@/src/application/use-cases/transactions/create-transaction.use-case';
 import { UpdateTransactionUseCase } from '@/src/application/use-cases/transactions/update-transaction.use-case';
 import { DeleteTransactionUseCase } from '@/src/application/use-cases/transactions/delete-transaction.use-case';
+import { BulkUpdateTransactionsUseCase } from '@/src/application/use-cases/transactions/bulk-update-transactions.use-case';
 import { ListTransactionsUseCase } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 import { ListStatementsUseCase } from '@/src/application/use-cases/statements/list-statements.use-case';
 import { UpdateStatementUseCase } from '@/src/application/use-cases/statements/update-statement.use-case';
@@ -53,6 +54,7 @@ export const listCategoriesUseCase = new ListCategoriesUseCase(categoryRepo);
 export const createTransactionUseCase = new CreateTransactionUseCase(transactionRepo, categoryRepo);
 export const updateTransactionUseCase = new UpdateTransactionUseCase(transactionRepo);
 export const deleteTransactionUseCase = new DeleteTransactionUseCase(transactionRepo);
+export const bulkUpdateTransactionsUseCase = new BulkUpdateTransactionsUseCase(transactionRepo, categoryRepo);
 export const listTransactionsUseCase = new ListTransactionsUseCase(transactionRepo);
 
 export const listStatementsUseCase = new ListStatementsUseCase(statementRepo);

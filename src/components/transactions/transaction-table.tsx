@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download } from 'lucide-react';
+import { useEffect, useState, useCallback, useRef } from 'react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
@@ -28,6 +28,112 @@ const BANK_LABELS: Record<string, string> = {
   liderbci: 'LiderBCI',
 };
 
+// ─────────────────────────────────────────────────────────
+// Bulk dialogs
+// ─────────────────────────────────────────────────────────
+
+function BulkCategoryDialog({
+  count,
+  categories,
+  onApply,
+  onClose,
+}: {
+  count: number;
+  categories: CategoryResponseDTO[];
+  onApply: (categoryId: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [categoryId, setCategoryId] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleApply = async () => {
+    if (!categoryId) return;
+    setLoading(true);
+    await onApply(categoryId);
+    setLoading(false);
+  };
+
+  return (
+    <DialogContent className="sm:max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Cambiar categoría</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-zinc-500">
+          Se aplicará a <span className="font-semibold text-zinc-900">{count}</span> transacción{count !== 1 ? 'es' : ''} seleccionada{count !== 1 ? 's' : ''}.
+        </p>
+        <Select value={categoryId} onValueChange={setCategoryId}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona una categoría..." />
+          </SelectTrigger>
+          <SelectContent>
+            {categories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleApply} disabled={!categoryId || loading}>
+          {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+function BulkMerchantDialog({
+  count,
+  onApply,
+  onClose,
+}: {
+  count: number;
+  onApply: (merchant: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [merchant, setMerchant] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleApply = async () => {
+    if (!merchant.trim()) return;
+    setLoading(true);
+    await onApply(merchant.trim());
+    setLoading(false);
+  };
+
+  return (
+    <DialogContent className="sm:max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Cambiar nombre de comercio</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-zinc-500">
+          Se aplicará a <span className="font-semibold text-zinc-900">{count}</span> transacción{count !== 1 ? 'es' : ''} seleccionada{count !== 1 ? 's' : ''}.
+        </p>
+        <Input
+          placeholder="Nuevo nombre de comercio..."
+          value={merchant}
+          onChange={(e) => setMerchant(e.target.value)}
+          maxLength={200}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleApply(); }}
+          autoFocus
+        />
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cancelar</Button>
+        <Button onClick={handleApply} disabled={!merchant.trim() || loading}>
+          {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Main view
+// ─────────────────────────────────────────────────────────
+
 export function TransactionsView() {
   const [transactions, setTransactions] = useState<TransactionResponseDTO[]>([]);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
@@ -46,6 +152,11 @@ export function TransactionsView() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
+  // ── Bulk selection ──────────────────────────────────────
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDialog, setBulkDialog] = useState<'category' | 'merchant' | null>(null);
+  const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
   // Map statementId → bank for display in table rows
   const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
 
@@ -57,7 +168,6 @@ export function TransactionsView() {
     if (selectedMonth) {
       const [y, m] = selectedMonth.split('-').map(Number);
       params.set('from', new Date(Date.UTC(y, m - 1, 1)).toISOString());
-      // Last millisecond of the selected month
       params.set('to', new Date(Date.UTC(y, m, 1) - 1).toISOString());
     }
     if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
@@ -80,20 +190,31 @@ export function TransactionsView() {
     setLoading(false);
   }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, page]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  // Reset to page 1 when filters change
+  // Reset page on filter change
+  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment]);
+
+  // Clear selection when filters or page change
   useEffect(() => {
-    setPage(1);
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment]);
+    setSelectedIds(new Set());
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, page]);
 
   useEffect(() => {
     fetch('/api/statements')
       .then((r) => r.json())
       .then((data) => setStatements(Array.isArray(data) ? data : []));
   }, []);
+
+  // Keep header checkbox in sync (checked / indeterminate)
+  useEffect(() => {
+    const el = headerCheckboxRef.current;
+    if (!el || transactions.length === 0) return;
+    const allSelected = transactions.every((t) => selectedIds.has(t.id));
+    const someSelected = transactions.some((t) => selectedIds.has(t.id));
+    el.checked = allSelected;
+    el.indeterminate = someSelected && !allSelected;
+  }, [selectedIds, transactions]);
 
   const getCategoryName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? id;
@@ -113,6 +234,44 @@ export function TransactionsView() {
   const openCreate = () => { setEditing(null); setOpen(true); };
   const openEdit = (t: TransactionResponseDTO) => { setEditing(t); setOpen(true); };
 
+  const toggleRow = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    const allSelected = transactions.every((t) => selectedIds.has(t.id));
+    if (allSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        transactions.forEach((t) => next.delete(t.id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        transactions.forEach((t) => next.add(t.id));
+        return next;
+      });
+    }
+  };
+
+  const clearSelection = () => setSelectedIds(new Set());
+
+  const applyBulk = async (update: { categoryId?: string; merchant?: string }) => {
+    await fetch('/api/transactions/bulk', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selectedIds], update }),
+    });
+    clearSelection();
+    setBulkDialog(null);
+    load();
+  };
+
   const exportParams = new URLSearchParams({
     ...(search ? { search } : {}),
     ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
@@ -126,11 +285,12 @@ export function TransactionsView() {
     })() : {}),
   });
 
+  const hasSelection = selectedIds.size > 0;
+
   return (
     <div className="space-y-4">
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Tarjeta */}
         <Select value={selectedBank} onValueChange={setSelectedBank}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Todas las tarjetas" />
@@ -143,14 +303,12 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        {/* Mes */}
         <MonthPicker
           value={selectedMonth}
           onChange={setSelectedMonth}
           placeholder="Todos los meses"
         />
 
-        {/* Categoría */}
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
           <SelectTrigger className="w-48">
             <SelectValue placeholder="Todas las categorías" />
@@ -163,7 +321,6 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        {/* Tipo de pago */}
         <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
           <SelectTrigger className="w-44">
             <SelectValue placeholder="Tipo de pago" />
@@ -176,7 +333,6 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        {/* Búsqueda */}
         <Input
           placeholder="Buscar por comercio o descripción..."
           value={search}
@@ -196,6 +352,61 @@ export function TransactionsView() {
         </div>
       </div>
 
+      {/* Bulk action bar */}
+      {hasSelection && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-50 border border-brand-200 rounded-lg text-sm">
+          <span className="font-semibold text-brand-700">
+            {selectedIds.size} seleccionada{selectedIds.size !== 1 ? 's' : ''}
+          </span>
+          <div className="h-4 w-px bg-brand-200" />
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            onClick={() => setBulkDialog('category')}
+          >
+            <Tags className="h-3.5 w-3.5 mr-1.5" />
+            Cambiar categoría
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            onClick={() => setBulkDialog('merchant')}
+          >
+            <PenLine className="h-3.5 w-3.5 mr-1.5" />
+            Cambiar nombre de comercio
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="ml-auto text-zinc-500 hover:text-zinc-700"
+            onClick={clearSelection}
+          >
+            Cancelar selección
+          </Button>
+        </div>
+      )}
+
+      {/* Bulk dialogs */}
+      <Dialog open={bulkDialog === 'category'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
+        <BulkCategoryDialog
+          count={selectedIds.size}
+          categories={categories}
+          onApply={(categoryId) => applyBulk({ categoryId })}
+          onClose={() => setBulkDialog(null)}
+        />
+      </Dialog>
+
+      <Dialog open={bulkDialog === 'merchant'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
+        <BulkMerchantDialog
+          count={selectedIds.size}
+          onApply={(merchant) => applyBulk({ merchant })}
+          onClose={() => setBulkDialog(null)}
+        />
+      </Dialog>
+
+      {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -211,6 +422,7 @@ export function TransactionsView() {
         </DialogContent>
       </Dialog>
 
+      {/* Edit / create form */}
       <Dialog open={open} onOpenChange={setOpen}>
         <TransactionForm
           key={editing?.id ?? 'create'}
@@ -230,9 +442,19 @@ export function TransactionsView() {
 
       {/* Table */}
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full min-w-[680px] text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
+              {/* Select-all checkbox */}
+              <th className="px-3 py-3 w-10">
+                <input
+                  ref={headerCheckboxRef}
+                  type="checkbox"
+                  className="h-4 w-4 rounded accent-brand-600 cursor-pointer"
+                  onChange={toggleAll}
+                  aria-label="Seleccionar todas las transacciones de esta página"
+                />
+              </th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
@@ -245,6 +467,7 @@ export function TransactionsView() {
           <tbody>
             {loading && Array.from({ length: 5 }).map((_, i) => (
               <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
+                <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
@@ -256,8 +479,23 @@ export function TransactionsView() {
             ))}
             {!loading && transactions.map((t) => {
               const bankLabel = getBankLabel(t.statementId);
+              const isSelected = selectedIds.has(t.id);
               return (
-                <tr key={t.id} className="border-b border-zinc-50 hover:bg-zinc-50">
+                <tr
+                  key={t.id}
+                  className={`border-b border-zinc-50 cursor-pointer transition-colors ${isSelected ? 'bg-brand-50 hover:bg-brand-100' : 'hover:bg-zinc-50'}`}
+                  onClick={() => toggleRow(t.id)}
+                >
+                  {/* Row checkbox */}
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded accent-brand-600 cursor-pointer"
+                      checked={isSelected}
+                      onChange={() => toggleRow(t.id)}
+                      aria-label={`Seleccionar ${t.merchant}`}
+                    />
+                  </td>
                   <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-zinc-900">{t.merchant}</p>
@@ -281,7 +519,7 @@ export function TransactionsView() {
                   <td className={`px-4 py-3 text-right font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
                     {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
                         <Pencil className="h-3.5 w-3.5" />
@@ -296,7 +534,7 @@ export function TransactionsView() {
             })}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
                   Sin transacciones
                 </td>
               </tr>
