@@ -18,6 +18,7 @@ export interface UpdateTransactionDTO {
   notes?: string | null;
   date?: string;
   description?: string;
+  reviewStatus?: 'pending' | 'auto' | 'confirmed' | 'manual';
 }
 
 export interface TransactionFiltersDTO {
@@ -30,6 +31,7 @@ export interface TransactionFiltersDTO {
   isInstallment?: boolean;
   minInstallmentTotal?: number;
   maxInstallmentTotal?: number;
+  reviewStatus?: string;
 }
 
 export interface TransactionResponseDTO {
@@ -46,4 +48,5 @@ export interface TransactionResponseDTO {
   installmentNum?: number | null;
   installmentTotal?: number | null;
   notes?: string | null;
+  reviewStatus: 'pending' | 'auto' | 'confirmed' | 'manual';
 }

@@ -24,6 +24,7 @@ export class BulkUpdateTransactionsUseCase {
 
     // The repository scopes the WHERE clause to userId, so arbitrary IDs
     // from the client cannot affect another user's transactions.
+    // When only reviewStatus is being set (bulk confirm), skip category validation.
     return this.transactionRepo.updateMany(ids, userId, update);
   }
 }

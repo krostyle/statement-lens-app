@@ -23,6 +23,8 @@ export const updateTransactionSchema = z.object({
   // Side-effect flags — processed by the route handler, not persisted directly
   saveMerchantRule: z.boolean().optional(),
   applyToInstallmentGroup: z.boolean().optional(),
+  // Explicit confirm (mark as reviewed without editing any field)
+  confirm: z.boolean().optional(),
 });
 
 export type CreateTransactionInput = z.input<typeof createTransactionSchema>;

@@ -40,6 +40,7 @@ export class CreateTransactionUseCase {
       installmentNum: transaction.installmentNum,
       installmentTotal: transaction.installmentTotal,
       notes: transaction.notes,
+      reviewStatus: transaction.reviewStatus,
     };
   }
 }

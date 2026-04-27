@@ -20,9 +20,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { saveMerchantRule, applyToInstallmentGroup, ...transactionData } = parsed.data;
+    const { saveMerchantRule, applyToInstallmentGroup, confirm, ...transactionData } = parsed.data;
 
-    const transaction = await updateTransactionUseCase.execute(id, userId, transactionData);
+    // confirm=true → mark as reviewed without changing any other field
+    const dataToUpdate = confirm
+      ? { reviewStatus: 'confirmed' as const }
+      : transactionData;
+
+    const transaction = await updateTransactionUseCase.execute(id, userId, dataToUpdate);
 
     // Side effect 1: save merchant rule so future PDF imports auto-categorize
     if (saveMerchantRule && transactionData.categoryId) {

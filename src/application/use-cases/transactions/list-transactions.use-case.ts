@@ -54,6 +54,7 @@ export class ListTransactionsUseCase {
         installmentNum: t.installmentNum,
         installmentTotal: t.installmentTotal,
         notes: t.notes,
+        reviewStatus: t.reviewStatus,
       })),
       total,
       page,

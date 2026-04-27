@@ -1,3 +1,5 @@
+export type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
+
 export interface Transaction {
   id: string;
   userId: string;
@@ -12,6 +14,7 @@ export interface Transaction {
   installmentNum?: number | null;
   installmentTotal?: number | null;
   notes?: string | null;
+  reviewStatus: ReviewStatus;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -29,8 +32,8 @@ export type CreateTransactionInput = Pick<
   | 'installmentNum'
   | 'installmentTotal'
   | 'statementId'
->;
+> & { reviewStatus?: ReviewStatus };
 
 export type UpdateTransactionInput = Partial<
-  Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description'>
+  Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description' | 'reviewStatus'>
 >;

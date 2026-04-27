@@ -99,6 +99,7 @@ model Transaction {
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
+  reviewStatus     String      @default("pending") // 'pending' | 'auto' | 'confirmed' | 'manual'
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)

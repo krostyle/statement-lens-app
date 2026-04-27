@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
@@ -27,6 +27,27 @@ const BANK_LABELS: Record<string, string> = {
   falabella: 'Falabella',
   liderbci: 'LiderBCI',
 };
+
+type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
+
+const REVIEW_CONFIG: Record<ReviewStatus, { label: string; dot: string; title: string }> = {
+  pending:   { label: 'Pendiente',  dot: 'bg-amber-400',  title: 'Sin revisar — categoría sugerida por IA' },
+  auto:      { label: 'Automático', dot: 'bg-blue-400',   title: 'Categoría aplicada por regla de comercio' },
+  confirmed: { label: 'Confirmado', dot: 'bg-emerald-500', title: 'Revisado y confirmado manualmente' },
+  manual:    { label: 'Manual',     dot: 'bg-emerald-500', title: 'Editado manualmente' },
+};
+
+function ReviewDot({ status, onClick }: { status: ReviewStatus; onClick?: () => void }) {
+  const cfg = REVIEW_CONFIG[status] ?? REVIEW_CONFIG.pending;
+  return (
+    <button
+      type="button"
+      title={onClick ? `${cfg.title} — click para confirmar` : cfg.title}
+      onClick={onClick}
+      className={`h-2.5 w-2.5 rounded-full flex-shrink-0 transition-transform ${cfg.dot} ${onClick && status === 'pending' ? 'cursor-pointer hover:scale-125' : 'cursor-default'}`}
+    />
+  );
+}
 
 // ─────────────────────────────────────────────────────────
 // Merchant rules dialog
@@ -243,6 +264,7 @@ export function TransactionsView() {
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [selectedInstallment, setSelectedInstallment] = useState('all');
+  const [selectedReview, setSelectedReview] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
@@ -277,6 +299,7 @@ export function TransactionsView() {
     if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
     else if (selectedInstallment === 'false') params.set('isInstallment', 'false');
+    if (selectedReview !== 'all') params.set('reviewStatus', selectedReview);
     params.set('page', String(page));
 
     const [txRes, catRes] = await Promise.all([
@@ -291,17 +314,17 @@ export function TransactionsView() {
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
     setLoading(false);
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, page]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, page]);
 
   useEffect(() => { load(); }, [load]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment]);
+  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, page]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, page]);
 
   useEffect(() => {
     fetch('/api/statements')
@@ -364,7 +387,18 @@ export function TransactionsView() {
 
   const clearSelection = () => setSelectedIds(new Set());
 
-  const applyBulk = async (update: { categoryId?: string; merchant?: string }) => {
+  const confirmTransaction = async (id: string) => {
+    await fetch(`/api/transactions/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ confirm: true }),
+    });
+    setTransactions((prev) =>
+      prev.map((t) => t.id === id ? { ...t, reviewStatus: 'confirmed' as const } : t)
+    );
+  };
+
+  const applyBulk = async (update: { categoryId?: string; merchant?: string; reviewStatus?: string }) => {
     await fetch('/api/transactions/bulk', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -436,6 +470,19 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
+        <Select value={selectedReview} onValueChange={setSelectedReview}>
+          <SelectTrigger className="w-44">
+            <SelectValue placeholder="Estado de revisión" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las revisiones</SelectItem>
+            <SelectItem value="pending">⚪ Sin revisar</SelectItem>
+            <SelectItem value="auto">🔵 Automáticas</SelectItem>
+            <SelectItem value="confirmed">✅ Confirmadas</SelectItem>
+            <SelectItem value="manual">✅ Editadas</SelectItem>
+          </SelectContent>
+        </Select>
+
         <Input
           placeholder="Buscar por comercio o descripción..."
           value={search}
@@ -482,6 +529,15 @@ export function TransactionsView() {
           >
             <PenLine className="h-3.5 w-3.5 mr-1.5" />
             Cambiar nombre de comercio
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            onClick={() => applyBulk({ reviewStatus: 'confirmed' })}
+          >
+            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+            Verificar seleccionadas
           </Button>
           <Button
             size="sm"
@@ -566,6 +622,7 @@ export function TransactionsView() {
                   aria-label="Seleccionar todas las transacciones de esta página"
                 />
               </th>
+              <th className="px-3 py-3 w-6" title="Estado de revisión" />
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
@@ -579,6 +636,7 @@ export function TransactionsView() {
             {loading && Array.from({ length: 5 }).map((_, i) => (
               <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
                 <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-2.5 w-2.5 rounded-full" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
@@ -606,6 +664,14 @@ export function TransactionsView() {
                       onChange={() => toggleRow(t.id)}
                       aria-label={`Seleccionar ${t.merchant}`}
                     />
+                  </td>
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                    <div className="flex items-center justify-center">
+                      <ReviewDot
+                        status={t.reviewStatus as ReviewStatus}
+                        onClick={t.reviewStatus === 'pending' ? () => confirmTransaction(t.id) : undefined}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
                   <td className="px-4 py-3">
@@ -645,7 +711,7 @@ export function TransactionsView() {
             })}
             {!loading && transactions.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-zinc-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-zinc-400">
                   Sin transacciones
                 </td>
               </tr>

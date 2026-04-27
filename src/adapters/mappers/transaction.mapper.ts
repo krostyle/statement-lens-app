@@ -16,5 +16,6 @@ export function toTransactionDTO(t: Transaction): TransactionResponseDTO {
     installmentNum: t.installmentNum,
     installmentTotal: t.installmentTotal,
     notes: t.notes,
+    reviewStatus: t.reviewStatus,
   };
 }

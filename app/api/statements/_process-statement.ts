@@ -39,22 +39,29 @@ export async function processStatement(
     const billingDate = new Date(Date.UTC(y, m - 1, 1));
 
     await transactionRepo.createMany(
-      parsed.map((t) => ({
-        userId,
-        statementId,
-        categoryId: merchantRuleMap.get(normalizeMerchant(t.merchant))
+      parsed.map((t) => {
+        const ruleCategory = merchantRuleMap.get(normalizeMerchant(t.merchant));
+        const categoryId = ruleCategory
           ?? categoryMap.get(t.suggestedCategory)
           ?? defaultCategoryId
-          ?? '',
-        date: t.isInstallment ? billingDate : new Date(t.date),
-        description: t.description,
-        merchant: t.merchant,
-        amount: t.amount,
-        currency: t.currency,
-        isInstallment: t.isInstallment,
-        installmentNum: t.installmentNum ?? null,
-        installmentTotal: t.installmentTotal ?? null,
-      }))
+          ?? '';
+        // 'auto' when a user-defined rule applied; 'pending' when AI suggested
+        const reviewStatus = ruleCategory ? 'auto' : 'pending';
+        return {
+          userId,
+          statementId,
+          categoryId,
+          reviewStatus,
+          date: t.isInstallment ? billingDate : new Date(t.date),
+          description: t.description,
+          merchant: t.merchant,
+          amount: t.amount,
+          currency: t.currency,
+          isInstallment: t.isInstallment,
+          installmentNum: t.installmentNum ?? null,
+          installmentTotal: t.installmentTotal ?? null,
+        };
+      })
     );
 
     await statementRepo.updateStatus(statementId, 'done');

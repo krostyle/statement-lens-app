@@ -10,6 +10,7 @@ export interface TransactionFilters {
   isInstallment?: boolean;
   minInstallmentTotal?: number;
   maxInstallmentTotal?: number;
+  reviewStatus?: string;
   skip?: number;
   take?: number;
 }

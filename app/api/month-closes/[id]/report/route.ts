@@ -246,6 +246,7 @@ function generateReportHtml(
   const isOver = mc.totalSpent > mc.totalBudget;
   const pct = mc.totalBudget > 0 ? Math.round((mc.totalSpent / mc.totalBudget) * 100) : 0;
   const overCount = mc.summary.filter((s) => s.isOverBudget).length;
+  const pendingCount = transactions.filter((t) => t.amount < 0 && (t as Transaction & { reviewStatus?: string }).reviewStatus === 'pending').length;
 
   // Group transactions by categoryId
   const txByCategory = new Map<string, Transaction[]>();
@@ -342,9 +343,14 @@ function generateReportHtml(
             ? `<span class="tx-meta">${metaParts.map(esc).join(' · ')}</span>`
             : '';
 
+          const isPending = (t as Transaction & { reviewStatus?: string }).reviewStatus === 'pending';
+          const pendingBadge = isPending
+            ? `<span style="display:inline-block;padding:1px 5px;border-radius:3px;font-size:9px;font-weight:700;background:#fef3c7;color:#92400e;margin-left:5px;vertical-align:middle;">sin revisar</span>`
+            : '';
+
           const merchantCell = isReturn
-            ? `${esc(t.merchant)} <span class="return-badge">devolución</span>${metaHtml}`
-            : `${esc(t.merchant)}${metaHtml}`;
+            ? `${esc(t.merchant)} <span class="return-badge">devolución</span>${pendingBadge}${metaHtml}`
+            : `${esc(t.merchant)}${pendingBadge}${metaHtml}`;
 
           return `
           <tr class="tx-row">
@@ -564,6 +570,7 @@ function generateReportHtml(
             : `<span class="text-green" style="font-weight:600">Todas las categorías dentro del presupuesto</span>`
         }
         &nbsp;·&nbsp; ${mc.summary.length} categorías analizadas
+        ${pendingCount > 0 ? `&nbsp;·&nbsp; <span style="color:#d97706;font-weight:600">⚪ ${pendingCount} transacción${pendingCount !== 1 ? 'es' : ''} sin revisar</span>` : ''}
       </div>
     </div>
 
