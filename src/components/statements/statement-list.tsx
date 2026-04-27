@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Trash2, RefreshCw, Upload, RotateCcw, Loader2, Pencil, Download } from 'lucide-react';
+import { Trash2, RefreshCw, Upload, RotateCcw, Loader2, Pencil, Download, Eye } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import {
@@ -231,9 +231,14 @@ export function StatementsView() {
                       <Pencil className="h-3.5 w-3.5 text-zinc-500" />
                     </Button>
                     {(s.status === 'done' || s.status === 'error') && (
-                      <Button variant="ghost" size="icon" title="Descargar PDF" onClick={() => window.open(`/api/statements/${s.id}/download`, '_blank')}>
-                        <Download className="h-3.5 w-3.5 text-zinc-500" />
-                      </Button>
+                      <>
+                        <Button variant="ghost" size="icon" title="Ver PDF" onClick={() => window.open(`/api/statements/${s.id}/view`, '_blank')}>
+                          <Eye className="h-3.5 w-3.5 text-zinc-500" />
+                        </Button>
+                        <Button variant="ghost" size="icon" title="Descargar PDF" onClick={() => window.open(`/api/statements/${s.id}/download`, '_blank')}>
+                          <Download className="h-3.5 w-3.5 text-zinc-500" />
+                        </Button>
+                      </>
                     )}
                     <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(s)}>
                       <Trash2 className="h-3.5 w-3.5 text-red-500" />

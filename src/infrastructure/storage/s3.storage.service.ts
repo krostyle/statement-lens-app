@@ -39,4 +39,17 @@ export class S3StorageService {
       { expiresIn }
     );
   }
+
+  async getSignedViewUrl(key: string, expiresIn = 3600): Promise<string> {
+    return getSignedUrl(
+      s3Client,
+      new GetObjectCommand({
+        Bucket: S3_BUCKET,
+        Key: key,
+        ResponseContentType: 'application/pdf',
+        ResponseContentDisposition: 'inline',
+      }),
+      { expiresIn }
+    );
+  }
 }
