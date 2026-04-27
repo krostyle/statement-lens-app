@@ -59,6 +59,159 @@ function mdToHtml(text: string): string {
     .join('');
 }
 
+// ─── Chart generators ─────────────────────────────────────────────────────────
+
+const CHART_COLORS = [
+  '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6',
+  '#06b6d4', '#f97316', '#84cc16', '#ec4899',
+  '#14b8a6', '#6366f1', '#a855f7', '#22c55e',
+];
+
+function polarToCartesian(cx: number, cy: number, r: number, deg: number) {
+  const rad = ((deg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+}
+
+/** SVG path for a donut ring segment. White stroke creates natural gaps between slices. */
+function donutPath(
+  cx: number, cy: number,
+  outerR: number, innerR: number,
+  startDeg: number, endDeg: number,
+): string {
+  const o1 = polarToCartesian(cx, cy, outerR, startDeg);
+  const o2 = polarToCartesian(cx, cy, outerR, endDeg);
+  const i1 = polarToCartesian(cx, cy, innerR, endDeg);
+  const i2 = polarToCartesian(cx, cy, innerR, startDeg);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  const f = (n: number) => n.toFixed(2);
+  return [
+    `M ${f(o1.x)} ${f(o1.y)}`,
+    `A ${outerR} ${outerR} 0 ${large} 1 ${f(o2.x)} ${f(o2.y)}`,
+    `L ${f(i1.x)} ${f(i1.y)}`,
+    `A ${innerR} ${innerR} 0 ${large} 0 ${f(i2.x)} ${f(i2.y)}`,
+    'Z',
+  ].join(' ');
+}
+
+/**
+ * Donut chart SVG + HTML legend.
+ * Shows spending distribution across categories.
+ */
+function generateDonutChart(summary: CategorySummary[]): string {
+  const data = summary
+    .filter((s) => s.spent > 0)
+    .sort((a, b) => b.spent - a.spent);
+
+  if (data.length === 0) {
+    return '<p style="font-size:12px;color:#9ca3af;text-align:center;padding:40px 0;">Sin gastos registrados</p>';
+  }
+
+  const total = data.reduce((sum, s) => sum + s.spent, 0);
+  const cx = 100, cy = 100, outerR = 82, innerR = 52;
+
+  // Build segments — add a tiny angular gap between slices via stroke
+  let deg = 0;
+  const paths = data.map((s, i) => {
+    const sweep = (s.spent / total) * 360;
+    // For a single-category donut, draw two semicircles to avoid degenerate arc
+    let pathD: string;
+    if (data.length === 1) {
+      const top = polarToCartesian(cx, cy, outerR, 0);
+      const bot = polarToCartesian(cx, cy, outerR, 180);
+      const iTop = polarToCartesian(cx, cy, innerR, 0);
+      const iBot = polarToCartesian(cx, cy, innerR, 180);
+      const f = (n: number) => n.toFixed(2);
+      pathD = [
+        `M ${f(top.x)} ${f(top.y)}`,
+        `A ${outerR} ${outerR} 0 1 1 ${f(bot.x)} ${f(bot.y)}`,
+        `A ${outerR} ${outerR} 0 1 1 ${f(top.x)} ${f(top.y)}`,
+        `M ${f(iTop.x)} ${f(iTop.y)}`,
+        `A ${innerR} ${innerR} 0 1 0 ${f(iBot.x)} ${f(iBot.y)}`,
+        `A ${innerR} ${innerR} 0 1 0 ${f(iTop.x)} ${f(iTop.y)}`,
+        'Z',
+      ].join(' ');
+    } else {
+      pathD = donutPath(cx, cy, outerR, innerR, deg, deg + sweep);
+    }
+    deg += sweep;
+    return `<path d="${pathD}" fill="${CHART_COLORS[i % CHART_COLORS.length]}" stroke="white" stroke-width="2"/>`;
+  }).join('');
+
+  // Center label
+  const centerLabel = `
+    <text x="${cx}" y="${cy - 9}" text-anchor="middle" font-size="9" fill="#6b7280" font-family="system-ui,sans-serif">Gasto total</text>
+    <text x="${cx}" y="${cy + 7}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#0f172a" font-family="system-ui,sans-serif">${esc(clp(total))}</text>
+  `;
+
+  // Legend (max 10 items)
+  const legend = data.slice(0, 10).map((s, i) => {
+    const color = CHART_COLORS[i % CHART_COLORS.length];
+    const pct = ((s.spent / total) * 100).toFixed(0);
+    const name = s.categoryName.length > 22 ? `${s.categoryName.slice(0, 20)}…` : s.categoryName;
+    return `
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;">
+        <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${color};flex-shrink:0;"></span>
+        <span style="font-size:10.5px;color:#374151;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(name)}</span>
+        <span style="font-size:10.5px;font-weight:600;color:#6b7280;flex-shrink:0;">${pct}%</span>
+      </div>`;
+  }).join('');
+
+  return `
+    <svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      ${paths}
+      ${centerLabel}
+    </svg>
+    <div style="margin-top:10px;">${legend}</div>`;
+}
+
+/**
+ * Horizontal bar chart: spent vs budget per category.
+ * Gray track = budget. Colored fill = spent. Red overflow = over-budget portion.
+ */
+function generateBarChart(summary: CategorySummary[]): string {
+  const data = [...summary].sort((a, b) => b.spent - a.spent);
+  if (data.length === 0) return '';
+
+  const maxVal = Math.max(...data.flatMap((s) => [s.budgeted, s.spent]));
+
+  const bars = data.map((s) => {
+    const budgetPct = maxVal > 0 ? (s.budgeted / maxVal) * 100 : 0;
+    const spentCapped = Math.min(s.spent, maxVal);
+    const spentPct = maxVal > 0 ? (spentCapped / maxVal) * 100 : 0;
+    const overflowPct = s.isOverBudget && maxVal > 0
+      ? ((spentCapped - s.budgeted) / maxVal) * 100
+      : 0;
+    const barColor = s.isOverBudget ? '#ef4444' : '#3b82f6';
+    const name = s.categoryName.length > 20 ? `${s.categoryName.slice(0, 18)}…` : s.categoryName;
+
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <div style="width:115px;text-align:right;font-size:11px;color:#374151;flex-shrink:0;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${esc(s.categoryName)}">
+          ${esc(name)}
+        </div>
+        <div style="flex:1;position:relative;height:16px;border-radius:3px;background:#f3f4f6;min-width:0;">
+          <!-- Budget track -->
+          <div style="position:absolute;inset:0;width:${budgetPct.toFixed(1)}%;background:#e5e7eb;border-radius:3px;"></div>
+          <!-- Spent (within budget) -->
+          <div style="position:absolute;inset:0;width:${Math.min(spentPct, budgetPct).toFixed(1)}%;background:${barColor};border-radius:3px;opacity:.85;"></div>
+          ${s.isOverBudget ? `
+          <!-- Overflow (beyond budget) -->
+          <div style="position:absolute;top:0;bottom:0;left:${budgetPct.toFixed(1)}%;width:${overflowPct.toFixed(1)}%;background:#ef4444;border-radius:0 3px 3px 0;"></div>
+          ` : ''}
+        </div>
+        <div style="width:125px;flex-shrink:0;line-height:1.3;">
+          <div style="font-size:11px;font-weight:${s.isOverBudget ? '700' : '500'};color:${s.isOverBudget ? '#dc2626' : '#18181b'};">
+            ${esc(clp(s.spent))}
+          </div>
+          <div style="font-size:9.5px;color:#9ca3af;">${s.percentUsed}% de ${esc(clp(s.budgeted))}</div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `<div style="padding-top:2px;">${bars}</div>`;
+}
+
 // ─── HTML generator ───────────────────────────────────────────────────────────
 
 function generateReportHtml(
@@ -213,6 +366,10 @@ function generateReportHtml(
         </tbody>`;
     })
     .join('');
+
+  // ── Charts ───────────────────────────────────────────────────────────────
+  const donutHtml = generateDonutChart(mc.summary);
+  const barHtml = generateBarChart(mc.summary);
 
   const notesHtml = mc.notes
     ? `<div class="section">
@@ -408,6 +565,21 @@ function generateReportHtml(
         <div class="metric-card">
           <div class="metric-label">% del presupuesto usado</div>
           <div class="metric-value ${pct > 100 ? 'text-red' : ''}">${pct}%</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual analysis: donut + bar chart side by side -->
+    <div class="section">
+      <div class="section-title">Análisis visual</div>
+      <div style="display:grid;grid-template-columns:220px 1fr;gap:32px;align-items:start;">
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px;">Distribución del gasto</div>
+          ${donutHtml}
+        </div>
+        <div>
+          <div style="font-size:10px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px;">Gastado vs. Presupuesto</div>
+          ${barHtml}
         </div>
       </div>
     </div>
