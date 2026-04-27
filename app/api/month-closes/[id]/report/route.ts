@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { monthCloseRepo, transactionRepo } from '@/src/infrastructure/container';
+import { prisma } from '@/src/infrastructure/database/prisma.client';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
@@ -63,6 +64,8 @@ function generateReportHtml(
   mc: MonthClose,
   transactions: Transaction[],
   previousClose: MonthClose | null,
+  /** statementId → bank name (card label) */
+  statementBankMap: Map<string, string>,
 ): string {
   const diff = mc.totalBudget - mc.totalSpent;
   const isOver = mc.totalSpent > mc.totalBudget;
@@ -148,9 +151,26 @@ function generateReportHtml(
           const amountCell = isReturn
             ? `<span class="text-green">-${clp(t.amount)}</span>`
             : clp(Math.abs(t.amount));
+
+          // Bank / card label from the linked statement
+          const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+
+          // Installment label: "Cuota X/Y"
+          const installmentLabel =
+            t.isInstallment && t.installmentNum && t.installmentTotal
+              ? `Cuota ${t.installmentNum}/${t.installmentTotal}`
+              : null;
+
+          // Combine into a single meta line, only when there's something to show
+          const metaParts = [bank, installmentLabel].filter((x): x is string => !!x);
+          const metaHtml = metaParts.length > 0
+            ? `<span class="tx-meta">${metaParts.map(esc).join(' · ')}</span>`
+            : '';
+
           const merchantCell = isReturn
-            ? `${esc(t.merchant)} <span class="return-badge">devolución</span>`
-            : esc(t.merchant);
+            ? `${esc(t.merchant)} <span class="return-badge">devolución</span>${metaHtml}`
+            : `${esc(t.merchant)}${metaHtml}`;
+
           return `
           <tr class="tx-row">
             <td class="tx-date">${fDate(new Date(t.date))}</td>
@@ -292,6 +312,7 @@ function generateReportHtml(
     .tx-row td { padding: 4px 10px; border-bottom: 1px solid #f3f4f6; }
     .tx-date { padding-left: 28px !important; width: 72px; white-space: nowrap; color: #9ca3af; font-size: 12px; }
     .tx-merchant { color: #374151; font-size: 12px; }
+    .tx-meta { display: block; font-size: 10px; color: #9ca3af; margin-top: 1px; font-weight: 500; }
     .tx-amount { text-align: right; white-space: nowrap; font-size: 12px; color: #374151; padding-right: 10px !important; }
     .tx-empty { padding: 8px 10px 8px 28px !important; font-size: 12px; color: #9ca3af; font-style: italic; border-bottom: 1px solid #e5e7eb; }
 
@@ -451,10 +472,22 @@ export async function GET(
   const to = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
   const transactions = await transactionRepo.findByUserId(userId, { from, to });
 
+  // Bank / card name per statementId
+  const statementIds = [...new Set(
+    transactions.map((t) => t.statementId).filter((id): id is string => !!id),
+  )];
+  const statements = statementIds.length > 0
+    ? await prisma.statement.findMany({
+        where: { id: { in: statementIds }, userId },
+        select: { id: true, bank: true },
+      })
+    : [];
+  const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
+
   // Previous close (calendar month immediately before)
   const previousClose = allCloses.find((c) => c.month === prevMonthStr(mc.month)) ?? null;
 
-  const html = generateReportHtml(mc, transactions, previousClose);
+  const html = generateReportHtml(mc, transactions, previousClose, statementBankMap);
 
   return new Response(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
