@@ -44,9 +44,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     return NextResponse.json(transaction);
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const status = message === 'Forbidden' ? 403 : message === 'Transaction not found' ? 404 : 400;
-    return NextResponse.json({ error: message }, { status });
+    const message = error instanceof Error ? error.message : '';
+    // Only surface known, safe error messages — hide all internal/DB details
+    if (message === 'Forbidden')          return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    if (message === 'Transaction not found') return NextResponse.json({ error: 'Transacción no encontrada' }, { status: 404 });
+    if (message === 'Categoría no válida')   return NextResponse.json({ error: message }, { status: 422 });
+    console.error('[PATCH /api/transactions/:id]', error);
+    return NextResponse.json({ error: 'Error al actualizar la transacción' }, { status: 500 });
   }
 }
 
@@ -59,8 +63,10 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     await deleteTransactionUseCase.execute(id, userId);
     return new NextResponse(null, { status: 204 });
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    const status = message === 'Forbidden' ? 403 : message === 'Transaction not found' ? 404 : 400;
-    return NextResponse.json({ error: message }, { status });
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'Forbidden')             return NextResponse.json({ error: 'No autorizado' }, { status: 403 });
+    if (message === 'Transaction not found') return NextResponse.json({ error: 'Transacción no encontrada' }, { status: 404 });
+    console.error('[DELETE /api/transactions/:id]', error);
+    return NextResponse.json({ error: 'Error al eliminar la transacción' }, { status: 500 });
   }
 }

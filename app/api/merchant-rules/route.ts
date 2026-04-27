@@ -30,7 +30,9 @@ export async function POST(req: Request) {
     const rule = await upsertMerchantRuleUseCase.execute(userId, parsed.data.merchant, parsed.data.categoryId);
     return NextResponse.json(rule, { status: 201 });
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Error al guardar la regla';
-    return NextResponse.json({ error: message }, { status: 422 });
+    const message = err instanceof Error ? err.message : '';
+    if (message === 'Categoría no válida') return NextResponse.json({ error: message }, { status: 422 });
+    console.error('[POST /api/merchant-rules]', err);
+    return NextResponse.json({ error: 'Error al guardar la regla' }, { status: 500 });
   }
 }
