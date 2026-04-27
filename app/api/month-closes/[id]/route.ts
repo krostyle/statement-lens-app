@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@clerk/nextjs/server';
-import { monthCloseRepo } from '@/src/infrastructure/container';
+import { monthCloseRepo, getMonthCloseUseCase } from '@/src/infrastructure/container';
 
 const patchSchema = z.object({
   notes: z.string().nullable().optional(),
@@ -15,7 +15,9 @@ export async function GET(
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { id } = await params;
-  const monthClose = await monthCloseRepo.findById(id, userId);
+  // Live recompute: summary/totals from current transactions + budgets;
+  // aiSuggestions and notes are kept from the stored snapshot.
+  const monthClose = await getMonthCloseUseCase.execute(id, userId);
   if (!monthClose) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   return NextResponse.json(monthClose);

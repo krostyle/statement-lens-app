@@ -27,6 +27,7 @@ import { ListBudgetsUseCase } from '@/src/application/use-cases/budgets/list-bud
 import { UpsertBudgetUseCase } from '@/src/application/use-cases/budgets/upsert-budget.use-case';
 import { RecommendBudgetsUseCase } from '@/src/application/use-cases/budgets/recommend-budgets.use-case';
 import { CreateMonthCloseUseCase } from '@/src/application/use-cases/month-closes/create-month-close.use-case';
+import { GetMonthCloseUseCase } from '@/src/application/use-cases/month-closes/get-month-close.use-case';
 import { ListMonthClosesUseCase } from '@/src/application/use-cases/month-closes/list-month-closes.use-case';
 
 // Repositories
@@ -67,6 +68,9 @@ export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
 
 export const createMonthCloseUseCase = new CreateMonthCloseUseCase(
   monthCloseRepo, budgetRepo, transactionRepo, categoryRepo, monthCloseSuggestionsService
+);
+export const getMonthCloseUseCase = new GetMonthCloseUseCase(
+  monthCloseRepo, budgetRepo, transactionRepo, categoryRepo,
 );
 export const listMonthClosesUseCase = new ListMonthClosesUseCase(monthCloseRepo);
 

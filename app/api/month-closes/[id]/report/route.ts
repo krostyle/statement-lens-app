@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
-import { monthCloseRepo, transactionRepo } from '@/src/infrastructure/container';
+import { monthCloseRepo, transactionRepo, budgetRepo, categoryRepo } from '@/src/infrastructure/container';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
+import { netSpendByCategory } from '@/src/domain/services/transaction.service';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
@@ -466,15 +467,54 @@ export async function GET(
 
   if (!mc) return new Response('No encontrado', { status: 404 });
 
-  // Transactions for the closed month
+  // Date range for the closed month
   const [y, m] = mc.month.split('-').map(Number);
   const from = new Date(Date.UTC(y, m - 1, 1));
   const to = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
-  const transactions = await transactionRepo.findByUserId(userId, { from, to });
+
+  // Fetch everything needed in parallel
+  const [transactions, budgets, categories] = await Promise.all([
+    transactionRepo.findByUserId(userId, { from, to }),
+    budgetRepo.findByUserId(userId, mc.month),
+    categoryRepo.findByUserId(userId),
+  ]);
+
+  // ── Recompute summary from live data ────────────────────────────────────
+  // Reflects category re-assignments, edits and new transactions automatically.
+  const catNameMap = new Map(categories.map((c) => [c.id, c.name]));
+  const spendMap = netSpendByCategory(transactions);
+
+  const liveSummary: CategorySummary[] = budgets.map((b) => {
+    const spent = spendMap.get(b.categoryId) ?? 0;
+    const difference = b.monthlyAmount - spent;
+    const isOverBudget = spent > b.monthlyAmount;
+    const percentUsed =
+      b.monthlyAmount > 0 ? Math.round((spent / b.monthlyAmount) * 100) : 0;
+    return {
+      categoryId: b.categoryId,
+      categoryName: catNameMap.get(b.categoryId) ?? b.categoryId,
+      budgeted: b.monthlyAmount,
+      spent,
+      difference,
+      isOverBudget,
+      percentUsed,
+    };
+  });
+
+  const liveTotalSpent = liveSummary.reduce((sum, s) => sum + s.spent, 0);
+  const liveTotalBudget = liveSummary.reduce((sum, s) => sum + s.budgeted, 0);
+
+  // Merge live numbers into mc; keep aiSuggestions, notes, closedAt from snapshot
+  const enrichedMc: MonthClose = {
+    ...mc,
+    summary: liveSummary,
+    totalSpent: liveTotalSpent,
+    totalBudget: liveTotalBudget,
+  };
 
   // Bank / card name per statementId
   const statementIds = [...new Set(
-    transactions.map((t) => t.statementId).filter((id): id is string => !!id),
+    transactions.map((t) => t.statementId).filter((sid): sid is string => !!sid),
   )];
   const statements = statementIds.length > 0
     ? await prisma.statement.findMany({
@@ -487,7 +527,7 @@ export async function GET(
   // Previous close (calendar month immediately before)
   const previousClose = allCloses.find((c) => c.month === prevMonthStr(mc.month)) ?? null;
 
-  const html = generateReportHtml(mc, transactions, previousClose, statementBankMap);
+  const html = generateReportHtml(enrichedMc, transactions, previousClose, statementBankMap);
 
   return new Response(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
