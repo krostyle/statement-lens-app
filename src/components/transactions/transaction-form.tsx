@@ -78,9 +78,13 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
 
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = createForm;
 
-  // Watch if category changed from original to decide whether to show side-effect checkboxes
-  const watchedCategoryId = useWatch({ control: editControl, name: 'categoryId' });
-  const categoryChanged = isEdit && watchedCategoryId !== transaction?.categoryId;
+  // Watch fields that can trigger side-effect options
+  const watchedCategoryId   = useWatch({ control: editControl, name: 'categoryId' });
+  const watchedDescription  = useWatch({ control: editControl, name: 'description' });
+  const categoryChanged     = isEdit && watchedCategoryId  !== transaction?.categoryId;
+  const descriptionChanged  = isEdit && watchedDescription !== transaction?.description;
+  // Show the group-propagation checkbox when category OR description changed (for installments)
+  const groupTrigger        = categoryChanged || descriptionChanged;
 
   const onEditSubmit = async (data: EditInput) => {
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
@@ -195,23 +199,25 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
               )}
             </div>
 
-            {/* Side-effect options — only shown when category actually changes */}
-            {categoryChanged && (
+            {/* Side-effect options */}
+            {(categoryChanged || (transaction.isInstallment && groupTrigger)) && (
               <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2.5">
                 <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
 
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
-                    {...editRegister('saveMerchantRule')}
-                  />
-                  <span className="text-sm text-zinc-700 leading-snug">
-                    Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
-                  </span>
-                </label>
+                {categoryChanged && (
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                      {...editRegister('saveMerchantRule')}
+                    />
+                    <span className="text-sm text-zinc-700 leading-snug">
+                      Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
+                    </span>
+                  </label>
+                )}
 
-                {transaction.isInstallment && (
+                {transaction.isInstallment && groupTrigger && (
                   <label className="flex items-start gap-2.5 cursor-pointer">
                     <input
                       type="checkbox"

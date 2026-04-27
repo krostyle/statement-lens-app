@@ -29,8 +29,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, transactionData.categoryId);
     }
 
-    // Side effect 2: propagate category to all installments in the same group
-    if (applyToInstallmentGroup && transaction.isInstallment && transactionData.categoryId && transaction.installmentTotal) {
+    // Side effect 2: propagate category and/or description to all installments in the same group
+    const groupUpdate: { categoryId?: string; description?: string } = {};
+    if (transactionData.categoryId)  groupUpdate.categoryId  = transactionData.categoryId;
+    if (transactionData.description) groupUpdate.description = transactionData.description;
+
+    if (applyToInstallmentGroup && transaction.isInstallment && transaction.installmentTotal && Object.keys(groupUpdate).length > 0) {
       const group = await transactionRepo.findInstallmentGroup(
         userId,
         transaction.merchant,
@@ -38,7 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       );
       const siblingIds = group.filter((t) => t.id !== id).map((t) => t.id);
       if (siblingIds.length > 0) {
-        await transactionRepo.updateMany(siblingIds, userId, { categoryId: transactionData.categoryId });
+        await transactionRepo.updateMany(siblingIds, userId, groupUpdate);
       }
     }
 
