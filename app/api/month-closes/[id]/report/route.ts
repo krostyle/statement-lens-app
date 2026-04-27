@@ -166,7 +166,10 @@ function generateDonutChart(summary: CategorySummary[]): string {
 
 /**
  * Horizontal bar chart: spent vs budget per category.
- * Gray track = budget. Colored fill = spent. Red overflow = over-budget portion.
+ * Light gray track = budget limit.
+ * Blue fill  = spent (within budget, category OK).
+ * Orange fill = spent up to budget (category is over budget).
+ * Red suffix  = overflow portion beyond the budget limit.
  */
 function generateBarChart(summary: CategorySummary[]): string {
   const data = [...summary].sort((a, b) => b.spent - a.spent);
@@ -174,14 +177,32 @@ function generateBarChart(summary: CategorySummary[]): string {
 
   const maxVal = Math.max(...data.flatMap((s) => [s.budgeted, s.spent]));
 
+  const legend = `
+    <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:14px;font-size:10px;color:#6b7280;">
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:10px;border-radius:2px;background:#e5e7eb;"></span>Presupuesto
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:10px;border-radius:2px;background:#3b82f6;"></span>Gastado (dentro del presupuesto)
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:10px;border-radius:2px;background:#f97316;"></span>Gastado (categoría excedida)
+      </span>
+      <span style="display:flex;align-items:center;gap:5px;">
+        <span style="display:inline-block;width:12px;height:10px;border-radius:2px;background:#ef4444;"></span>Excedente
+      </span>
+    </div>`;
+
   const bars = data.map((s) => {
-    const budgetPct = maxVal > 0 ? (s.budgeted / maxVal) * 100 : 0;
+    const budgetPct   = maxVal > 0 ? (s.budgeted / maxVal) * 100 : 0;
     const spentCapped = Math.min(s.spent, maxVal);
-    const spentPct = maxVal > 0 ? (spentCapped / maxVal) * 100 : 0;
+    const withinPct   = maxVal > 0 ? (Math.min(spentCapped, s.budgeted) / maxVal) * 100 : 0;
     const overflowPct = s.isOverBudget && maxVal > 0
       ? ((spentCapped - s.budgeted) / maxVal) * 100
       : 0;
-    const barColor = s.isOverBudget ? '#ef4444' : '#3b82f6';
+
+    // Blue when OK, orange when the category is over budget (to contrast with red overflow)
+    const spentColor = s.isOverBudget ? '#f97316' : '#3b82f6';
     const name = s.categoryName.length > 20 ? `${s.categoryName.slice(0, 18)}…` : s.categoryName;
 
     return `
@@ -191,12 +212,12 @@ function generateBarChart(summary: CategorySummary[]): string {
           ${esc(name)}
         </div>
         <div style="flex:1;position:relative;height:16px;border-radius:3px;background:#f3f4f6;min-width:0;">
-          <!-- Budget track -->
+          <!-- Budget track (gray) -->
           <div style="position:absolute;inset:0;width:${budgetPct.toFixed(1)}%;background:#e5e7eb;border-radius:3px;"></div>
-          <!-- Spent (within budget) -->
-          <div style="position:absolute;inset:0;width:${Math.min(spentPct, budgetPct).toFixed(1)}%;background:${barColor};border-radius:3px;opacity:.85;"></div>
+          <!-- Spent within budget (blue or orange) -->
+          <div style="position:absolute;inset:0;width:${withinPct.toFixed(1)}%;background:${spentColor};border-radius:3px;"></div>
           ${s.isOverBudget ? `
-          <!-- Overflow (beyond budget) -->
+          <!-- Overflow beyond budget (red) -->
           <div style="position:absolute;top:0;bottom:0;left:${budgetPct.toFixed(1)}%;width:${overflowPct.toFixed(1)}%;background:#ef4444;border-radius:0 3px 3px 0;"></div>
           ` : ''}
         </div>
@@ -209,7 +230,7 @@ function generateBarChart(summary: CategorySummary[]): string {
       </div>`;
   }).join('');
 
-  return `<div style="padding-top:2px;">${bars}</div>`;
+  return `<div style="padding-top:2px;">${legend}${bars}</div>`;
 }
 
 // ─── HTML generator ───────────────────────────────────────────────────────────
