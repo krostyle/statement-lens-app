@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   Loader2, CalendarCheck, Trash2, ChevronRight,
-  CheckCircle2, XCircle, Plus, TrendingUp, TrendingDown, Minus,
+  CheckCircle2, XCircle, Plus, TrendingUp, TrendingDown, Minus, FileText,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
@@ -292,7 +292,17 @@ function MonthCloseDetail({
             <Trash2 className="h-4 w-4 mr-1" /> Eliminar cierre
           </Button>
         )}
-        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(`/api/month-closes/${mc.id}/report`, '_blank')}
+          >
+            <FileText className="h-4 w-4 mr-1.5" />
+            Ver reporte PDF
+          </Button>
+          <Button variant="outline" onClick={onClose}>Cerrar</Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   );
