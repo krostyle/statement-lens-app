@@ -10,13 +10,14 @@ datasource db {
 /// Clerk manages authentication (email, password, sessions).
 /// clerkId matches the Clerk user ID (format: "user_xxxx").
 model UserProfile {
-  clerkId       String       @id
-  monthlyIncome Int?
-  statements    Statement[]
-  categories    Category[]
-  transactions  Transaction[]
-  budgets       Budget[]
-  monthCloses   MonthClose[]
+  clerkId        String         @id
+  monthlyIncome  Int?
+  statements     Statement[]
+  categories     Category[]
+  transactions   Transaction[]
+  budgets        Budget[]
+  monthCloses    MonthClose[]
+  merchantRules  MerchantRule[]
 }
 
 model Statement {
@@ -36,18 +37,19 @@ model Statement {
 }
 
 model Category {
-  id           String        @id @default(uuid())
-  userId       String
-  name         String
-  color        String
-  icon         String?
-  type         String?
-  isDefault    Boolean       @default(false)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  transactions Transaction[]
-  budgets      Budget[]
+  id            String         @id @default(uuid())
+  userId        String
+  name          String
+  color         String
+  icon          String?
+  type          String?
+  isDefault     Boolean        @default(false)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  user          UserProfile    @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  transactions  Transaction[]
+  budgets       Budget[]
+  merchantRules MerchantRule[]
 
   @@unique([userId, name])
 }
@@ -102,4 +104,17 @@ model Transaction {
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   statement        Statement?  @relation(fields: [statementId], references: [id], onDelete: Cascade)
   category         Category    @relation(fields: [categoryId], references: [id])
+}
+
+model MerchantRule {
+  id              String      @id @default(uuid())
+  userId          String
+  merchantPattern String      // normalized (lowercase, trimmed) merchant name
+  categoryId      String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  user            UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  category        Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, merchantPattern])
 }

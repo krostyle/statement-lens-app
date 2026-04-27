@@ -53,6 +53,12 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     return prisma.transaction.findMany({ where: { statementId } }) as Promise<Transaction[]>;
   }
 
+  async findInstallmentGroup(userId: string, merchant: string, installmentTotal: number): Promise<Transaction[]> {
+    return prisma.transaction.findMany({
+      where: { userId, merchant, installmentTotal, isInstallment: true },
+    }) as Promise<Transaction[]>;
+  }
+
   async create(data: CreateTransactionInput): Promise<Transaction> {
     return prisma.transaction.create({ data }) as Promise<Transaction>;
   }

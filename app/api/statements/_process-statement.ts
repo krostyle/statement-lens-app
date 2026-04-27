@@ -1,4 +1,5 @@
-import { pdfParser, statementRepo, categoryRepo, transactionRepo } from '@/src/infrastructure/container';
+import { pdfParser, statementRepo, categoryRepo, transactionRepo, merchantRuleRepo } from '@/src/infrastructure/container';
+import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 
 export async function processStatement(
   statementId: string,
@@ -26,6 +27,10 @@ export async function processStatement(
     const othersCategory = categories.find((c) => c.name === 'Otros');
     const defaultCategoryId = othersCategory?.id ?? categories[0]?.id;
 
+    // Load merchant rules for this user — pattern → categoryId
+    const merchantRules = await merchantRuleRepo.findByUserId(userId);
+    const merchantRuleMap = new Map(merchantRules.map((r) => [r.merchantPattern, r.categoryId]));
+
     // For installment transactions, use the statement's billing month as the
     // effective date (1st of month, UTC). Banks typically store the original
     // purchase date on every cuota row, which would wrongly attribute the
@@ -37,7 +42,10 @@ export async function processStatement(
       parsed.map((t) => ({
         userId,
         statementId,
-        categoryId: categoryMap.get(t.suggestedCategory) ?? defaultCategoryId ?? '',
+        categoryId: merchantRuleMap.get(normalizeMerchant(t.merchant))
+          ?? categoryMap.get(t.suggestedCategory)
+          ?? defaultCategoryId
+          ?? '',
         date: t.isInstallment ? billingDate : new Date(t.date),
         description: t.description,
         merchant: t.merchant,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm, Controller } from 'react-hook-form';
+import { useForm, Controller, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -24,7 +24,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/src/components/ui/dialog';
-import { formatCurrency, formatDate } from '@/src/lib/utils';
+import { formatDate } from '@/src/lib/utils';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 
@@ -33,6 +33,8 @@ const editSchema = z.object({
   merchant: z.string().min(1, 'El comercio no puede estar vacío'),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
   amount: z.number({ message: 'Ingresa un número válido' }),
+  saveMerchantRule: z.boolean(),
+  applyToInstallmentGroup: z.boolean(),
 });
 type EditInput = z.infer<typeof editSchema>;
 
@@ -55,6 +57,8 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
       merchant: transaction?.merchant ?? '',
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
+      saveMerchantRule: true,
+      applyToInstallmentGroup: true,
     },
   });
 
@@ -64,14 +68,34 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
     defaultValues: { currency: 'CLP', isInstallment: false },
   });
 
-  const { formState: { isSubmitting: editSubmitting, errors: editErrors }, control: editControl, handleSubmit: editHandleSubmit, register: editRegister } = editForm;
+  const {
+    formState: { isSubmitting: editSubmitting, errors: editErrors },
+    control: editControl,
+    handleSubmit: editHandleSubmit,
+    register: editRegister,
+    setValue: editSetValue,
+  } = editForm;
+
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = createForm;
+
+  // Watch if category changed from original to decide whether to show side-effect checkboxes
+  const watchedCategoryId = useWatch({ control: editControl, name: 'categoryId' });
+  const categoryChanged = isEdit && watchedCategoryId !== transaction?.categoryId;
 
   const onEditSubmit = async (data: EditInput) => {
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ categoryId: data.categoryId, merchant: data.merchant, description: data.description, amount: data.amount }),
+      body: JSON.stringify({
+        categoryId: data.categoryId,
+        merchant: data.merchant,
+        description: data.description,
+        amount: data.amount,
+        saveMerchantRule: categoryChanged ? data.saveMerchantRule : false,
+        applyToInstallmentGroup: (transaction?.isInstallment && categoryChanged)
+          ? data.applyToInstallmentGroup
+          : false,
+      }),
     });
     if (res.ok) {
       const updated: TransactionResponseDTO = await res.json();
@@ -170,6 +194,40 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
                 <p className="text-xs text-destructive">{editErrors.categoryId.message}</p>
               )}
             </div>
+
+            {/* Side-effect options — only shown when category actually changes */}
+            {categoryChanged && (
+              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2.5">
+                <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
+
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                    {...editRegister('saveMerchantRule')}
+                  />
+                  <span className="text-sm text-zinc-700 leading-snug">
+                    Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
+                  </span>
+                </label>
+
+                {transaction.isInstallment && (
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                      {...editRegister('applyToInstallmentGroup')}
+                    />
+                    <span className="text-sm text-zinc-700 leading-snug">
+                      Aplicar a todas las cuotas de este grupo
+                      {transaction.installmentTotal && transaction.installmentNum
+                        ? ` (${transaction.installmentTotal - transaction.installmentNum} cuotas restantes)`
+                        : ''}
+                    </span>
+                  </label>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>

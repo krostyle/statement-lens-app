@@ -1,7 +1,12 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { updateTransactionSchema } from '@/src/lib/validations/transaction.schema';
-import { updateTransactionUseCase, deleteTransactionUseCase } from '@/src/infrastructure/container';
+import {
+  updateTransactionUseCase,
+  deleteTransactionUseCase,
+  upsertMerchantRuleUseCase,
+  transactionRepo,
+} from '@/src/infrastructure/container';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { userId } = await auth();
@@ -14,7 +19,29 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!parsed.success) {
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
-    const transaction = await updateTransactionUseCase.execute(id, userId, parsed.data);
+
+    const { saveMerchantRule, applyToInstallmentGroup, ...transactionData } = parsed.data;
+
+    const transaction = await updateTransactionUseCase.execute(id, userId, transactionData);
+
+    // Side effect 1: save merchant rule so future PDF imports auto-categorize
+    if (saveMerchantRule && transactionData.categoryId) {
+      await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, transactionData.categoryId);
+    }
+
+    // Side effect 2: propagate category to all installments in the same group
+    if (applyToInstallmentGroup && transaction.isInstallment && transactionData.categoryId && transaction.installmentTotal) {
+      const group = await transactionRepo.findInstallmentGroup(
+        userId,
+        transaction.merchant,
+        transaction.installmentTotal,
+      );
+      const siblingIds = group.filter((t) => t.id !== id).map((t) => t.id);
+      if (siblingIds.length > 0) {
+        await transactionRepo.updateMany(siblingIds, userId, { categoryId: transactionData.categoryId });
+      }
+    }
+
     return NextResponse.json(transaction);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error';

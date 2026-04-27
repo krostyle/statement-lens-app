@@ -20,6 +20,9 @@ export const updateTransactionSchema = z.object({
   notes: z.string().optional().nullable(),
   date: z.string().datetime().optional(),
   description: z.string().min(1).optional(),
+  // Side-effect flags — processed by the route handler, not persisted directly
+  saveMerchantRule: z.boolean().optional(),
+  applyToInstallmentGroup: z.boolean().optional(),
 });
 
 export type CreateTransactionInput = z.input<typeof createTransactionSchema>;

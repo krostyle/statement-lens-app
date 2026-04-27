@@ -6,6 +6,7 @@ import { StatementPrismaRepository } from './database/repositories/statement.pri
 import { TransactionPrismaRepository } from './database/repositories/transaction.prisma.repository';
 import { BudgetPrismaRepository } from './database/repositories/budget.prisma.repository';
 import { MonthClosePrismaRepository } from './database/repositories/month-close.prisma.repository';
+import { MerchantRulePrismaRepository } from './database/repositories/merchant-rule.prisma.repository';
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
@@ -30,6 +31,9 @@ import { RecommendBudgetsUseCase } from '@/src/application/use-cases/budgets/rec
 import { CreateMonthCloseUseCase } from '@/src/application/use-cases/month-closes/create-month-close.use-case';
 import { GetMonthCloseUseCase } from '@/src/application/use-cases/month-closes/get-month-close.use-case';
 import { ListMonthClosesUseCase } from '@/src/application/use-cases/month-closes/list-month-closes.use-case';
+import { ListMerchantRulesUseCase } from '@/src/application/use-cases/merchant-rules/list-merchant-rules.use-case';
+import { UpsertMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/upsert-merchant-rule.use-case';
+import { DeleteMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/delete-merchant-rule.use-case';
 
 // Repositories
 export const userProfileRepo = new UserProfilePrismaRepository();
@@ -38,6 +42,7 @@ const statementRepo = new StatementPrismaRepository();
 const transactionRepo = new TransactionPrismaRepository();
 export const budgetRepo = new BudgetPrismaRepository();
 export const monthCloseRepo = new MonthClosePrismaRepository();
+export const merchantRuleRepo = new MerchantRulePrismaRepository();
 
 // Services
 export const s3Service = new S3StorageService();
@@ -75,6 +80,10 @@ export const getMonthCloseUseCase = new GetMonthCloseUseCase(
   monthCloseRepo, budgetRepo, transactionRepo, categoryRepo,
 );
 export const listMonthClosesUseCase = new ListMonthClosesUseCase(monthCloseRepo);
+
+export const listMerchantRulesUseCase = new ListMerchantRulesUseCase(merchantRuleRepo);
+export const upsertMerchantRuleUseCase = new UpsertMerchantRuleUseCase(merchantRuleRepo, categoryRepo);
+export const deleteMerchantRuleUseCase = new DeleteMerchantRuleUseCase(merchantRuleRepo);
 
 // Raw repos (needed in some API routes)
 export { categoryRepo, statementRepo, transactionRepo };

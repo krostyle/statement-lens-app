@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
@@ -27,6 +27,106 @@ const BANK_LABELS: Record<string, string> = {
   falabella: 'Falabella',
   liderbci: 'LiderBCI',
 };
+
+// ─────────────────────────────────────────────────────────
+// Merchant rules dialog
+// ─────────────────────────────────────────────────────────
+
+interface MerchantRuleRow {
+  id: string;
+  merchantPattern: string;
+  categoryId: string;
+}
+
+function MerchantRulesDialog({
+  categories,
+  onClose,
+}: {
+  categories: CategoryResponseDTO[];
+  onClose: () => void;
+}) {
+  const [rules, setRules] = useState<MerchantRuleRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+
+  const loadRules = async () => {
+    setLoading(true);
+    const res = await fetch('/api/merchant-rules');
+    const data = await res.json();
+    setRules(Array.isArray(data) ? data : []);
+    setLoading(false);
+  };
+
+  useEffect(() => { loadRules(); }, []);
+
+  const handleDelete = async (id: string) => {
+    await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
+    setRules((prev) => prev.filter((r) => r.id !== id));
+  };
+
+  return (
+    <DialogContent className="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Zap className="h-4 w-4 text-brand-600" />
+          Reglas de categorización automática
+        </DialogTitle>
+      </DialogHeader>
+
+      <p className="text-sm text-zinc-500">
+        Cuando subes un estado de cuenta, estas reglas asignan automáticamente la categoría a las transacciones que coincidan con el nombre del comercio.
+      </p>
+
+      {loading ? (
+        <div className="space-y-2 py-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3">
+              <div className="h-4 w-40 rounded bg-zinc-100 animate-pulse" />
+              <div className="h-4 w-24 rounded bg-zinc-100 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : rules.length === 0 ? (
+        <p className="py-4 text-center text-sm text-zinc-400">
+          Sin reglas configuradas. Al editar la categoría de una transacción, marca la opción de recordar para crear una regla.
+        </p>
+      ) : (
+        <div className="rounded-lg border border-zinc-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-zinc-50 border-b border-zinc-200">
+              <tr>
+                <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Comercio</th>
+                <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Categoría</th>
+                <th className="px-4 py-2.5 w-10" />
+              </tr>
+            </thead>
+            <tbody>
+              {rules.map((r) => (
+                <tr key={r.id} className="border-b border-zinc-50 last:border-0">
+                  <td className="px-4 py-2.5 font-medium text-zinc-800 capitalize">{r.merchantPattern}</td>
+                  <td className="px-4 py-2.5 text-zinc-600">{categoryMap.get(r.categoryId) ?? r.categoryId}</td>
+                  <td className="px-4 py-2.5">
+                    <button
+                      onClick={() => handleDelete(r.id)}
+                      className="text-zinc-400 hover:text-red-500 transition-colors"
+                      title="Eliminar regla"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
 
 // ─────────────────────────────────────────────────────────
 // Bulk dialogs
@@ -156,6 +256,9 @@ export function TransactionsView() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialog, setBulkDialog] = useState<'category' | 'merchant' | null>(null);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
+
+  // ── Merchant rules dialog ───────────────────────────────
+  const [rulesOpen, setRulesOpen] = useState(false);
 
   // Map statementId → bank for display in table rows
   const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
@@ -341,6 +444,9 @@ export function TransactionsView() {
         />
 
         <div className="ml-auto flex items-center gap-2">
+          <Button variant="outline" onClick={() => setRulesOpen(true)} title="Reglas de categorización automática">
+            <Zap className="h-4 w-4" /> Reglas
+          </Button>
           <a href={`/api/transactions/export?${exportParams.toString()}`} download="transacciones.csv">
             <Button variant="outline" type="button">
               <Download className="h-4 w-4" /> Exportar CSV
@@ -420,6 +526,11 @@ export function TransactionsView() {
             <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>Eliminar</Button>
           </DialogFooter>
         </DialogContent>
+      </Dialog>
+
+      {/* Merchant rules dialog */}
+      <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
+        <MerchantRulesDialog categories={categories} onClose={() => setRulesOpen(false)} />
       </Dialog>
 
       {/* Edit / create form */}
