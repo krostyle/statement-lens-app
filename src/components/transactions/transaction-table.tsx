@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck, CheckCheck } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
@@ -282,6 +282,10 @@ export function TransactionsView() {
   // ── Merchant rules dialog ───────────────────────────────
   const [rulesOpen, setRulesOpen] = useState(false);
 
+  // ── Confirm-all pending dialog ──────────────────────────
+  const [confirmAllOpen, setConfirmAllOpen] = useState(false);
+  const [confirmAllLoading, setConfirmAllLoading] = useState(false);
+
   // Map statementId → bank for display in table rows
   const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
 
@@ -409,6 +413,14 @@ export function TransactionsView() {
     load();
   };
 
+  const handleConfirmAll = async () => {
+    setConfirmAllLoading(true);
+    await fetch('/api/transactions/confirm-all', { method: 'PATCH' });
+    setConfirmAllLoading(false);
+    setConfirmAllOpen(false);
+    load();
+  };
+
   const exportParams = new URLSearchParams({
     ...(search ? { search } : {}),
     ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
@@ -493,6 +505,13 @@ export function TransactionsView() {
         <div className="ml-auto flex items-center gap-2">
           <Button variant="outline" onClick={() => setRulesOpen(true)} title="Reglas de categorización automática">
             <Zap className="h-4 w-4" /> Reglas
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setConfirmAllOpen(true)}
+            title="Marcar todas las transacciones pendientes como verificadas"
+          >
+            <CheckCheck className="h-4 w-4" /> Verificar historial
           </Button>
           <a href={`/api/transactions/export?${exportParams.toString()}`} download="transacciones.csv">
             <Button variant="outline" type="button">
@@ -587,6 +606,33 @@ export function TransactionsView() {
       {/* Merchant rules dialog */}
       <Dialog open={rulesOpen} onOpenChange={setRulesOpen}>
         <MerchantRulesDialog categories={categories} onClose={() => setRulesOpen(false)} />
+      </Dialog>
+
+      {/* Confirm-all pending dialog */}
+      <Dialog open={confirmAllOpen} onOpenChange={(v) => { if (!v) setConfirmAllOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCheck className="h-4 w-4 text-emerald-600" />
+              Verificar historial completo
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            Todas las transacciones con estado <span className="font-semibold text-amber-600">Sin revisar</span> se
+            marcarán como <span className="font-semibold text-emerald-600">Confirmadas</span>.
+          </p>
+          <p className="text-xs text-zinc-400">
+            Esto aplica a todo tu historial, sin importar los filtros activos.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmAllOpen(false)} disabled={confirmAllLoading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleConfirmAll} disabled={confirmAllLoading}>
+              {confirmAllLoading ? 'Verificando...' : 'Confirmar todo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
 
       {/* Edit / create form */}

@@ -80,6 +80,14 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     return result.count;
   }
 
+  async confirmAllPending(userId: string): Promise<number> {
+    const result = await prisma.transaction.updateMany({
+      where: { userId, reviewStatus: 'pending' },
+      data: { reviewStatus: 'confirmed' },
+    });
+    return result.count;
+  }
+
   async delete(id: string): Promise<void> {
     await prisma.transaction.delete({ where: { id } });
   }

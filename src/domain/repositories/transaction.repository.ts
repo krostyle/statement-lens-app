@@ -25,5 +25,6 @@ export interface ITransactionRepository {
   createMany(data: CreateTransactionInput[]): Promise<void>;
   update(id: string, data: UpdateTransactionInput): Promise<Transaction>;
   updateMany(ids: string[], userId: string, data: UpdateTransactionInput): Promise<number>;
+  confirmAllPending(userId: string): Promise<number>;
   delete(id: string): Promise<void>;
 }
