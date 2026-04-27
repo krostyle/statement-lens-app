@@ -4,6 +4,7 @@ import type { ITransactionRepository } from '@/src/domain/repositories/transacti
 import type { ICategoryRepository } from '@/src/domain/repositories/category.repository';
 import type { MonthCloseSuggestionsService } from '@/src/infrastructure/ai/month-close-suggestions.service';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
+import { netSpendByCategory } from '@/src/domain/services/transaction.service';
 
 export class CreateMonthCloseUseCase {
   constructor(
@@ -24,8 +25,7 @@ export class CreateMonthCloseUseCase {
     const from = new Date(year, mm - 1, 1);
     const to = new Date(year, mm, 0, 23, 59, 59, 999); // last day of month
     const transactions = await this.transactionRepo.findByUserId(userId, { from, to });
-    const expenses = transactions.filter((t) => t.amount < 0);
-    if (expenses.length === 0) throw new Error('No hay transacciones en este mes.');
+    if (transactions.length === 0) throw new Error('No hay transacciones en este mes.');
 
     // Get budgets for the month
     const budgets = await this.budgetRepo.findByUserId(userId, month);
@@ -35,11 +35,11 @@ export class CreateMonthCloseUseCase {
     const categories = await this.categoryRepo.findByUserId(userId);
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
 
-    // Compute spending per category
-    const spendMap = new Map<string, number>();
-    for (const t of expenses) {
-      spendMap.set(t.categoryId, (spendMap.get(t.categoryId) ?? 0) + Math.abs(t.amount));
-    }
+    // Net spend per category: returns/credit-notes offset purchases
+    // Categories with net positive (income or refunds > purchases) are excluded
+    const spendMap = netSpendByCategory(transactions);
+
+    if (spendMap.size === 0) throw new Error('No hay gastos netos en este mes.');
 
     // Build summary
     const summary: CategorySummary[] = budgets.map((b) => {

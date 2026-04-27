@@ -1,5 +1,6 @@
 import type { ITransactionRepository } from '@/src/domain/repositories/transaction.repository';
 import type { FinancialAnalysisService, FinancialAnalysisResult } from '@/src/infrastructure/ai/financial-analysis.service';
+import { netSpendByCategory } from '@/src/domain/services/transaction.service';
 
 function toMonthStr(t: { date: Date }) {
   return `${t.date.getUTCFullYear()}-${String(t.date.getUTCMonth() + 1).padStart(2, '0')}`;
@@ -35,12 +36,9 @@ export class AnalyzeFinancesUseCase {
       period = 'últimos 6 meses';
     }
 
-    const categoryMap = new Map<string, number>();
-    for (const t of transactions) {
-      if (t.amount >= 0) continue;
-      categoryMap.set(t.categoryId, (categoryMap.get(t.categoryId) ?? 0) + Math.abs(t.amount));
-    }
-    const topCategories = Array.from(categoryMap.entries())
+    // Net spend by category: positive amounts (returns/credit notes) offset purchases
+    const spendMap = netSpendByCategory(transactions);
+    const topCategories = Array.from(spendMap.entries())
       .map(([categoryId, total]) => ({ categoryId, total }))
       .sort((a, b) => b.total - a.total)
       .slice(0, 10);

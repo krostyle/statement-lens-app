@@ -4,6 +4,7 @@ import {
   groupByMonth,
   getTopMerchants,
   detectSubscriptions,
+  netSpendByCategory,
 } from '@/src/domain/services/transaction.service';
 
 export type MetricsFilterMode = 'default' | 'month';
@@ -47,14 +48,9 @@ export function buildMetrics(params: {
   const monthlyTrend = groupByMonth(scopeTxs);
 
   // categories & merchants → always scoped to the selected period
-  const analysisTxs = currentTxs;
-
-  const categoryMap = new Map<string, number>();
-  for (const t of analysisTxs) {
-    if (t.amount >= 0) continue;
-    categoryMap.set(t.categoryId, (categoryMap.get(t.categoryId) ?? 0) + Math.abs(t.amount));
-  }
-  const topCategories = Array.from(categoryMap.entries())
+  // netSpendByCategory nets returns/credit-notes against purchases per category
+  const categoryNets = netSpendByCategory(currentTxs);
+  const topCategories = Array.from(categoryNets.entries())
     .map(([categoryId, total]) => ({ categoryId, total }))
     .sort((a, b) => b.total - a.total);
 
@@ -66,7 +62,7 @@ export function buildMetrics(params: {
     dailyAverage,
     topCategories,
     monthlyTrend,
-    topMerchants: getTopMerchants(analysisTxs),
+    topMerchants: getTopMerchants(currentTxs),
     subscriptions: detectSubscriptions(scopeTxs),
   };
 }

@@ -15,8 +15,14 @@ export class FinancialAnalysisService {
     period: string
   ): Promise<FinancialAnalysisResult> {
     const txSummary = transactions
-      .filter((t) => t.amount < 0)
-      .map((t) => `${t.date.toISOString().slice(0, 10)},${t.merchant},${Math.abs(t.amount)}`)
+      .filter((t) => t.amount !== 0)
+      .map((t) => {
+        if (t.amount < 0) {
+          return `${t.date.toISOString().slice(0, 10)},${t.merchant},${Math.abs(t.amount)}`;
+        }
+        // Positive amount = return / credit note — reduces spend for this merchant
+        return `${t.date.toISOString().slice(0, 10)},${t.merchant},-${t.amount} (devolución)`;
+      })
       .join('\n');
 
     const catSummary = topCategories

@@ -89,15 +89,16 @@ export class RecommendBudgetsUseCase {
 
     const monthlyIncome = user?.monthlyIncome ?? null;
 
-    // ── Group expenses by category → month ────────────────────────────────
-    // monthlyMap[categoryId][YYYY-MM] = total spend that month
+    // ── Group net spend by category → month ───────────────────────────────
+    // monthlyMap[categoryId][YYYY-MM] = net signed amount that month
+    // (negative = net expense, positive = returns more than purchases)
     const monthlyMap = new Map<string, Map<string, number>>();
     for (const t of transactions) {
-      if (t.amount >= 0) continue;
+      if (t.amount === 0) continue;
       const mk = getMonthKey(new Date(t.date));
       if (!monthlyMap.has(t.categoryId)) monthlyMap.set(t.categoryId, new Map());
       const catMap = monthlyMap.get(t.categoryId)!;
-      catMap.set(mk, (catMap.get(mk) ?? 0) + Math.abs(t.amount));
+      catMap.set(mk, (catMap.get(mk) ?? 0) + t.amount);
     }
 
     if (monthlyMap.size === 0) return [];
@@ -109,7 +110,10 @@ export class RecommendBudgetsUseCase {
     const input = Array.from(monthlyMap.entries())
       .filter(([catId]) => categoryMap.has(catId))
       .map(([catId, byMonth]) => {
-        const monthAmounts = Array.from(byMonth.values()); // only months with spending
+        // Only months where net is negative are actual expense months
+        const monthAmounts = Array.from(byMonth.values())
+          .filter((net) => net < 0)
+          .map((net) => Math.abs(net));
         const totalSpend = monthAmounts.reduce((s, v) => s + v, 0);
         const { typical, sporadic } = typicalMonthlySpend(totalSpend, monthAmounts, WINDOW_MONTHS);
         return {
