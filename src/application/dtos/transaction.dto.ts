@@ -19,6 +19,7 @@ export interface UpdateTransactionDTO {
   date?: string;
   description?: string;
   reviewStatus?: 'pending' | 'auto' | 'confirmed' | 'manual';
+  transactionType?: 'expense' | 'income' | 'transfer';
 }
 
 export interface TransactionFiltersDTO {

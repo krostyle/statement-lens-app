@@ -37,5 +37,5 @@ export type CreateTransactionInput = Pick<
 > & { reviewStatus?: ReviewStatus; transactionType?: TransactionType };
 
 export type UpdateTransactionInput = Partial<
-  Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description' | 'reviewStatus'>
+  Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description' | 'reviewStatus' | 'transactionType'>
 >;

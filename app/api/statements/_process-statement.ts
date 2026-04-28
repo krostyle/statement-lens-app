@@ -11,6 +11,7 @@ export async function processStatement(
   bank: string,
   month: string,   // "YYYY-MM" — used as the billing date for installment rows
   statementType: 'credit_card' | 'checking' = 'credit_card',
+  userName?: string,
 ) {
   await statementRepo.updateStatus(statementId, 'processing');
 
@@ -24,7 +25,7 @@ export async function processStatement(
   });
 
   try {
-    await Promise.race([doProcess(statementId, userId, buffer, bank, month, statementType), timeoutPromise]);
+    await Promise.race([doProcess(statementId, userId, buffer, bank, month, statementType, userName), timeoutPromise]);
     clearTimeout(timeoutHandle);
   } catch (err) {
     clearTimeout(timeoutHandle);
@@ -43,12 +44,13 @@ async function doProcess(
   bank: string,
   month: string,
   statementType: 'credit_card' | 'checking' = 'credit_card',
+  userName?: string,
 ) {
   const rawText = await pdfParser.extractText(buffer);
   const categories = await categoryRepo.findByUserId(userId);
   const categoryNames = categories.map((c) => c.name);
 
-  const parsed = (await pdfParser.parseTransactions(rawText, bank, categoryNames, statementType)).filter((t) => {
+  const parsed = (await pdfParser.parseTransactions(rawText, bank, categoryNames, statementType, userName)).filter((t) => {
     // Santander (and potentially other banks) include informational "cuota 00/N"
     // entries in the "INFORMACION COMPRAS EN CUOTAS EN EL PERIODO" section.
     // These are NOT real charges — the first actual charge is cuota 01/N in

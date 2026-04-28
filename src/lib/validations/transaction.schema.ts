@@ -26,6 +26,8 @@ export const updateTransactionSchema = z.object({
   applyToInstallmentGroup: z.boolean().optional(),
   // Explicit confirm (mark as reviewed without editing any field)
   confirm: z.boolean().optional(),
+  // Manual type override (expense / income / transfer)
+  transactionType: z.enum(['expense', 'income', 'transfer']).optional(),
 });
 
 export type CreateTransactionInput = z.input<typeof createTransactionSchema>;

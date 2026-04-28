@@ -12,12 +12,13 @@ export class UpdateTransactionUseCase {
     // If reviewStatus is not explicitly set and at least one content field changes,
     // auto-promote to 'manual' to mark that the user reviewed this transaction.
     const hasContentChange =
-      dto.categoryId !== undefined ||
-      dto.merchant   !== undefined ||
-      dto.description !== undefined ||
-      dto.amount     !== undefined ||
-      dto.notes      !== undefined ||
-      dto.date       !== undefined;
+      dto.categoryId      !== undefined ||
+      dto.merchant        !== undefined ||
+      dto.description     !== undefined ||
+      dto.amount          !== undefined ||
+      dto.notes           !== undefined ||
+      dto.date            !== undefined ||
+      dto.transactionType !== undefined;
 
     const reviewStatus = dto.reviewStatus ?? (hasContentChange ? 'manual' : undefined);
 

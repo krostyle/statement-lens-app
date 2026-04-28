@@ -44,6 +44,7 @@ const editSchema = z.object({
   merchant: z.string().min(1, 'El comercio no puede estar vacío'),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
   amount: z.number({ message: 'Ingresa un número válido' }),
+  transactionType: z.enum(['expense', 'income', 'transfer']),
   saveMerchantRule: z.boolean(),
   saveMerchantRuleBank: z.string(), // BANK_ANY = any card, else specific bank key
   applyToInstallmentGroup: z.boolean(),
@@ -75,6 +76,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
       merchant: transaction?.merchant ?? '',
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
+      transactionType: (transaction?.transactionType ?? 'expense') as 'expense' | 'income' | 'transfer',
       saveMerchantRule: true,
       saveMerchantRuleBank: bank ?? BANK_ANY, // pre-select the transaction's card
       applyToInstallmentGroup: true,
@@ -115,6 +117,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
         merchant: data.merchant,
         description: data.description,
         amount: data.amount,
+        transactionType: data.transactionType,
         saveMerchantRule: data.saveMerchantRule,
         saveMerchantRuleBank: data.saveMerchantRule
           ? (data.saveMerchantRuleBank === BANK_ANY ? '' : data.saveMerchantRuleBank)
@@ -203,29 +206,51 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label>Categoría</Label>
-              <Controller
-                name="categoryId"
-                control={editControl}
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Seleccionar categoría..." />
-                    </SelectTrigger>
-                    <SelectContent position="popper">
-                      {sortedCategories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Categoría</Label>
+                <Controller
+                  name="categoryId"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Seleccionar categoría..." />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {sortedCategories.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {editErrors.categoryId && (
+                  <p className="text-xs text-destructive">{editErrors.categoryId.message}</p>
                 )}
-              />
-              {editErrors.categoryId && (
-                <p className="text-xs text-destructive">{editErrors.categoryId.message}</p>
-              )}
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Tipo</Label>
+                <Controller
+                  name="transactionType"
+                  control={editControl}
+                  render={({ field }) => (
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        <SelectItem value="expense">Gasto</SelectItem>
+                        <SelectItem value="income">Ingreso</SelectItem>
+                        <SelectItem value="transfer">Transferencia interna</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+              </div>
             </div>
 
             {/* Side-effect options — always visible when editing */}

@@ -89,12 +89,13 @@ export class PdfParserService {
     bank: string,
     categories: string[],
     statementType: 'credit_card' | 'checking' = 'credit_card',
+    userName?: string,
   ): Promise<ParsedTransaction[]> {
     const categoriesList = categories.join(', ');
 
     const systemPrompt =
       statementType === 'checking'
-        ? this.buildCheckingPrompt(bank)
+        ? this.buildCheckingPrompt(bank, userName)
         : this.buildCreditCardPrompt(bank);
 
     const message = await anthropicClient.messages.create({
@@ -140,7 +141,10 @@ transactionType: always "expense" for credit card statements (returns are positi
 CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.${getCreditCardBankHints(bank)}`;
   }
 
-  private buildCheckingPrompt(bank: string): string {
+  private buildCheckingPrompt(bank: string, userName?: string): string {
+    const ownerHint = userName
+      ? `\nThe account owner's name is "${userName}". Any outgoing transfer whose recipient name matches or closely resembles this name (e.g. "YO", "A MI MISMO", "${userName.toUpperCase()}") is an own-account transfer → transactionType "transfer".`
+      : '';
     return `You are a parser for Chilean bank account (cuenta corriente / cuenta RUT / cuenta vista) statements.
 Extract ALL movements and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
 Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":false,"installmentNum":null,"installmentTotal":null,"suggestedCategory":"category","transactionType":"expense"|"income"|"transfer"}
@@ -153,7 +157,7 @@ transactionType rules — THIS IS CRITICAL TO AVOID DOUBLE-COUNTING:
 - "transfer": credit card payments (these expenses are already counted in the credit card statement), transfers sent to own accounts at other banks (e.g. paying BCI from Santander). These are INTERNAL MOVEMENTS, not real new expenses.
 - "income": salary/wages (sueldo, remuneración), received transfers that represent real income, AFP/previsión returns
 - "expense": real spending — loan payments, bank fees, metro/Bip recharges, supermarket purchases, any outgoing that is NOT a credit card payment or own-account transfer
-
+${ownerHint}
 Category suggestions (use the user's category list when possible):
 - Credit card payments → "Pago Tarjeta Crédito" (transactionType: "transfer")
 - Own-account transfers → "Transferencia interna" (transactionType: "transfer")

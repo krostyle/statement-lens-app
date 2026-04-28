@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@clerk/nextjs/server';
+import { auth, currentUser } from '@clerk/nextjs/server';
 import { listStatementsUseCase, s3Service, statementRepo, userProfileRepo } from '@/src/infrastructure/container';
 import { processStatement } from './_process-statement';
 import type { StatementType } from '@/src/domain/entities/statement';
@@ -74,8 +74,12 @@ export async function POST(request: Request) {
       s3Url,
     });
 
+    // Fetch the user's full name so the AI can identify self-transfers (e.g. "TRF A DIEGO ALBARRAN")
+    const clerkUser = await currentUser();
+    const userName = [clerkUser?.firstName, clerkUser?.lastName].filter(Boolean).join(' ') || undefined;
+
     // Process asynchronously (fire and forget)
-    processStatement(statement.id, userId, buffer, bank, month, statementType as StatementType).catch(console.error);
+    processStatement(statement.id, userId, buffer, bank, month, statementType as StatementType, userName).catch(console.error);
 
     return NextResponse.json({
       id: statement.id,
