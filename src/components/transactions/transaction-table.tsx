@@ -438,10 +438,10 @@ export function TransactionsView() {
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-3">
+      {/* ── Filters row ── */}
+      <div className="flex flex-wrap items-center gap-2">
         <Select value={selectedBank} onValueChange={setSelectedBank}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="Todas las tarjetas" />
           </SelectTrigger>
           <SelectContent>
@@ -459,7 +459,7 @@ export function TransactionsView() {
         />
 
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-44">
             <SelectValue placeholder="Todas las categorías" />
           </SelectTrigger>
           <SelectContent>
@@ -471,7 +471,7 @@ export function TransactionsView() {
         </Select>
 
         <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-36">
             <SelectValue placeholder="Tipo de pago" />
           </SelectTrigger>
           <SelectContent>
@@ -483,8 +483,8 @@ export function TransactionsView() {
         </Select>
 
         <Select value={selectedReview} onValueChange={setSelectedReview}>
-          <SelectTrigger className="w-44">
-            <SelectValue placeholder="Estado de revisión" />
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Revisión" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las revisiones</SelectItem>
@@ -496,32 +496,37 @@ export function TransactionsView() {
         </Select>
 
         <Input
-          placeholder="Buscar por comercio o descripción..."
+          placeholder="Buscar comercio o descripción..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-sm"
+          className="flex-1 min-w-[160px]"
         />
+      </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Button variant="outline" onClick={() => setRulesOpen(true)} title="Reglas de categorización automática">
-            <Zap className="h-4 w-4" /> Reglas
+      {/* ── Action buttons row ── */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        <Button variant="outline" onClick={() => setRulesOpen(true)} title="Reglas de categorización automática">
+          <Zap className="h-4 w-4" />
+          <span className="hidden sm:inline">Reglas</span>
+        </Button>
+        <Button
+          variant="outline"
+          onClick={() => setConfirmAllOpen(true)}
+          title="Marcar todas las transacciones pendientes como verificadas"
+        >
+          <CheckCheck className="h-4 w-4" />
+          <span className="hidden sm:inline">Verificar historial</span>
+        </Button>
+        <a href={`/api/transactions/export?${exportParams.toString()}`} download="transacciones.csv">
+          <Button variant="outline" type="button" title="Exportar CSV">
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
-          <Button
-            variant="outline"
-            onClick={() => setConfirmAllOpen(true)}
-            title="Marcar todas las transacciones pendientes como verificadas"
-          >
-            <CheckCheck className="h-4 w-4" /> Verificar historial
-          </Button>
-          <a href={`/api/transactions/export?${exportParams.toString()}`} download="transacciones.csv">
-            <Button variant="outline" type="button">
-              <Download className="h-4 w-4" /> Exportar CSV
-            </Button>
-          </a>
-          <Button onClick={openCreate}>
-            <Plus className="h-4 w-4" /> Nueva transacción
-          </Button>
-        </div>
+        </a>
+        <Button onClick={openCreate}>
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Nueva transacción</span>
+        </Button>
       </div>
 
       {/* Bulk action bar */}
