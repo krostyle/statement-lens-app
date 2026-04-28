@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@clerk/nextjs/server';
-import { createMonthCloseUseCase, listMonthClosesUseCase } from '@/src/infrastructure/container';
+import { createMonthCloseUseCase, listMonthClosesUseCase, getMonthCloseUseCase } from '@/src/infrastructure/container';
 
 const createSchema = z.object({
   month: z.string().regex(/^\d{4}-\d{2}$/, 'Formato de mes inválido (YYYY-MM)'),
@@ -12,7 +12,12 @@ export async function GET() {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const closes = await listMonthClosesUseCase.execute(userId);
-  return NextResponse.json(closes);
+  // Enrich every close with live-recalculated totals so the list, the detail
+  // dialog and the report always show the same numbers (edits, refunds, etc.).
+  const enriched = await Promise.all(
+    closes.map((mc) => getMonthCloseUseCase.enrich(mc, userId)),
+  );
+  return NextResponse.json(enriched);
 }
 
 export async function POST(req: Request) {

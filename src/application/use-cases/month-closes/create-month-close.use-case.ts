@@ -20,10 +20,11 @@ export class CreateMonthCloseUseCase {
     const alreadyClosed = await this.monthCloseRepo.existsForMonth(userId, month);
     if (alreadyClosed) throw new Error('Este mes ya fue cerrado.');
 
-    // Get transactions for the month
+    // Get transactions for the month — always UTC so installment billing dates
+    // (stored as UTC midnight on the 1st) are included correctly.
     const [year, mm] = month.split('-').map(Number);
-    const from = new Date(year, mm - 1, 1);
-    const to = new Date(year, mm, 0, 23, 59, 59, 999); // last day of month
+    const from = new Date(Date.UTC(year, mm - 1, 1));
+    const to = new Date(Date.UTC(year, mm, 0, 23, 59, 59, 999)); // last day of month
     const transactions = await this.transactionRepo.findByUserId(userId, { from, to });
     if (transactions.length === 0) throw new Error('No hay transacciones en este mes.');
 
