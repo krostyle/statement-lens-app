@@ -28,6 +28,7 @@ export class ListTransactionsUseCase {
       isInstallment: filters?.isInstallment,
       minInstallmentTotal: filters?.minInstallmentTotal,
       maxInstallmentTotal: filters?.maxInstallmentTotal,
+      reviewStatus: filters?.reviewStatus,
     };
 
     const [transactions, total] = await Promise.all([
