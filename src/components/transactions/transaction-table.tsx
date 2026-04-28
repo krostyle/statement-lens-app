@@ -624,13 +624,14 @@ export function TransactionsView() {
       {/* ── Filters row ── */}
       <div className="flex flex-wrap items-center gap-2">
         <Select value={selectedType} onValueChange={setSelectedType}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Gastos e ingresos</SelectItem>
+            <SelectItem value="all">Todos los tipos</SelectItem>
             <SelectItem value="expense">Solo gastos</SelectItem>
             <SelectItem value="income">Solo ingresos</SelectItem>
+            <SelectItem value="transfer">Transferencias internas</SelectItem>
           </SelectContent>
         </Select>
 
@@ -945,7 +946,14 @@ export function TransactionsView() {
                     {t.transactionType === 'income' && (
                       <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 align-middle">Ingreso</span>
                     )}
-                    <span className={`font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {t.transactionType === 'transfer' && (
+                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500 align-middle">Transferencia</span>
+                    )}
+                    <span className={`font-semibold ${
+                      t.transactionType === 'transfer'
+                        ? 'text-zinc-400'
+                        : t.amount < 0 ? 'text-red-600' : 'text-green-600'
+                    }`}>
                       {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
                     </span>
                   </td>

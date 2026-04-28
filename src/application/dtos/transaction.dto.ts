@@ -50,5 +50,5 @@ export interface TransactionResponseDTO {
   installmentTotal?: number | null;
   notes?: string | null;
   reviewStatus: 'pending' | 'auto' | 'confirmed' | 'manual';
-  transactionType: 'expense' | 'income';
+  transactionType: 'expense' | 'income' | 'transfer';
 }

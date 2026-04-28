@@ -1,5 +1,5 @@
 export type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
-export type TransactionType = 'expense' | 'income';
+export type TransactionType = 'expense' | 'income' | 'transfer';
 
 export interface Transaction {
   id: string;

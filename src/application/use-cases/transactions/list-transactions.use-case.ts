@@ -57,7 +57,7 @@ export class ListTransactionsUseCase {
         installmentTotal: t.installmentTotal,
         notes: t.notes,
         reviewStatus: t.reviewStatus,
-        transactionType: (t.transactionType ?? 'expense') as 'expense' | 'income',
+        transactionType: (t.transactionType ?? 'expense') as 'expense' | 'income' | 'transfer',
       })),
       total,
       page,

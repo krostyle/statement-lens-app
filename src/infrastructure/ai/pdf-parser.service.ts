@@ -10,7 +10,7 @@ export interface ParsedTransaction {
   installmentNum: number | null;
   installmentTotal: number | null;
   suggestedCategory: string;
-  transactionType: 'expense' | 'income';
+  transactionType: 'expense' | 'income' | 'transfer';
 }
 
 // ─── Credit-card bank hints ────────────────────────────────────────────────────
@@ -35,33 +35,38 @@ function getCreditCardBankHints(bank: string): string {
 function getCheckingBankHints(bank: string): string {
   if (bank === 'santander') {
     return `\nSantander cuenta corriente rules:
-- Rows prefixed "ABN" or "ABONO" are credits (income or returns) → positive amount.
+- Rows prefixed "ABN" or "ABONO" are credits → positive amount.
 - Rows prefixed "CRG" or "CARGO" are debits → negative amount.
-- Rows prefixed "TRF" or "TRANSFERENCIA" sent to another account → negative amount (expense).
-- Rows prefixed "TRF" or "TRANSFERENCIA" received from another account → positive amount (income if it appears to be salary or a transfer in).
-- "COM" or "COMISION" rows are bank fees → negative amount, category "Comisiones".`;
+- Rows prefixed "TRF ENVIADA" or "TRANSFERENCIA A" sent to another own account → transactionType "transfer", negative amount, category "Transferencia interna".
+- Rows prefixed "TRF" or "TRANSFERENCIA" sent to an external third party → transactionType "expense", negative amount, category "Transferencias".
+- Rows prefixed "TRF" or "TRANSFERENCIA" received (abono) → transactionType "income" if salary, otherwise "income", category "Ingresos".
+- "PAGO TARJETA" or "PAG TAR" rows → transactionType "transfer", negative amount, category "Pago Tarjeta Crédito".
+- "COM" or "COMISION" rows are bank fees → transactionType "expense", negative amount, category "Comisiones".`;
   }
   if (bank === 'falabella') {
     return `\nFalabella cuenta corriente rules:
 - "Abono" column values → positive amounts.
 - "Cargo" column values → negative amounts.
-- Transfers to Falabella credit card → negative, category "Pago Tarjeta Crédito".
-- Salary / payroll deposits → positive, transactionType "income", category "Ingresos".`;
+- Payments to Falabella credit card ("PAGO TARJETA", "PAG TC") → transactionType "transfer", negative amount, category "Pago Tarjeta Crédito".
+- Transfers to own accounts at other banks → transactionType "transfer", negative amount, category "Transferencia interna".
+- Salary / payroll deposits → transactionType "income", positive amount, category "Ingresos".`;
   }
   if (bank === 'bci') {
     return `\nBCI cuenta corriente rules:
 - "Abono" (credit) column → positive amount.
 - "Cargo" (debit) column → negative amount.
-- Loan payments (cuota crédito) → negative, category "Pago Crédito".
-- BCI credit card payments → negative, category "Pago Tarjeta Crédito".`;
+- Loan payments (cuota crédito, dividendo) → transactionType "expense", negative amount, category "Pago Crédito".
+- BCI credit card payments ("PAGO TARJETA BCI") → transactionType "transfer", negative amount, category "Pago Tarjeta Crédito".
+- Transfers to own accounts at other banks → transactionType "transfer", negative amount, category "Transferencia interna".`;
   }
   if (bank === 'bancoestado') {
     return `\nBancoEstado / Cuenta RUT rules:
 - "Abono" column → positive amount.
 - "Cargo" column → negative amount.
-- Bip!/metro recharges ("RECARGA BIP", "METRO") → negative, category "Transporte".
-- Salary transfers → positive, transactionType "income", category "Ingresos".
-- Comisiones / mantención → negative, category "Comisiones".`;
+- Bip!/metro recharges ("RECARGA BIP", "METRO") → transactionType "expense", negative amount, category "Transporte".
+- Salary transfers → transactionType "income", positive amount, category "Ingresos".
+- Transfers to own accounts at other banks → transactionType "transfer", negative amount, category "Transferencia interna".
+- Comisiones / mantención → transactionType "expense", negative amount, category "Comisiones".`;
   }
   return '';
 }
@@ -112,7 +117,11 @@ export class PdfParserService {
     // Ensure transactionType always has a valid value (defensive)
     return parsed.map((t) => ({
       ...t,
-      transactionType: t.transactionType === 'income' ? 'income' : 'expense',
+      transactionType: t.transactionType === 'income'
+        ? 'income'
+        : t.transactionType === 'transfer'
+          ? 'transfer'
+          : 'expense',
     }));
   }
 
@@ -128,25 +137,26 @@ CRITICAL for installments: amount must be the monthly installment amount (cuota 
   private buildCheckingPrompt(bank: string): string {
     return `You are a parser for Chilean bank account (cuenta corriente / cuenta RUT / cuenta vista) statements.
 Extract ALL movements and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
-Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":false,"installmentNum":null,"installmentTotal":null,"suggestedCategory":"category","transactionType":"expense"|"income"}
+Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":false,"installmentNum":null,"installmentTotal":null,"suggestedCategory":"category","transactionType":"expense"|"income"|"transfer"}
 
 Amount rules:
-- ALWAYS negative for outgoing money: debits, payments to credit cards, loan payments, transfers sent, bank fees
-- ALWAYS positive for incoming money: salary, received transfers, refunds from services
+- ALWAYS negative for outgoing money: debits, credit card payments, loan payments, transfers sent, bank fees
+- ALWAYS positive for incoming money: salary, received transfers, service refunds
 
-transactionType rules:
-- "income": salary/wages (sueldo, remuneración), received transfers that appear to be income, AFP/previsión returns
-- "expense": everything else (payments, debits, fees, transfers sent, metro recharges, etc.)
+transactionType rules — THIS IS CRITICAL TO AVOID DOUBLE-COUNTING:
+- "transfer": credit card payments (these expenses are already counted in the credit card statement), transfers sent to own accounts at other banks (e.g. paying BCI from Santander). These are INTERNAL MOVEMENTS, not real new expenses.
+- "income": salary/wages (sueldo, remuneración), received transfers that represent real income, AFP/previsión returns
+- "expense": real spending — loan payments, bank fees, metro/Bip recharges, supermarket purchases, any outgoing that is NOT a credit card payment or own-account transfer
 
 Category suggestions (use the user's category list when possible):
-- Credit card payments → "Pago Tarjeta Crédito"
-- Consumer loan payments → "Pago Crédito"
-- Outgoing transfers → "Transferencias"
-- Metro / Bip recharges → "Transporte"
-- Bank fees / commissions → "Comisiones"
-- Salary / wages → "Ingresos"
-- Received transfers (income) → "Ingresos"
-- Supermarket / grocery → "Supermercado"
+- Credit card payments → "Pago Tarjeta Crédito" (transactionType: "transfer")
+- Own-account transfers → "Transferencia interna" (transactionType: "transfer")
+- Consumer loan payments → "Pago Crédito" (transactionType: "expense")
+- Outgoing transfers to third parties → "Transferencias" (transactionType: "expense")
+- Metro / Bip recharges → "Transporte" (transactionType: "expense")
+- Bank fees / commissions → "Comisiones" (transactionType: "expense")
+- Salary / wages → "Ingresos" (transactionType: "income")
+- Received transfers (income) → "Ingresos" (transactionType: "income")
 - Do NOT include account balance rows, opening/closing balance summaries, or section headers.${getCheckingBankHints(bank)}`;
   }
 }

@@ -99,7 +99,11 @@ async function doProcess(
         statementId,
         categoryId,
         reviewStatus,
-        transactionType: (t.transactionType === 'income' ? 'income' : 'expense') as 'expense' | 'income',
+        transactionType: (
+          t.transactionType === 'income' ? 'income'
+          : t.transactionType === 'transfer' ? 'transfer'
+          : 'expense'
+        ) as 'expense' | 'income' | 'transfer',
         date: t.isInstallment ? billingDate : new Date(t.date),
         description: t.description,
         merchant: t.merchant,
