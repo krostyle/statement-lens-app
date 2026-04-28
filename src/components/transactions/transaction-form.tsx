@@ -196,7 +196,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Seleccionar categoría..." />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent position="popper">
                       {sortedCategories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
@@ -241,7 +241,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                               <SelectTrigger className="h-7 text-xs flex-1">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent position="popper">
                                 <SelectItem value="">Cualquier tarjeta</SelectItem>
                                 {Object.entries(BANK_LABELS).map(([key, label]) => (
                                   <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -331,7 +331,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Seleccionar categoría..." />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent position="popper">
                     {categories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}

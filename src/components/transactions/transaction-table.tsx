@@ -148,7 +148,7 @@ function MerchantRulesDialog({
           <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Cualquier tarjeta" />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             <SelectItem value="">Cualquier tarjeta</SelectItem>
             {Object.entries(BANK_LABELS).map(([key, label]) => (
               <SelectItem key={key} value={key}>{label}</SelectItem>
@@ -161,7 +161,7 @@ function MerchantRulesDialog({
           <SelectTrigger className="h-7 text-xs">
             <SelectValue placeholder="Categoría..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             {sortedCategories.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
@@ -327,7 +327,7 @@ function BulkCategoryDialog({
           <SelectTrigger>
             <SelectValue placeholder="Selecciona una categoría..." />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent position="popper">
             {categories.map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
