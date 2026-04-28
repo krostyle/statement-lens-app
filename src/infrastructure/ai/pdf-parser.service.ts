@@ -75,7 +75,13 @@ export class PdfParserService {
   async extractText(buffer: Buffer): Promise<string> {
     const pdfParse = (await import('pdf-parse')).default;
     const data = await pdfParse(buffer);
-    return data.text;
+    // pdf-parse sometimes converts table column-separator lines (|) into the
+    // digit "1", which corrupts amounts (e.g. $234.567 → 1234.567).
+    // Strip those artifacts before sending the text to Claude.
+    return data.text
+      .replace(/\|/g, ' ')          // pipe → space (column separators)
+      .replace(/[ \t]{2,}/g, ' ')   // collapse repeated spaces/tabs
+      .trim();
   }
 
   async parseTransactions(
