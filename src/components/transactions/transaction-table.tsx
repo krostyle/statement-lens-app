@@ -56,6 +56,7 @@ function ReviewDot({ status, onClick }: { status: ReviewStatus; onClick?: () => 
 interface MerchantRuleRow {
   id: string;
   merchantPattern: string;
+  bank: string;
   categoryId: string;
 }
 
@@ -117,6 +118,7 @@ function MerchantRulesDialog({
             <thead className="bg-zinc-50 border-b border-zinc-200">
               <tr>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Comercio</th>
+                <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Tarjeta</th>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Categoría</th>
                 <th className="px-4 py-2.5 w-10" />
               </tr>
@@ -125,6 +127,9 @@ function MerchantRulesDialog({
               {rules.map((r) => (
                 <tr key={r.id} className="border-b border-zinc-50 last:border-0">
                   <td className="px-4 py-2.5 font-medium text-zinc-800 capitalize">{r.merchantPattern}</td>
+                  <td className="px-4 py-2.5 text-zinc-500 text-xs">
+                    {r.bank ? (BANK_LABELS[r.bank] ?? r.bank) : <span className="text-zinc-300">Cualquier tarjeta</span>}
+                  </td>
                   <td className="px-4 py-2.5 text-zinc-600">{categoryMap.get(r.categoryId) ?? r.categoryId}</td>
                   <td className="px-4 py-2.5">
                     <button
@@ -646,6 +651,7 @@ export function TransactionsView() {
           key={editing?.id ?? 'create'}
           categories={categories}
           transaction={editing}
+          bank={editing?.statementId ? statementBankMap.get(editing.statementId) : undefined}
           onSuccess={(updated) => {
             setOpen(false);
             if (updated) {

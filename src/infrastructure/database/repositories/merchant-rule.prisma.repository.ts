@@ -14,11 +14,11 @@ export class MerchantRulePrismaRepository implements IMerchantRuleRepository {
     return prisma.merchantRule.findUnique({ where: { id } }) as Promise<MerchantRule | null>;
   }
 
-  async upsert(userId: string, merchantPattern: string, categoryId: string): Promise<MerchantRule> {
+  async upsert(userId: string, merchantPattern: string, bank: string, categoryId: string): Promise<MerchantRule> {
     return prisma.merchantRule.upsert({
-      where: { userId_merchantPattern: { userId, merchantPattern } },
+      where: { userId_merchantPattern_bank: { userId, merchantPattern, bank } },
       update: { categoryId },
-      create: { userId, merchantPattern, categoryId },
+      create: { userId, merchantPattern, bank, categoryId },
     }) as Promise<MerchantRule>;
   }
 

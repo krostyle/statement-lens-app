@@ -28,12 +28,19 @@ import { formatDate } from '@/src/lib/utils';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 
+const BANK_LABELS: Record<string, string> = {
+  santander: 'Santander',
+  falabella: 'Falabella',
+  liderbci:  'LiderBCI',
+};
+
 const editSchema = z.object({
   categoryId: z.string().uuid(),
   merchant: z.string().min(1, 'El comercio no puede estar vacío'),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
   amount: z.number({ message: 'Ingresa un número válido' }),
   saveMerchantRule: z.boolean(),
+  saveMerchantRuleBank: z.string(), // '' = any card
   applyToInstallmentGroup: z.boolean(),
 });
 type EditInput = z.infer<typeof editSchema>;
@@ -41,11 +48,13 @@ type EditInput = z.infer<typeof editSchema>;
 interface Props {
   categories: CategoryResponseDTO[];
   transaction?: TransactionResponseDTO | null;
+  /** Raw bank key of the statement this transaction came from, e.g. "santander". Undefined if manual. */
+  bank?: string;
   onSuccess: (updated?: TransactionResponseDTO) => void;
   onCancel: () => void;
 }
 
-export function TransactionForm({ categories, transaction, onSuccess, onCancel }: Props) {
+export function TransactionForm({ categories, transaction, bank, onSuccess, onCancel }: Props) {
   const isEdit = !!transaction;
   const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
@@ -58,6 +67,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
       saveMerchantRule: true,
+      saveMerchantRuleBank: bank ?? '', // pre-select the transaction's card, '' = any
       applyToInstallmentGroup: true,
     },
   });
@@ -79,12 +89,13 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
   const { register, control, handleSubmit, formState: { errors, isSubmitting } } = createForm;
 
   // Watch fields that can trigger side-effect options
-  const watchedCategoryId   = useWatch({ control: editControl, name: 'categoryId' });
-  const watchedDescription  = useWatch({ control: editControl, name: 'description' });
-  const categoryChanged     = isEdit && watchedCategoryId  !== transaction?.categoryId;
-  const descriptionChanged  = isEdit && watchedDescription !== transaction?.description;
+  const watchedCategoryId      = useWatch({ control: editControl, name: 'categoryId' });
+  const watchedDescription     = useWatch({ control: editControl, name: 'description' });
+  const watchedSaveRule        = useWatch({ control: editControl, name: 'saveMerchantRule' });
+  const categoryChanged        = isEdit && watchedCategoryId  !== transaction?.categoryId;
+  const descriptionChanged     = isEdit && watchedDescription !== transaction?.description;
   // Show the group-propagation checkbox when category OR description changed (for installments)
-  const groupTrigger        = categoryChanged || descriptionChanged;
+  const groupTrigger           = categoryChanged || descriptionChanged;
 
   const onEditSubmit = async (data: EditInput) => {
     const res = await fetch(`/api/transactions/${transaction!.id}`, {
@@ -96,6 +107,7 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
         description: data.description,
         amount: data.amount,
         saveMerchantRule: categoryChanged ? data.saveMerchantRule : false,
+        saveMerchantRuleBank: categoryChanged && data.saveMerchantRule ? data.saveMerchantRuleBank : undefined,
         applyToInstallmentGroup: (transaction?.isInstallment && categoryChanged)
           ? data.applyToInstallmentGroup
           : false,
@@ -205,16 +217,40 @@ export function TransactionForm({ categories, transaction, onSuccess, onCancel }
                 <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
 
                 {categoryChanged && (
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
-                      {...editRegister('saveMerchantRule')}
-                    />
-                    <span className="text-sm text-zinc-700 leading-snug">
-                      Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
-                    </span>
-                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                        {...editRegister('saveMerchantRule')}
+                      />
+                      <span className="text-sm text-zinc-700 leading-snug">
+                        Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
+                      </span>
+                    </label>
+
+                    {/* Bank scope selector — only visible when the checkbox is checked */}
+                    {watchedSaveRule && (
+                      <div className="ml-6.5 flex items-center gap-2">
+                        <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
+                        <Controller
+                          name="saveMerchantRuleBank"
+                          control={editControl}
+                          render={({ field }) => (
+                            <select
+                              {...field}
+                              className="flex-1 h-7 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
+                            >
+                              <option value="">Cualquier tarjeta</option>
+                              {Object.entries(BANK_LABELS).map(([key, label]) => (
+                                <option key={key} value={key}>{label}</option>
+                              ))}
+                            </select>
+                          )}
+                        />
+                      </div>
+                    )}
+                  </div>
                 )}
 
                 {transaction.isInstallment && groupTrigger && (

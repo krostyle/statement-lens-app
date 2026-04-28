@@ -22,6 +22,7 @@ export const updateTransactionSchema = z.object({
   description: z.string().min(1).optional(),
   // Side-effect flags — processed by the route handler, not persisted directly
   saveMerchantRule: z.boolean().optional(),
+  saveMerchantRuleBank: z.string().optional(), // "" = any card; "santander" | "falabella" | "liderbci"
   applyToInstallmentGroup: z.boolean().optional(),
   // Explicit confirm (mark as reviewed without editing any field)
   confirm: z.boolean().optional(),

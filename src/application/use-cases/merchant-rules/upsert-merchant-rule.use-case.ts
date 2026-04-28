@@ -9,7 +9,10 @@ export class UpsertMerchantRuleUseCase {
     private readonly categoryRepo: ICategoryRepository,
   ) {}
 
-  async execute(userId: string, merchant: string, categoryId: string): Promise<MerchantRule> {
+  /**
+   * @param bank  Empty string = any card; "santander" | "falabella" | "liderbci" = specific card.
+   */
+  async execute(userId: string, merchant: string, bank: string, categoryId: string): Promise<MerchantRule> {
     // Validate that the category belongs to this user
     const categories = await this.categoryRepo.findByUserId(userId);
     if (!categories.some((c) => c.id === categoryId)) {
@@ -19,6 +22,6 @@ export class UpsertMerchantRuleUseCase {
     const pattern = normalizeMerchant(merchant);
     if (!pattern) throw new Error('El nombre del comercio no puede estar vacío');
 
-    return this.merchantRuleRepo.upsert(userId, pattern, categoryId);
+    return this.merchantRuleRepo.upsert(userId, pattern, bank, categoryId);
   }
 }

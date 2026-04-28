@@ -27,9 +27,18 @@ export async function processStatement(
     const othersCategory = categories.find((c) => c.name === 'Otros');
     const defaultCategoryId = othersCategory?.id ?? categories[0]?.id;
 
-    // Load merchant rules for this user — pattern → categoryId
+    // Load merchant rules for this user.
+    // Build two maps: bank-specific rules take priority over wildcard ("") rules.
     const merchantRules = await merchantRuleRepo.findByUserId(userId);
-    const merchantRuleMap = new Map(merchantRules.map((r) => [r.merchantPattern, r.categoryId]));
+    const bankRuleMap = new Map<string, string>();   // "pattern|bank"  → categoryId
+    const wildcardRuleMap = new Map<string, string>(); // "pattern"       → categoryId
+    for (const rule of merchantRules) {
+      if (rule.bank) {
+        bankRuleMap.set(`${rule.merchantPattern}|${rule.bank}`, rule.categoryId);
+      } else {
+        wildcardRuleMap.set(rule.merchantPattern, rule.categoryId);
+      }
+    }
 
     // For installment transactions, use the statement's billing month as the
     // effective date (1st of month, UTC). Banks typically store the original
@@ -40,7 +49,11 @@ export async function processStatement(
 
     await transactionRepo.createMany(
       parsed.map((t) => {
-        const ruleCategory = merchantRuleMap.get(normalizeMerchant(t.merchant));
+        const pattern = normalizeMerchant(t.merchant);
+        // Bank-specific rule takes priority; fall back to wildcard rule
+        const ruleCategory =
+          bankRuleMap.get(`${pattern}|${bank}`) ??
+          wildcardRuleMap.get(pattern);
         const categoryId = ruleCategory
           ?? categoryMap.get(t.suggestedCategory)
           ?? defaultCategoryId

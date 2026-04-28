@@ -111,11 +111,12 @@ model MerchantRule {
   id              String      @id @default(uuid())
   userId          String
   merchantPattern String      // normalized (lowercase, trimmed) merchant name
+  bank            String      @default("") // "" = any card; "santander" | "falabella" | "liderbci"
   categoryId      String
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   user            UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   category        Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([userId, merchantPattern])
+  @@unique([userId, merchantPattern, bank])
 }

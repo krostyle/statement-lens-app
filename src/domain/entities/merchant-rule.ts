@@ -2,6 +2,7 @@ export interface MerchantRule {
   id: string;
   userId: string;
   merchantPattern: string; // normalized: lowercase + trimmed
+  bank: string;            // "" = any card; "santander" | "falabella" | "liderbci"
   categoryId: string;
   createdAt: Date;
   updatedAt: Date;

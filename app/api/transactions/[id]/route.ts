@@ -20,7 +20,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
     }
 
-    const { saveMerchantRule, applyToInstallmentGroup, confirm, ...transactionData } = parsed.data;
+    const { saveMerchantRule, saveMerchantRuleBank, applyToInstallmentGroup, confirm, ...transactionData } = parsed.data;
 
     // confirm=true → mark as reviewed without changing any other field
     const dataToUpdate = confirm
@@ -31,7 +31,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     // Side effect 1: save merchant rule so future PDF imports auto-categorize
     if (saveMerchantRule && transactionData.categoryId) {
-      await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, transactionData.categoryId);
+      const bank = saveMerchantRuleBank ?? ''; // '' = any card
+      await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, bank, transactionData.categoryId);
     }
 
     // Side effect 2: propagate category and/or description to all installments in the same group
