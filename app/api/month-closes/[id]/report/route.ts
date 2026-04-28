@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { monthCloseRepo, transactionRepo, budgetRepo, categoryRepo } from '@/src/infrastructure/container';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
-import { netSpendByCategory } from '@/src/domain/services/transaction.service';
+import { netSpendByCategory, calculateTotalIncome } from '@/src/domain/services/transaction.service';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
@@ -405,6 +405,98 @@ function generateReportHtml(
       </div>`
     : '';
 
+  // ── Income section ───────────────────────────────────────────────────────────
+  const incomeTxs = transactions
+    .filter((t) => (t as Transaction & { transactionType?: string }).transactionType === 'income' && t.amount > 0)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const totalIncome = calculateTotalIncome(transactions);
+  const savingsRateVal = totalIncome > 0 ? Math.round((1 - mc.totalSpent / totalIncome) * 100) : null;
+
+  const incomeHtml = totalIncome > 0 ? (() => {
+    const incomeRowsHtml = incomeTxs.map((t) => {
+      const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+      const metaHtml = bank ? `<span class="tx-meta">${esc(bank)}</span>` : '';
+      return `
+        <tr class="tx-row">
+          <td class="tx-date">${fDate(new Date(t.date))}</td>
+          <td class="tx-merchant">${esc(t.merchant)}${metaHtml}</td>
+          <td class="tx-amount" style="color:#16a34a;font-weight:700;">+${clp(t.amount)}</td>
+        </tr>`;
+    }).join('');
+
+    const srCard = savingsRateVal !== null
+      ? `<div class="metric-card ${savingsRateVal >= 0 ? 'card-green' : 'card-red'}">
+          <div class="metric-label">Tasa de ahorro</div>
+          <div class="metric-value ${savingsRateVal >= 0 ? 'text-green' : 'text-red'}">${savingsRateVal}%</div>
+        </div>`
+      : '';
+
+    return `
+    <div class="section">
+      <div class="section-title">Ingresos del mes</div>
+      <div class="metrics-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:16px;">
+        <div class="metric-card card-green">
+          <div class="metric-label">Total ingresos</div>
+          <div class="metric-value text-green">+${clp(totalIncome)}</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Total gastos</div>
+          <div class="metric-value">${clp(mc.totalSpent)}</div>
+        </div>
+        ${srCard}
+      </div>
+      <table class="cat-table" style="font-size:12px;">
+        <thead class="cat-table-head">
+          <tr>
+            <th style="text-align:left;width:70px">Fecha</th>
+            <th style="text-align:left">Descripción</th>
+            <th style="text-align:right">Monto</th>
+          </tr>
+        </thead>
+        <tbody>${incomeRowsHtml}</tbody>
+      </table>
+    </div>`;
+  })() : '';
+
+  // ── Internal transfers section ────────────────────────────────────────────────
+  const transferTxs = transactions
+    .filter((t) => (t as Transaction & { transactionType?: string }).transactionType === 'transfer')
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const internalTransfersHtml = transferTxs.length > 0 ? (() => {
+    const totalTransfers = transferTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const rowsHtml = transferTxs.map((t) => {
+      const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+      const metaHtml = bank ? `<span class="tx-meta">${esc(bank)}</span>` : '';
+      return `
+        <tr class="tx-row">
+          <td class="tx-date">${fDate(new Date(t.date))}</td>
+          <td class="tx-merchant">${esc(t.merchant)}${metaHtml}</td>
+          <td class="tx-amount" style="color:#9ca3af;">${clp(Math.abs(t.amount))}</td>
+        </tr>`;
+    }).join('');
+
+    return `
+    <div class="section">
+      <div class="section-title">Transferencias internas · excluidas del gasto</div>
+      <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">
+        Pagos de tarjeta de crédito y traspasos entre cuentas propias. <strong>No se incluyen en el total de gastos</strong> porque el gasto real ya está contabilizado en el estado de cuenta de la tarjeta.
+        Total movido: <strong>${clp(totalTransfers)}</strong>.
+      </p>
+      <table class="cat-table" style="font-size:12px;">
+        <thead class="cat-table-head">
+          <tr>
+            <th style="text-align:left;width:70px">Fecha</th>
+            <th style="text-align:left">Descripción</th>
+            <th style="text-align:right;color:#9ca3af;">Monto</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>
+    </div>`;
+  })() : '';
+
   const generatedDate = new Date().toLocaleDateString('es-CL', {
     day: 'numeric', month: 'long', year: 'numeric',
   });
@@ -599,6 +691,8 @@ function generateReportHtml(
       </div>
     </div>
 
+    ${incomeHtml}
+
     <!-- Visual analysis: donut + bar chart side by side -->
     <div class="section">
       <div class="section-title">Análisis visual</div>
@@ -638,6 +732,8 @@ function generateReportHtml(
       <div class="section-title">Sugerencias IA para el próximo mes</div>
       <div class="ai-box">${mdToHtml(mc.aiSuggestions)}</div>
     </div>
+
+    ${internalTransfersHtml}
 
     ${notesHtml}
 

@@ -37,23 +37,29 @@ export function BudgetsView() {
   const [recommendOpen, setRecommendOpen] = useState(false);
 
   // Income state
-  const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null);
+  const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null); // manual estimate
+  const [realIncome, setRealIncome]       = useState<number | null>(null); // from cartola transactions
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [incomeInput, setIncomeInput] = useState('');
   const [savingIncome, setSavingIncome] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [catRes, budRes, incRes] = await Promise.all([
+    const [catRes, budRes, incRes, metricsRes] = await Promise.all([
       fetch('/api/categories'),
       fetch(`/api/budgets?month=${month}`),
       fetch('/api/user/income'),
+      fetch(`/api/metrics?month=${month}`),
     ]);
     if (catRes.ok) setCategories(await catRes.json());
     if (budRes.ok) setBudgets(await budRes.json());
     if (incRes.ok) {
       const { monthlyIncome: inc } = await incRes.json();
       setMonthlyIncome(inc);
+    }
+    if (metricsRes.ok) {
+      const metrics = await metricsRes.json();
+      setRealIncome(metrics.totalIncome > 0 ? metrics.totalIncome : null);
     }
     setLoading(false);
   }, [month]);
@@ -145,10 +151,14 @@ export function BudgetsView() {
     ? categories.find((c) => c.id === editingCategoryId)?.name
     : '';
 
-  const budgetPct = monthlyIncome && monthlyIncome > 0
-    ? Math.min((totalBudgeted / monthlyIncome) * 100, 100)
+  // Use real cartola income when available; fall back to manual estimate
+  const effectiveIncome = realIncome ?? monthlyIncome;
+  const incomeIsReal    = realIncome !== null;
+
+  const budgetPct = effectiveIncome && effectiveIncome > 0
+    ? Math.min((totalBudgeted / effectiveIncome) * 100, 100)
     : null;
-  const isOverBudget = monthlyIncome ? totalBudgeted > monthlyIncome : false;
+  const isOverBudget = effectiveIncome ? totalBudgeted > effectiveIncome : false;
 
   return (
     <div className="space-y-4">
@@ -160,17 +170,24 @@ export function BudgetsView() {
             Ingreso:
             {loading ? (
               <Skeleton className="h-5 w-24" />
-            ) : monthlyIncome ? (
-              <button
-                onClick={openIncomeDialog}
-                className="font-semibold text-zinc-900 hover:text-brand-600 transition-colors flex items-center gap-1"
-              >
-                {formatCurrency(monthlyIncome)}
-                <Pencil className="h-3 w-3 text-zinc-400" />
-              </button>
+            ) : effectiveIncome ? (
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-zinc-900">{formatCurrency(effectiveIncome)}</span>
+                {incomeIsReal ? (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium">cartola</span>
+                ) : (
+                  <button
+                    onClick={openIncomeDialog}
+                    className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 hover:bg-zinc-200 transition-colors flex items-center gap-1"
+                    title="Editar ingreso estimado"
+                  >
+                    estimado <Pencil className="h-2.5 w-2.5" />
+                  </button>
+                )}
+              </div>
             ) : (
               <button onClick={openIncomeDialog} className="text-brand-600 hover:underline font-medium">
-                + Agregar
+                + Agregar estimado
               </button>
             )}
           </div>
@@ -182,12 +199,12 @@ export function BudgetsView() {
       </div>
 
       {/* Budget progress bar */}
-      {monthlyIncome && totalBudgeted > 0 && (
+      {effectiveIncome && totalBudgeted > 0 && (
         <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-zinc-500">Presupuestado</span>
             <span className={isOverBudget ? 'text-red-600 font-semibold' : 'text-zinc-700 font-semibold'}>
-              {formatCurrency(totalBudgeted)} / {formatCurrency(monthlyIncome)}
+              {formatCurrency(totalBudgeted)} / {formatCurrency(effectiveIncome)}
             </span>
           </div>
           <div className="h-2.5 rounded-full bg-zinc-100 overflow-hidden">
@@ -199,8 +216,8 @@ export function BudgetsView() {
           <div className="flex justify-between text-xs text-zinc-400">
             <span>
               {isOverBudget
-                ? `Excedes tu ingreso por ${formatCurrency(totalBudgeted - monthlyIncome)}`
-                : `Disponible para ahorro: ${formatCurrency(monthlyIncome - totalBudgeted)} (${Math.round(100 - budgetPct!)}%)`}
+                ? `Excedes tu ingreso por ${formatCurrency(totalBudgeted - effectiveIncome)}`
+                : `Disponible para ahorro: ${formatCurrency(effectiveIncome - totalBudgeted)} (${Math.round(100 - budgetPct!)}%)`}
             </span>
             <span>Meta: 20% ahorro</span>
           </div>
