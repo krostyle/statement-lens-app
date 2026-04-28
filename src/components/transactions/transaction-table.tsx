@@ -77,6 +77,7 @@ function MerchantRulesDialog({
   const [editingId, setEditingId] = useState<string | 'new' | null>(null);
   const [draft, setDraft]         = useState<RuleDraft>({ merchantPattern: '', bank: '', categoryId: '' });
   const [saving, setSaving]       = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const categoryMap     = new Map(categories.map((c) => [c.id, c.name]));
   const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -132,8 +133,13 @@ function MerchantRulesDialog({
   };
 
   const handleDelete = async (id: string) => {
-    await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
+    // Optimistic: remove instantly, restore if the request fails
+    setDeletingId(id);
+    const snapshot = rules;
     setRules((prev) => prev.filter((r) => r.id !== id));
+    const res = await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
+    if (!res.ok) setRules(snapshot);
+    setDeletingId(null);
   };
 
   // Shared inline-edit row
@@ -243,7 +249,10 @@ function MerchantRulesDialog({
                 editingId === r.id ? (
                   <EditRow key={r.id} original={r} />
                 ) : (
-                  <tr key={r.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50 transition-colors">
+                  <tr
+                    key={r.id}
+                    className={`border-b border-zinc-50 last:border-0 transition-all ${deletingId === r.id ? 'opacity-40 pointer-events-none' : 'hover:bg-zinc-50'}`}
+                  >
                     <td className="px-4 py-2.5 font-medium text-zinc-800 capitalize">{r.merchantPattern}</td>
                     <td className="px-4 py-2.5 text-xs text-zinc-500">
                       {r.bank ? (BANK_LABELS[r.bank] ?? r.bank) : <span className="text-zinc-300">Cualquier tarjeta</span>}
@@ -253,7 +262,7 @@ function MerchantRulesDialog({
                       <div className="flex items-center gap-1 justify-end">
                         <button
                           onClick={() => startEdit(r)}
-                          disabled={editingId !== null}
+                          disabled={editingId !== null || deletingId !== null}
                           className="text-zinc-400 hover:text-brand-600 disabled:opacity-30 transition-colors"
                           title="Editar"
                         >
@@ -261,7 +270,7 @@ function MerchantRulesDialog({
                         </button>
                         <button
                           onClick={() => handleDelete(r.id)}
-                          disabled={editingId !== null}
+                          disabled={editingId !== null || deletingId !== null}
                           className="text-zinc-400 hover:text-red-500 disabled:opacity-30 transition-colors"
                           title="Eliminar"
                         >

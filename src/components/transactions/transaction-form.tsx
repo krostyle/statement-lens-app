@@ -110,11 +110,11 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
         merchant: data.merchant,
         description: data.description,
         amount: data.amount,
-        saveMerchantRule: categoryChanged ? data.saveMerchantRule : false,
-        saveMerchantRuleBank: categoryChanged && data.saveMerchantRule
+        saveMerchantRule: data.saveMerchantRule,
+        saveMerchantRuleBank: data.saveMerchantRule
           ? (data.saveMerchantRuleBank === BANK_ANY ? '' : data.saveMerchantRuleBank)
           : undefined,
-        applyToInstallmentGroup: (transaction?.isInstallment && categoryChanged)
+        applyToInstallmentGroup: (transaction?.isInstallment && groupTrigger)
           ? data.applyToInstallmentGroup
           : false,
       }),
@@ -217,67 +217,65 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
               )}
             </div>
 
-            {/* Side-effect options */}
-            {(categoryChanged || (transaction.isInstallment && groupTrigger)) && (
-              <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2.5">
-                <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
+            {/* Side-effect options — always visible when editing */}
+            <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2.5">
+              <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
 
-                {categoryChanged && (
-                  <div className="space-y-2">
-                    <label className="flex items-start gap-2.5 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
-                        {...editRegister('saveMerchantRule')}
-                      />
-                      <span className="text-sm text-zinc-700 leading-snug">
-                        Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
-                      </span>
-                    </label>
+              {/* "Recordar" — always available, uses current category if unchanged */}
+              <div className="space-y-2">
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                    {...editRegister('saveMerchantRule')}
+                  />
+                  <span className="text-sm text-zinc-700 leading-snug">
+                    Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
+                  </span>
+                </label>
 
-                    {/* Bank scope selector — only visible when the checkbox is checked */}
-                    {watchedSaveRule && (
-                      <div className="ml-6 flex items-center gap-2">
-                        <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
-                        <Controller
-                          name="saveMerchantRuleBank"
-                          control={editControl}
-                          render={({ field }) => (
-                            <Select value={field.value} onValueChange={field.onChange}>
-                              <SelectTrigger className="h-7 text-xs flex-1">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent position="popper">
-                                <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
-                                {Object.entries(BANK_LABELS).map(([key, label]) => (
-                                  <SelectItem key={key} value={key}>{label}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </div>
-                    )}
+                {/* Bank scope selector — only visible when the checkbox is checked */}
+                {watchedSaveRule && (
+                  <div className="ml-6 flex items-center gap-2">
+                    <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
+                    <Controller
+                      name="saveMerchantRuleBank"
+                      control={editControl}
+                      render={({ field }) => (
+                        <Select value={field.value} onValueChange={field.onChange}>
+                          <SelectTrigger className="h-7 text-xs flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent position="popper">
+                            <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
+                            {Object.entries(BANK_LABELS).map(([key, label]) => (
+                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
                   </div>
                 )}
-
-                {transaction.isInstallment && groupTrigger && (
-                  <label className="flex items-start gap-2.5 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
-                      {...editRegister('applyToInstallmentGroup')}
-                    />
-                    <span className="text-sm text-zinc-700 leading-snug">
-                      Aplicar a todas las cuotas de este grupo
-                      {transaction.installmentTotal && transaction.installmentNum
-                        ? ` (${transaction.installmentTotal - transaction.installmentNum} cuotas restantes)`
-                        : ''}
-                    </span>
-                  </label>
-                )}
               </div>
-            )}
+
+              {/* Propagate to installment group — only when category or description changed */}
+              {transaction.isInstallment && groupTrigger && (
+                <label className="flex items-start gap-2.5 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                    {...editRegister('applyToInstallmentGroup')}
+                  />
+                  <span className="text-sm text-zinc-700 leading-snug">
+                    Aplicar a todas las cuotas de este grupo
+                    {transaction.installmentTotal && transaction.installmentNum
+                      ? ` (${transaction.installmentTotal - transaction.installmentNum} cuotas restantes)`
+                      : ''}
+                  </span>
+                </label>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
