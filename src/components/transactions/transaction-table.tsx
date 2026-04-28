@@ -214,20 +214,19 @@ function MerchantRulesDialog({
   );
 
   return (
-    <DialogContent className="sm:max-w-xl flex flex-col max-h-[85dvh]">
-      <DialogHeader className="shrink-0">
+    <DialogContent className="sm:max-w-xl">
+      <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-brand-600" />
           Reglas de categorización automática
         </DialogTitle>
       </DialogHeader>
 
-      <p className="text-sm text-zinc-500 shrink-0">
+      <p className="text-sm text-zinc-500">
         Al subir un estado de cuenta, estas reglas asignan la categoría automáticamente según el comercio y la tarjeta.
       </p>
 
-      {/* Table — flex-1 so it fills whatever space remains between header and footer */}
-      <div className="flex-1 min-h-0 rounded-lg border border-zinc-200 overflow-hidden flex flex-col">
+      <div className="rounded-lg border border-zinc-200 overflow-hidden">
         {loading ? (
           <div className="space-y-3 p-4">
             {Array.from({ length: 3 }).map((_, i) => (
@@ -240,8 +239,8 @@ function MerchantRulesDialog({
           </div>
         ) : (
           <>
-            {/* Fixed header row */}
-            <table className="w-full text-sm table-fixed shrink-0">
+            {/* Fixed column headers */}
+            <table className="w-full text-sm table-fixed">
               <thead className="bg-zinc-50 border-b border-zinc-200">
                 <tr>
                   <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Comercio</th>
@@ -251,8 +250,8 @@ function MerchantRulesDialog({
                 </tr>
               </thead>
             </table>
-            {/* Scrollable body */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Scrollable rows — max 45% of viewport so dialog stays compact */}
+            <div className="max-h-[45vh] overflow-y-auto">
               <table className="w-full text-sm table-fixed">
                 <colgroup>
                   <col /><col /><col /><col className="w-16" />
@@ -312,12 +311,12 @@ function MerchantRulesDialog({
       </div>
 
       {saveError && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 shrink-0">
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
           {saveError}
         </p>
       )}
 
-      <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2 shrink-0">
+      <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
         <Button
           variant="outline"
           onClick={startNew}
