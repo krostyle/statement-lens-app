@@ -119,7 +119,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
         saveMerchantRuleBank: data.saveMerchantRule
           ? (data.saveMerchantRuleBank === BANK_ANY ? '' : data.saveMerchantRuleBank)
           : undefined,
-        applyToInstallmentGroup: (transaction?.isInstallment && groupTrigger)
+        applyToInstallmentGroup: transaction?.isInstallment
           ? data.applyToInstallmentGroup
           : false,
       }),
@@ -270,8 +270,8 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                 )}
               </div>
 
-              {/* Propagate to installment group — only when category or description changed */}
-              {transaction.isInstallment && groupTrigger && (
+              {/* Propagate to installment group — always visible for installment transactions */}
+              {transaction.isInstallment && (
                 <label className="flex items-start gap-2.5 cursor-pointer">
                   <input
                     type="checkbox"
@@ -279,7 +279,9 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                     {...editRegister('applyToInstallmentGroup')}
                   />
                   <span className="text-sm text-zinc-700 leading-snug">
-                    Aplicar a todas las cuotas de este grupo
+                    {groupTrigger
+                      ? 'Aplicar cambios a todas las cuotas de este grupo'
+                      : 'Aplicar categoría actual a todas las cuotas de este grupo'}
                     {transaction.installmentTotal && transaction.installmentNum
                       ? ` (${transaction.installmentTotal - transaction.installmentNum} cuotas restantes)`
                       : ''}

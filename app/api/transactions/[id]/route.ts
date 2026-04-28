@@ -42,12 +42,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
-    // Side effect 2: propagate category and/or description to all installments in the same group
-    const groupUpdate: { categoryId?: string; description?: string } = {};
-    if (transactionData.categoryId)  groupUpdate.categoryId  = transactionData.categoryId;
-    if (transactionData.description) groupUpdate.description = transactionData.description;
-
-    if (applyToInstallmentGroup && transaction.isInstallment && transaction.installmentTotal && Object.keys(groupUpdate).length > 0) {
+    // Side effect 2: propagate category and/or description to all installments in the same group.
+    // If nothing changed in this edit, fall back to the transaction's current values so the user
+    // can still sync siblings that arrived with a wrong category from a previous import.
+    if (applyToInstallmentGroup && transaction.isInstallment && transaction.installmentTotal) {
+      const groupUpdate: { categoryId?: string; description?: string } = {
+        categoryId:  transactionData.categoryId  ?? transaction.categoryId,
+        description: transactionData.description ?? transaction.description,
+      };
       const group = await transactionRepo.findInstallmentGroup(
         userId,
         transaction.merchant,
