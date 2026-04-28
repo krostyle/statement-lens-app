@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Trash2, RefreshCw, Upload, RotateCcw, Loader2, Pencil, Download, Eye } from 'lucide-react';
+import { Trash2, RefreshCw, Upload, RotateCcw, Loader2, Pencil, Download, Eye, XCircle } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Badge } from '@/src/components/ui/badge';
 import {
@@ -17,6 +17,9 @@ import { StatementTransactions } from './statement-transactions';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { formatDate } from '@/src/lib/utils';
 import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
+
+/** Stop polling after this many ms and surface the timeout to the user. */
+const POLL_TIMEOUT_MS = 11 * 60 * 1000; // 11 min (slightly over server-side 10 min timeout)
 
 const statusLabel: Record<string, string> = {
   done: 'Procesado',
@@ -57,7 +60,9 @@ export function StatementsView() {
   const [selected, setSelected] = useState<StatementResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StatementResponseDTO | null>(null);
   const [editTarget, setEditTarget] = useState<StatementResponseDTO | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(async () => {
     const res = await fetch('/api/statements');
@@ -68,20 +73,26 @@ export function StatementsView() {
     return list;
   }, []);
 
+  const stopPolling = () => {
+    if (pollingRef.current)    { clearInterval(pollingRef.current);   pollingRef.current = null; }
+    if (pollTimeoutRef.current) { clearTimeout(pollTimeoutRef.current); pollTimeoutRef.current = null; }
+  };
+
   const startPolling = () => {
-    if (pollingRef.current) return;
+    if (pollingRef.current) return; // already running
+
     pollingRef.current = setInterval(async () => {
       const list = await load();
       const stillActive = list.some((s) => s.status === 'pending' || s.status === 'processing');
       if (!stillActive) stopPolling();
     }, 3000);
-  };
 
-  const stopPolling = () => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
+    // Safety net: stop polling after POLL_TIMEOUT_MS regardless
+    pollTimeoutRef.current = setTimeout(() => {
+      stopPolling();
+      // Reload one last time so the UI reflects whatever the server settled on
+      load();
+    }, POLL_TIMEOUT_MS);
   };
 
   useEffect(() => {
@@ -103,6 +114,13 @@ export function StatementsView() {
     await fetch(`/api/statements/${id}/reprocess`, { method: 'POST' });
     await load();
     startPolling();
+  };
+
+  const handleCancel = async (id: string) => {
+    setCancellingId(id);
+    await fetch(`/api/statements/${id}/cancel`, { method: 'POST' });
+    setCancellingId(null);
+    await load();
   };
 
   const handleDelete = async (id: string) => {
@@ -222,6 +240,20 @@ export function StatementsView() {
                 <td className="px-4 py-3 text-zinc-500">{formatDate(s.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
+                    {/* Cancel button for stuck processing/pending statements */}
+                    {(s.status === 'pending' || s.status === 'processing') && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        title="Cancelar procesamiento"
+                        disabled={cancellingId === s.id}
+                        onClick={() => handleCancel(s.id)}
+                      >
+                        {cancellingId === s.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin text-zinc-400" />
+                          : <XCircle className="h-3.5 w-3.5 text-red-400" />}
+                      </Button>
+                    )}
                     {s.status === 'error' && (
                       <Button variant="ghost" size="icon" title="Reintentar procesamiento" onClick={() => handleReprocess(s.id)}>
                         <RotateCcw className="h-3.5 w-3.5 text-brand-600" />
