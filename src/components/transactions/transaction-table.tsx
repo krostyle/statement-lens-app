@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck, CheckCheck } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck, CheckCheck, Check, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Badge } from '@/src/components/ui/badge';
@@ -60,6 +60,8 @@ interface MerchantRuleRow {
   categoryId: string;
 }
 
+type RuleDraft = { merchantPattern: string; bank: string; categoryId: string };
+
 function MerchantRulesDialog({
   categories,
   onClose,
@@ -67,9 +69,14 @@ function MerchantRulesDialog({
   categories: CategoryResponseDTO[];
   onClose: () => void;
 }) {
-  const [rules, setRules] = useState<MerchantRuleRow[]>([]);
-  const [loading, setLoading] = useState(true);
-  const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
+  const [rules, setRules]         = useState<MerchantRuleRow[]>([]);
+  const [loading, setLoading]     = useState(true);
+  const [editingId, setEditingId] = useState<string | 'new' | null>(null);
+  const [draft, setDraft]         = useState<RuleDraft>({ merchantPattern: '', bank: '', categoryId: '' });
+  const [saving, setSaving]       = useState(false);
+
+  const categoryMap     = new Map(categories.map((c) => [c.id, c.name]));
+  const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
   const loadRules = async () => {
     setLoading(true);
@@ -81,13 +88,110 @@ function MerchantRulesDialog({
 
   useEffect(() => { loadRules(); }, []);
 
+  const startEdit = (rule: MerchantRuleRow) => {
+    setEditingId(rule.id);
+    setDraft({ merchantPattern: rule.merchantPattern, bank: rule.bank, categoryId: rule.categoryId });
+  };
+
+  const startNew = () => {
+    setEditingId('new');
+    setDraft({ merchantPattern: '', bank: '', categoryId: '' });
+  };
+
+  const cancelEdit = () => setEditingId(null);
+
+  const handleSave = async (originalRule?: MerchantRuleRow) => {
+    if (!draft.merchantPattern.trim() || !draft.categoryId) return;
+    setSaving(true);
+
+    // POST upsert with the new values (creates or updates by merchant+bank key)
+    await fetch('/api/merchant-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchant: draft.merchantPattern.trim(), bank: draft.bank, categoryId: draft.categoryId }),
+    });
+
+    // If editing and the key (merchant or bank) changed, remove the old record
+    if (originalRule) {
+      const oldPattern = originalRule.merchantPattern;
+      const newPattern = draft.merchantPattern.trim().toLowerCase();
+      if (oldPattern !== newPattern || originalRule.bank !== draft.bank) {
+        await fetch(`/api/merchant-rules/${originalRule.id}`, { method: 'DELETE' });
+      }
+    }
+
+    setSaving(false);
+    setEditingId(null);
+    loadRules();
+  };
+
   const handleDelete = async (id: string) => {
     await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
     setRules((prev) => prev.filter((r) => r.id !== id));
   };
 
+  // Shared inline-edit row
+  const EditRow = ({ original }: { original?: MerchantRuleRow }) => (
+    <tr className="border-b border-brand-100 bg-brand-50">
+      <td className="px-3 py-2">
+        <Input
+          value={draft.merchantPattern}
+          onChange={(e) => setDraft((d) => ({ ...d, merchantPattern: e.target.value }))}
+          placeholder="nombre del comercio"
+          className="h-7 text-xs"
+          autoFocus={!original}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(original); if (e.key === 'Escape') cancelEdit(); }}
+        />
+      </td>
+      <td className="px-3 py-2">
+        <Select value={draft.bank} onValueChange={(v) => setDraft((d) => ({ ...d, bank: v }))}>
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue placeholder="Cualquier tarjeta" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">Cualquier tarjeta</SelectItem>
+            {Object.entries(BANK_LABELS).map(([key, label]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="px-3 py-2">
+        <Select value={draft.categoryId} onValueChange={(v) => setDraft((d) => ({ ...d, categoryId: v }))}>
+          <SelectTrigger className="h-7 text-xs">
+            <SelectValue placeholder="Categoría..." />
+          </SelectTrigger>
+          <SelectContent>
+            {sortedCategories.map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </td>
+      <td className="px-3 py-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => handleSave(original)}
+            disabled={saving || !draft.merchantPattern.trim() || !draft.categoryId}
+            className="text-emerald-600 hover:text-emerald-700 disabled:opacity-40 transition-colors"
+            title="Guardar"
+          >
+            <Check className="h-4 w-4" />
+          </button>
+          <button
+            onClick={cancelEdit}
+            className="text-zinc-400 hover:text-zinc-600 transition-colors"
+            title="Cancelar"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  );
+
   return (
-    <DialogContent className="sm:max-w-lg">
+    <DialogContent className="sm:max-w-xl">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <Zap className="h-4 w-4 text-brand-600" />
@@ -96,58 +200,89 @@ function MerchantRulesDialog({
       </DialogHeader>
 
       <p className="text-sm text-zinc-500">
-        Cuando subes un estado de cuenta, estas reglas asignan automáticamente la categoría a las transacciones que coincidan con el nombre del comercio.
+        Al subir un estado de cuenta, estas reglas asignan la categoría automáticamente según el comercio y la tarjeta.
       </p>
 
-      {loading ? (
-        <div className="space-y-2 py-2">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3">
-              <div className="h-4 w-40 rounded bg-zinc-100 animate-pulse" />
-              <div className="h-4 w-24 rounded bg-zinc-100 animate-pulse" />
-            </div>
-          ))}
-        </div>
-      ) : rules.length === 0 ? (
-        <p className="py-4 text-center text-sm text-zinc-400">
-          Sin reglas configuradas. Al editar la categoría de una transacción, marca la opción de recordar para crear una regla.
-        </p>
-      ) : (
-        <div className="rounded-lg border border-zinc-200 overflow-hidden">
+      <div className="rounded-lg border border-zinc-200 overflow-hidden">
+        {loading ? (
+          <div className="space-y-3 p-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-3">
+                <div className="h-4 w-36 rounded bg-zinc-100 animate-pulse" />
+                <div className="h-4 w-24 rounded bg-zinc-100 animate-pulse" />
+                <div className="h-4 w-24 rounded bg-zinc-100 animate-pulse" />
+              </div>
+            ))}
+          </div>
+        ) : (
           <table className="w-full text-sm">
             <thead className="bg-zinc-50 border-b border-zinc-200">
               <tr>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Comercio</th>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Tarjeta</th>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Categoría</th>
-                <th className="px-4 py-2.5 w-10" />
+                <th className="px-4 py-2.5 w-16" />
               </tr>
             </thead>
             <tbody>
-              {rules.map((r) => (
-                <tr key={r.id} className="border-b border-zinc-50 last:border-0">
-                  <td className="px-4 py-2.5 font-medium text-zinc-800 capitalize">{r.merchantPattern}</td>
-                  <td className="px-4 py-2.5 text-zinc-500 text-xs">
-                    {r.bank ? (BANK_LABELS[r.bank] ?? r.bank) : <span className="text-zinc-300">Cualquier tarjeta</span>}
-                  </td>
-                  <td className="px-4 py-2.5 text-zinc-600">{categoryMap.get(r.categoryId) ?? r.categoryId}</td>
-                  <td className="px-4 py-2.5">
-                    <button
-                      onClick={() => handleDelete(r.id)}
-                      className="text-zinc-400 hover:text-red-500 transition-colors"
-                      title="Eliminar regla"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
+              {rules.length === 0 && editingId !== 'new' && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-6 text-center text-sm text-zinc-400">
+                    Sin reglas. Crea una aquí o edita una transacción y marca «Recordar».
                   </td>
                 </tr>
-              ))}
+              )}
+
+              {rules.map((r) =>
+                editingId === r.id ? (
+                  <EditRow key={r.id} original={r} />
+                ) : (
+                  <tr key={r.id} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-zinc-800 capitalize">{r.merchantPattern}</td>
+                    <td className="px-4 py-2.5 text-xs text-zinc-500">
+                      {r.bank ? (BANK_LABELS[r.bank] ?? r.bank) : <span className="text-zinc-300">Cualquier tarjeta</span>}
+                    </td>
+                    <td className="px-4 py-2.5 text-zinc-600">{categoryMap.get(r.categoryId) ?? r.categoryId}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => startEdit(r)}
+                          disabled={editingId !== null}
+                          className="text-zinc-400 hover:text-brand-600 disabled:opacity-30 transition-colors"
+                          title="Editar"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(r.id)}
+                          disabled={editingId !== null}
+                          className="text-zinc-400 hover:text-red-500 disabled:opacity-30 transition-colors"
+                          title="Eliminar"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              )}
+
+              {editingId === 'new' && <EditRow />}
             </tbody>
           </table>
-        </div>
-      )}
+        )}
+      </div>
 
-      <DialogFooter>
+      <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
+        <Button
+          variant="outline"
+          onClick={startNew}
+          disabled={editingId !== null || loading}
+          className="sm:mr-auto"
+        >
+          <Plus className="h-4 w-4" />
+          Nueva regla
+        </Button>
         <Button variant="outline" onClick={onClose}>Cerrar</Button>
       </DialogFooter>
     </DialogContent>
