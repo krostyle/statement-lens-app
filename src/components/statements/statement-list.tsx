@@ -132,13 +132,13 @@ export function StatementsView() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-zinc-500">{statements.length} estado(s) de cuenta</p>
+        <p className="text-sm text-zinc-500">{statements.length} extracto(s)</p>
         <div className="flex gap-2">
           <Button variant="outline" size="icon" onClick={load}>
             <RefreshCw className="h-4 w-4" />
           </Button>
           <Button onClick={() => setOpen(true)}>
-            <Upload className="h-4 w-4" /> Subir estado de cuenta
+            <Upload className="h-4 w-4" /> Subir extracto
           </Button>
         </div>
       </div>
@@ -192,6 +192,7 @@ export function StatementsView() {
             <tr>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Archivo</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Banco</th>
+              <th className="px-4 py-3 text-left font-medium text-zinc-500">Tipo</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Mes</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Estado</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Subido</th>
@@ -203,6 +204,7 @@ export function StatementsView() {
               <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
@@ -218,6 +220,12 @@ export function StatementsView() {
                   {s.fileName}
                 </td>
                 <td className="px-4 py-3 capitalize text-zinc-600">{s.bank}</td>
+                <td className="px-4 py-3">
+                  {(s.statementType ?? 'credit_card') === 'checking'
+                    ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Cartola</span>
+                    : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">Tarjeta</span>
+                  }
+                </td>
                 <td className="px-4 py-3 text-zinc-600">
                   {s.month.includes('-') ? s.month.split('-').reverse().join('-') : s.month}
                 </td>
@@ -281,8 +289,8 @@ export function StatementsView() {
             ))}
             {!loading && statements.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-zinc-400">
-                  Sin estados de cuenta
+                <td colSpan={7} className="px-4 py-8 text-center text-zinc-400">
+                  Sin extractos
                 </td>
               </tr>
             )}

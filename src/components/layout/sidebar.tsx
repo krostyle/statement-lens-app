@@ -25,7 +25,7 @@ const navItems = [
   { href: '/categories', label: 'Categorías', icon: Tag },
   { href: '/budgets', label: 'Presupuestos', icon: Target },
   { href: '/month-closes', label: 'Cierre de mes', icon: CalendarCheck },
-  { href: '/statements', label: 'Estados de cuenta', icon: FileText },
+  { href: '/statements', label: 'Extractos', icon: FileText },
 ];
 
 export function AppSidebar() {

@@ -11,7 +11,8 @@ export class UpdateStatementUseCase {
     if (statement.userId !== userId) throw new Error('Forbidden');
 
     const all = await this.statementRepo.findByUserId(userId);
-    if (all.some((s) => s.id !== id && s.bank === dto.bank && s.month === dto.month))
+    // Same bank + month is only a conflict if also the same statementType
+    if (all.some((s) => s.id !== id && s.bank === dto.bank && s.month === dto.month && (s.statementType ?? 'credit_card') === (statement.statementType ?? 'credit_card')))
       throw new Error('DuplicateStatement');
 
     const fileName = `${dto.bank}_${dto.month}.pdf`;

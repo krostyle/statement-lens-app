@@ -98,7 +98,7 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
     <DialogContent>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <DialogHeader>
-          <DialogTitle>Subir estado de cuenta</DialogTitle>
+          <DialogTitle>Subir extracto bancario</DialogTitle>
         </DialogHeader>
 
         <div
@@ -118,16 +118,16 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
           />
         </div>
 
-        {/* Tipo de estado de cuenta */}
+        {/* Tipo de documento */}
         <div className="space-y-1.5">
-          <Label>Tipo de estado de cuenta</Label>
+          <Label>¿Qué tipo de documento es?</Label>
           <Select value={statementType} onValueChange={(v) => handleTypeChange(v as 'credit_card' | 'checking')}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
-              <SelectItem value="checking">Cuenta Corriente / Cuenta RUT</SelectItem>
+              <SelectItem value="credit_card">Estado de cuenta — Tarjeta de crédito</SelectItem>
+              <SelectItem value="checking">Cartola — Cuenta corriente / Cuenta RUT</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -159,7 +159,7 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
             Cancelar
           </Button>
           <Button type="submit" disabled={!file || uploading}>
-            {uploading ? 'Subiendo...' : 'Subir y procesar'}
+            {uploading ? 'Subiendo...' : `Subir ${statementType === 'checking' ? 'cartola' : 'estado de cuenta'}`}
           </Button>
         </DialogFooter>
       </form>
