@@ -231,21 +231,23 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
 
                     {/* Bank scope selector — only visible when the checkbox is checked */}
                     {watchedSaveRule && (
-                      <div className="ml-6.5 flex items-center gap-2">
+                      <div className="ml-6 flex items-center gap-2">
                         <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
                         <Controller
                           name="saveMerchantRuleBank"
                           control={editControl}
                           render={({ field }) => (
-                            <select
-                              {...field}
-                              className="flex-1 h-7 rounded-md border border-zinc-200 bg-white px-2 text-xs text-zinc-700 focus:outline-none focus:ring-2 focus:ring-brand-400"
-                            >
-                              <option value="">Cualquier tarjeta</option>
-                              {Object.entries(BANK_LABELS).map(([key, label]) => (
-                                <option key={key} value={key}>{label}</option>
-                              ))}
-                            </select>
+                            <Select value={field.value} onValueChange={field.onChange}>
+                              <SelectTrigger className="h-7 text-xs flex-1">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="">Cualquier tarjeta</SelectItem>
+                                {Object.entries(BANK_LABELS).map(([key, label]) => (
+                                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
                           )}
                         />
                       </div>
