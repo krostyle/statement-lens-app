@@ -77,9 +77,9 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
       transactionType: (transaction?.transactionType ?? 'expense') as 'expense' | 'income' | 'transfer',
-      saveMerchantRule: true,
+      saveMerchantRule: false,
       saveMerchantRuleBank: bank ?? BANK_ANY, // pre-select the transaction's card
-      applyToInstallmentGroup: true,
+      applyToInstallmentGroup: false,
     },
   });
 
