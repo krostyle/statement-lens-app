@@ -238,7 +238,7 @@ function MerchantRulesDialog({
             ))}
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
             <thead className="bg-zinc-50 border-b border-zinc-200">
               <tr>
                 <th className="px-4 py-2.5 text-left font-medium text-zinc-500">Comercio</th>
@@ -247,6 +247,14 @@ function MerchantRulesDialog({
                 <th className="px-4 py-2.5 w-16" />
               </tr>
             </thead>
+          </table>
+        )}
+        {!loading && (
+          <div className="max-h-72 overflow-y-auto">
+            <table className="w-full text-sm table-fixed">
+              <colgroup>
+                <col /><col /><col /><col className="w-16" />
+              </colgroup>
             <tbody>
               {rules.length === 0 && editingId !== 'new' && (
                 <tr>
@@ -295,7 +303,8 @@ function MerchantRulesDialog({
 
               {editingId === 'new' && <EditRow />}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
 
