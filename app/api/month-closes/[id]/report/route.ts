@@ -542,8 +542,10 @@ function generateReportHtml(
       .action-bar { display: none !important; }
       .page { padding: 0 16px; max-width: 100%; }
       body { font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .metrics-grid { grid-template-columns: repeat(4, 1fr); }
-      .section { page-break-inside: avoid; }
+      .metrics-grid { grid-template-columns: repeat(4, 1fr); page-break-inside: avoid; }
+      /* Do NOT use page-break-inside:avoid on .section — sections can be very long
+         and forcing them onto a new page leaves huge blank gaps. Let them flow. */
+      .section-title { page-break-after: avoid; }
       .cat-group { page-break-inside: avoid; }
       .header { page-break-after: avoid; }
     }
