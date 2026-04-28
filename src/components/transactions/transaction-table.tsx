@@ -153,61 +153,57 @@ function MerchantRulesDialog({
     setDeletingId(null);
   };
 
-  // Shared inline-edit row
+  // Shared inline-edit row — spans all 4 columns, stacks on mobile
   const EditRow = ({ original }: { original?: MerchantRuleRow }) => (
     <tr className="border-b border-brand-100 bg-brand-50">
-      <td className="px-3 py-2">
-        <Input
-          value={draft.merchantPattern}
-          onChange={(e) => setDraft((d) => ({ ...d, merchantPattern: e.target.value }))}
-          placeholder="nombre del comercio"
-          className="h-7 text-xs"
-          autoFocus={!original}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSave(original); if (e.key === 'Escape') cancelEdit(); }}
-        />
-      </td>
-      <td className="px-3 py-2">
-        <Select value={draft.bank} onValueChange={(v) => setDraft((d) => ({ ...d, bank: v }))}>
-          <SelectTrigger className="h-7 text-xs">
-            <SelectValue placeholder="Cualquier tarjeta" />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
-            {Object.entries(BANK_LABELS).map(([key, label]) => (
-              <SelectItem key={key} value={key}>{label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="px-3 py-2">
-        <Select value={draft.categoryId} onValueChange={(v) => setDraft((d) => ({ ...d, categoryId: v }))}>
-          <SelectTrigger className="h-7 text-xs">
-            <SelectValue placeholder="Categoría..." />
-          </SelectTrigger>
-          <SelectContent position="popper">
-            {sortedCategories.map((c) => (
-              <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </td>
-      <td className="px-3 py-2">
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => handleSave(original)}
-            disabled={saving || !draft.merchantPattern.trim() || !draft.categoryId}
-            className="text-emerald-600 hover:text-emerald-700 disabled:opacity-40 transition-colors"
-            title="Guardar"
-          >
-            <Check className="h-4 w-4" />
-          </button>
-          <button
-            onClick={cancelEdit}
-            className="text-zinc-400 hover:text-zinc-600 transition-colors"
-            title="Cancelar"
-          >
-            <X className="h-4 w-4" />
-          </button>
+      <td colSpan={4} className="px-3 py-3">
+        <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center">
+          <Input
+            value={draft.merchantPattern}
+            onChange={(e) => setDraft((d) => ({ ...d, merchantPattern: e.target.value }))}
+            placeholder="Comercio"
+            className="h-8 text-xs"
+            autoFocus={!original}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSave(original); if (e.key === 'Escape') cancelEdit(); }}
+          />
+          <Select value={draft.bank} onValueChange={(v) => setDraft((d) => ({ ...d, bank: v }))}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Cualquier tarjeta" />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
+              {Object.entries(BANK_LABELS).map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={draft.categoryId} onValueChange={(v) => setDraft((d) => ({ ...d, categoryId: v }))}>
+            <SelectTrigger className="h-8 text-xs">
+              <SelectValue placeholder="Categoría..." />
+            </SelectTrigger>
+            <SelectContent position="popper">
+              {sortedCategories.map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="flex items-center gap-1 justify-end">
+            <button
+              onClick={() => handleSave(original)}
+              disabled={saving || !draft.merchantPattern.trim() || !draft.categoryId}
+              className="text-emerald-600 hover:text-emerald-700 disabled:opacity-40 transition-colors"
+              title="Guardar"
+            >
+              <Check className="h-4 w-4" />
+            </button>
+            <button
+              onClick={cancelEdit}
+              className="text-zinc-400 hover:text-zinc-600 transition-colors"
+              title="Cancelar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </td>
     </tr>

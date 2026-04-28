@@ -15,10 +15,22 @@ export class MerchantRulePrismaRepository implements IMerchantRuleRepository {
   }
 
   async upsert(userId: string, merchantPattern: string, bank: string, categoryId: string): Promise<MerchantRule> {
-    return prisma.merchantRule.upsert({
-      where: { userId_merchantPattern_bank: { userId, merchantPattern, bank } },
-      update: { categoryId },
-      create: { userId, merchantPattern, bank, categoryId },
+    // Use findFirst + update/create instead of Prisma's upsert() so we don't
+    // depend on the composite unique index being recognised as a constraint
+    // (the migration might have created it as a raw INDEX, not a CONSTRAINT).
+    const existing = await prisma.merchantRule.findFirst({
+      where: { userId, merchantPattern, bank },
+    });
+
+    if (existing) {
+      return prisma.merchantRule.update({
+        where: { id: existing.id },
+        data: { categoryId },
+      }) as Promise<MerchantRule>;
+    }
+
+    return prisma.merchantRule.create({
+      data: { userId, merchantPattern, bank, categoryId },
     }) as Promise<MerchantRule>;
   }
 
