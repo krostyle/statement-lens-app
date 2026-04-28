@@ -78,6 +78,7 @@ function MerchantRulesDialog({
   const [draft, setDraft]         = useState<RuleDraft>({ merchantPattern: '', bank: '', categoryId: '' });
   const [saving, setSaving]       = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const categoryMap     = new Map(categories.map((c) => [c.id, c.name]));
   const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
@@ -93,30 +94,40 @@ function MerchantRulesDialog({
   useEffect(() => { loadRules(); }, []);
 
   const startEdit = (rule: MerchantRuleRow) => {
+    setSaveError(null);
     setEditingId(rule.id);
     setDraft({ merchantPattern: rule.merchantPattern, bank: rule.bank || BANK_ANY, categoryId: rule.categoryId });
   };
 
   const startNew = () => {
+    setSaveError(null);
     setEditingId('new');
     setDraft({ merchantPattern: '', bank: BANK_ANY, categoryId: '' });
   };
 
-  const cancelEdit = () => setEditingId(null);
+  const cancelEdit = () => { setSaveError(null); setEditingId(null); };
 
   const handleSave = async (originalRule?: MerchantRuleRow) => {
     if (!draft.merchantPattern.trim() || !draft.categoryId) return;
     setSaving(true);
+    setSaveError(null);
 
     // Convert UI sentinel back to the empty string the API expects
     const bankToSave = draft.bank === BANK_ANY ? '' : draft.bank;
 
     // POST upsert with the new values (creates or updates by merchant+bank key)
-    await fetch('/api/merchant-rules', {
+    const res = await fetch('/api/merchant-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ merchant: draft.merchantPattern.trim(), bank: bankToSave, categoryId: draft.categoryId }),
     });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setSaveError(body?.error ? JSON.stringify(body.error) : 'Ya existe una regla con el mismo comercio y tarjeta.');
+      setSaving(false);
+      return;
+    }
 
     // If editing and the key (merchant or bank) changed, remove the old record
     if (originalRule) {
@@ -288,6 +299,12 @@ function MerchantRulesDialog({
         )}
       </div>
 
+      {saveError && (
+        <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {saveError}
+        </p>
+      )}
+
       <DialogFooter className="flex-col-reverse sm:flex-row sm:justify-between gap-2">
         <Button
           variant="outline"
@@ -343,7 +360,7 @@ function BulkCategoryDialog({
             <SelectValue placeholder="Selecciona una categoría..." />
           </SelectTrigger>
           <SelectContent position="popper">
-            {categories.map((c) => (
+            {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((c) => (
               <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
             ))}
           </SelectContent>
@@ -734,7 +751,7 @@ export function TransactionsView() {
         <BulkCategoryDialog
           count={selectedIds.size}
           categories={categories}
-          onApply={(categoryId) => applyBulk({ categoryId })}
+          onApply={(categoryId) => applyBulk({ categoryId, reviewStatus: 'confirmed' })}
           onClose={() => setBulkDialog(null)}
         />
       </Dialog>
@@ -742,7 +759,7 @@ export function TransactionsView() {
       <Dialog open={bulkDialog === 'merchant'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
         <BulkMerchantDialog
           count={selectedIds.size}
-          onApply={(merchant) => applyBulk({ merchant })}
+          onApply={(merchant) => applyBulk({ merchant, reviewStatus: 'confirmed' })}
           onClose={() => setBulkDialog(null)}
         />
       </Dialog>

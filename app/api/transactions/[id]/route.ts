@@ -30,9 +30,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     const transaction = await updateTransactionUseCase.execute(id, userId, dataToUpdate);
 
     // Side effect 1: save merchant rule so future PDF imports auto-categorize
-    if (saveMerchantRule && transactionData.categoryId) {
-      const bank = saveMerchantRuleBank ?? ''; // '' = any card
-      await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, bank, transactionData.categoryId);
+    let ruleWarning: string | undefined;
+    if (saveMerchantRule) {
+      const categoryToRule = transactionData.categoryId ?? transaction.categoryId;
+      try {
+        const bank = saveMerchantRuleBank ?? ''; // '' = any card
+        await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, bank, categoryToRule);
+      } catch (ruleErr) {
+        console.error('[PATCH /api/transactions/:id] rule upsert failed', ruleErr);
+        ruleWarning = 'No se pudo guardar la regla. Es posible que ya exista una regla conflictiva para este comercio.';
+      }
     }
 
     // Side effect 2: propagate category and/or description to all installments in the same group
@@ -52,7 +59,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       }
     }
 
-    return NextResponse.json(transaction);
+    return NextResponse.json(ruleWarning ? { ...transaction, ruleWarning } : transaction);
   } catch (error) {
     const message = error instanceof Error ? error.message : '';
     // Only surface known, safe error messages — hide all internal/DB details

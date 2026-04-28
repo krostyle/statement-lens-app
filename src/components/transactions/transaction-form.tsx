@@ -1,6 +1,7 @@
 'use client';
 
 import { useForm, Controller, useWatch } from 'react-hook-form';
+import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -62,6 +63,10 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
   const isEdit = !!transaction;
   const sortedCategories = [...categories].sort((a, b) => a.name.localeCompare(b.name, 'es'));
 
+  // Two-phase state for rule conflicts: transaction saved OK but rule failed
+  const [ruleWarning, setRuleWarning] = useState<string | null>(null);
+  const [savedTransaction, setSavedTransaction] = useState<TransactionResponseDTO | null>(null);
+
   // ── Edit form ────────────────────────────────────────────────────────────
   const editForm = useForm<EditInput>({
     resolver: zodResolver(editSchema),
@@ -120,8 +125,14 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
       }),
     });
     if (res.ok) {
-      const updated: TransactionResponseDTO = await res.json();
-      onSuccess(updated);
+      const body: TransactionResponseDTO & { ruleWarning?: string } = await res.json();
+      if (body.ruleWarning) {
+        // Transaction was saved but the merchant rule could not be persisted
+        setSavedTransaction(body);
+        setRuleWarning(body.ruleWarning);
+      } else {
+        onSuccess(body);
+      }
     } else {
       const body = await res.json().catch(() => ({}));
       editForm.setError('categoryId', { message: body?.error ?? 'Error al guardar' });
@@ -278,11 +289,27 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
             </div>
           </div>
 
+          {ruleWarning && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 space-y-2">
+              <p className="font-medium">Transacción guardada</p>
+              <p className="text-amber-700">{ruleWarning}</p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="border-amber-300 text-amber-800 hover:bg-amber-100"
+                onClick={() => onSuccess(savedTransaction ?? undefined)}
+              >
+                Cerrar
+              </Button>
+            </div>
+          )}
+
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={onCancel}>
+            <Button type="button" variant="outline" onClick={onCancel} disabled={!!ruleWarning}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={editSubmitting}>
+            <Button type="submit" disabled={editSubmitting || !!ruleWarning}>
               {editSubmitting ? 'Guardando...' : 'Guardar cambios'}
             </Button>
           </DialogFooter>
