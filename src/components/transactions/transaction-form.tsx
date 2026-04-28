@@ -34,13 +34,17 @@ const BANK_LABELS: Record<string, string> = {
   liderbci:  'LiderBCI',
 };
 
+// Radix Select forbids value="", so we use this sentinel for "any card"
+// and convert it to "" at the API boundary.
+const BANK_ANY = '__any__';
+
 const editSchema = z.object({
   categoryId: z.string().uuid(),
   merchant: z.string().min(1, 'El comercio no puede estar vacío'),
   description: z.string().min(1, 'La descripción no puede estar vacía'),
   amount: z.number({ message: 'Ingresa un número válido' }),
   saveMerchantRule: z.boolean(),
-  saveMerchantRuleBank: z.string(), // '' = any card
+  saveMerchantRuleBank: z.string(), // BANK_ANY = any card, else specific bank key
   applyToInstallmentGroup: z.boolean(),
 });
 type EditInput = z.infer<typeof editSchema>;
@@ -67,7 +71,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
       description: transaction?.description ?? '',
       amount: transaction?.amount ?? 0,
       saveMerchantRule: true,
-      saveMerchantRuleBank: bank ?? '', // pre-select the transaction's card, '' = any
+      saveMerchantRuleBank: bank ?? BANK_ANY, // pre-select the transaction's card
       applyToInstallmentGroup: true,
     },
   });
@@ -107,7 +111,9 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
         description: data.description,
         amount: data.amount,
         saveMerchantRule: categoryChanged ? data.saveMerchantRule : false,
-        saveMerchantRuleBank: categoryChanged && data.saveMerchantRule ? data.saveMerchantRuleBank : undefined,
+        saveMerchantRuleBank: categoryChanged && data.saveMerchantRule
+          ? (data.saveMerchantRuleBank === BANK_ANY ? '' : data.saveMerchantRuleBank)
+          : undefined,
         applyToInstallmentGroup: (transaction?.isInstallment && categoryChanged)
           ? data.applyToInstallmentGroup
           : false,
@@ -242,7 +248,7 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent position="popper">
-                                <SelectItem value="">Cualquier tarjeta</SelectItem>
+                                <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
                                 {Object.entries(BANK_LABELS).map(([key, label]) => (
                                   <SelectItem key={key} value={key}>{label}</SelectItem>
                                 ))}

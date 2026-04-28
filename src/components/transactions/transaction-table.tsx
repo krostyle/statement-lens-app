@@ -53,6 +53,9 @@ function ReviewDot({ status, onClick }: { status: ReviewStatus; onClick?: () => 
 // Merchant rules dialog
 // ─────────────────────────────────────────────────────────
 
+// Radix Select forbids value="", so we use this sentinel for "any card"
+const BANK_ANY = '__any__';
+
 interface MerchantRuleRow {
   id: string;
   merchantPattern: string;
@@ -90,12 +93,12 @@ function MerchantRulesDialog({
 
   const startEdit = (rule: MerchantRuleRow) => {
     setEditingId(rule.id);
-    setDraft({ merchantPattern: rule.merchantPattern, bank: rule.bank, categoryId: rule.categoryId });
+    setDraft({ merchantPattern: rule.merchantPattern, bank: rule.bank || BANK_ANY, categoryId: rule.categoryId });
   };
 
   const startNew = () => {
     setEditingId('new');
-    setDraft({ merchantPattern: '', bank: '', categoryId: '' });
+    setDraft({ merchantPattern: '', bank: BANK_ANY, categoryId: '' });
   };
 
   const cancelEdit = () => setEditingId(null);
@@ -104,18 +107,21 @@ function MerchantRulesDialog({
     if (!draft.merchantPattern.trim() || !draft.categoryId) return;
     setSaving(true);
 
+    // Convert UI sentinel back to the empty string the API expects
+    const bankToSave = draft.bank === BANK_ANY ? '' : draft.bank;
+
     // POST upsert with the new values (creates or updates by merchant+bank key)
     await fetch('/api/merchant-rules', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ merchant: draft.merchantPattern.trim(), bank: draft.bank, categoryId: draft.categoryId }),
+      body: JSON.stringify({ merchant: draft.merchantPattern.trim(), bank: bankToSave, categoryId: draft.categoryId }),
     });
 
     // If editing and the key (merchant or bank) changed, remove the old record
     if (originalRule) {
       const oldPattern = originalRule.merchantPattern;
       const newPattern = draft.merchantPattern.trim().toLowerCase();
-      if (oldPattern !== newPattern || originalRule.bank !== draft.bank) {
+      if (oldPattern !== newPattern || originalRule.bank !== bankToSave) {
         await fetch(`/api/merchant-rules/${originalRule.id}`, { method: 'DELETE' });
       }
     }
@@ -149,7 +155,7 @@ function MerchantRulesDialog({
             <SelectValue placeholder="Cualquier tarjeta" />
           </SelectTrigger>
           <SelectContent position="popper">
-            <SelectItem value="">Cualquier tarjeta</SelectItem>
+            <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
             {Object.entries(BANK_LABELS).map(([key, label]) => (
               <SelectItem key={key} value={key}>{label}</SelectItem>
             ))}
