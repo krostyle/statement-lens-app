@@ -11,9 +11,11 @@ export class ListStatementsUseCase {
       userId: s.userId,
       bank: s.bank,
       month: s.month,
+      statementType: s.statementType ?? 'credit_card',
       fileName: s.fileName,
       s3Url: s.s3Url,
       status: s.status,
+      errorMessage: s.errorMessage,
       createdAt: s.createdAt.toISOString(),
     }));
   }

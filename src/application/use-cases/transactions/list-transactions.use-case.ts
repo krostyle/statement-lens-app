@@ -29,6 +29,7 @@ export class ListTransactionsUseCase {
       minInstallmentTotal: filters?.minInstallmentTotal,
       maxInstallmentTotal: filters?.maxInstallmentTotal,
       reviewStatus: filters?.reviewStatus,
+      transactionType: filters?.transactionType,
     };
 
     const [transactions, total] = await Promise.all([
@@ -56,6 +57,7 @@ export class ListTransactionsUseCase {
         installmentTotal: t.installmentTotal,
         notes: t.notes,
         reviewStatus: t.reviewStatus,
+        transactionType: (t.transactionType ?? 'expense') as 'expense' | 'income',
       })),
       total,
       page,

@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { listStatementsUseCase, s3Service, statementRepo, userProfileRepo } from '@/src/infrastructure/container';
 import { processStatement } from './_process-statement';
+import type { StatementType } from '@/src/domain/entities/statement';
+
+const CREDIT_CARD_BANKS = ['santander', 'falabella', 'liderbci'];
+const CHECKING_BANKS    = ['santander', 'falabella', 'bci', 'bancoestado'];
 
 export async function GET() {
   const { userId } = await auth();
@@ -17,44 +21,61 @@ export async function POST(request: Request) {
 
   try {
     const formData = await request.formData();
-    const file = formData.get('file') as File | null;
-    const bank = formData.get('bank') as string | null;
-    const month = formData.get('month') as string | null;
+    const file          = formData.get('file') as File | null;
+    const bank          = formData.get('bank') as string | null;
+    const month         = formData.get('month') as string | null;
+    const statementType = (formData.get('statementType') as string | null) ?? 'credit_card';
 
     if (!file || !bank || !month) {
       return NextResponse.json({ error: 'Missing required fields: file, bank, month' }, { status: 400 });
     }
-    if (!['santander', 'falabella', 'liderbci'].includes(bank)) {
-      return NextResponse.json({ error: 'Invalid bank. Use santander, falabella or liderbci' }, { status: 400 });
+
+    const validTypes: StatementType[] = ['credit_card', 'checking'];
+    if (!validTypes.includes(statementType as StatementType)) {
+      return NextResponse.json({ error: 'Invalid statementType. Use credit_card or checking' }, { status: 400 });
+    }
+
+    const allowedBanks = statementType === 'checking' ? CHECKING_BANKS : CREDIT_CARD_BANKS;
+    if (!allowedBanks.includes(bank)) {
+      return NextResponse.json(
+        { error: `Invalid bank "${bank}" for ${statementType}. Allowed: ${allowedBanks.join(', ')}` },
+        { status: 400 },
+      );
     }
 
     await userProfileRepo.ensureExists(userId);
     const existing = await statementRepo.findByUserId(userId);
-    const duplicate = existing.find((s) => s.bank === bank && s.month === month);
+
+    // Duplicate = same bank + month + statementType (credit card and checking are independent)
+    const duplicate = existing.find(
+      (s) => s.bank === bank && s.month === month && (s.statementType ?? 'credit_card') === statementType,
+    );
     if (duplicate) {
+      const typeLabel = statementType === 'checking' ? 'cuenta corriente' : 'tarjeta de crédito';
       return NextResponse.json(
-        { error: `Ya existe un estado de cuenta de ${bank} para el mes ${month}.` },
-        { status: 409 }
+        { error: `Ya existe un estado de ${typeLabel} de ${bank} para el mes ${month}.` },
+        { status: 409 },
       );
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
     const statementId = crypto.randomUUID();
-    const normalizedFileName = `${bank}_${month}.pdf`;
+    const normalizedFileName = `${bank}_${statementType}_${month}.pdf`;
     const s3Key = `${userId}/${statementId}/${normalizedFileName}`;
     const s3Url = await s3Service.upload(s3Key, buffer);
 
     const statement = await statementRepo.create({
-      userId: userId,
-      bank: bank as 'santander' | 'falabella' | 'liderbci',
+      userId,
+      bank: bank as never,
       month,
+      statementType: statementType as StatementType,
       fileName: normalizedFileName,
       s3Key,
       s3Url,
     });
 
     // Process asynchronously (fire and forget)
-    processStatement(statement.id, userId, buffer, bank, month).catch(console.error);
+    processStatement(statement.id, userId, buffer, bank, month, statementType as StatementType).catch(console.error);
 
     return NextResponse.json({
       id: statement.id,

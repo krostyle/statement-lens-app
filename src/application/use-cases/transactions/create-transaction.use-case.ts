@@ -41,6 +41,7 @@ export class CreateTransactionUseCase {
       installmentTotal: transaction.installmentTotal,
       notes: transaction.notes,
       reviewStatus: transaction.reviewStatus,
+      transactionType: (transaction.transactionType ?? 'expense') as 'expense' | 'income',
     };
   }
 }

@@ -22,6 +22,7 @@ export class UpdateStatementUseCase {
       userId: updated.userId,
       bank: updated.bank,
       month: updated.month,
+      statementType: updated.statementType ?? 'credit_card',
       fileName: updated.fileName,
       s3Url: updated.s3Url,
       status: updated.status,

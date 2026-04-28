@@ -17,5 +17,6 @@ export function toTransactionDTO(t: Transaction): TransactionResponseDTO {
     installmentTotal: t.installmentTotal,
     notes: t.notes,
     reviewStatus: t.reviewStatus,
+    transactionType: (t.transactionType ?? 'expense') as 'expense' | 'income',
   };
 }

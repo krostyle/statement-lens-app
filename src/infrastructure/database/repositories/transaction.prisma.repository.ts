@@ -22,6 +22,7 @@ function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 
   }
   if (filters?.isInstallment !== undefined) where.isInstallment = filters.isInstallment;
   if (filters?.reviewStatus) where.reviewStatus = filters.reviewStatus;
+  if (filters?.transactionType) where.transactionType = filters.transactionType;
   if (filters?.minInstallmentTotal !== undefined || filters?.maxInstallmentTotal !== undefined) {
     where.installmentTotal = {
       ...(filters.minInstallmentTotal !== undefined ? { gte: filters.minInstallmentTotal } : {}),

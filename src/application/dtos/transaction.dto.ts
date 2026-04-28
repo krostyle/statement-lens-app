@@ -32,6 +32,7 @@ export interface TransactionFiltersDTO {
   minInstallmentTotal?: number;
   maxInstallmentTotal?: number;
   reviewStatus?: string;
+  transactionType?: string;
 }
 
 export interface TransactionResponseDTO {
@@ -49,4 +50,5 @@ export interface TransactionResponseDTO {
   installmentTotal?: number | null;
   notes?: string | null;
   reviewStatus: 'pending' | 'auto' | 'confirmed' | 'manual';
+  transactionType: 'expense' | 'income';
 }

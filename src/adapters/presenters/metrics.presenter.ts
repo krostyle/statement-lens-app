@@ -1,6 +1,7 @@
 import type { Transaction } from '@/src/domain/entities/transaction';
 import {
   calculateTotalExpenses,
+  calculateTotalIncome,
   groupByMonth,
   getTopMerchants,
   detectSubscriptions,
@@ -15,6 +16,8 @@ export interface MetricsDTO {
   previousMonthTotal: number;
   percentChange: number;
   dailyAverage: number;
+  totalIncome: number;
+  savingsRate: number | null;
   topCategories: { categoryId: string; total: number }[];
   monthlyTrend: { month: string; total: number }[];
   topMerchants: { merchant: string; total: number; count: number }[];
@@ -54,12 +57,18 @@ export function buildMetrics(params: {
     .map(([categoryId, total]) => ({ categoryId, total }))
     .sort((a, b) => b.total - a.total);
 
+  const totalIncome = calculateTotalIncome(currentTxs);
+  const savingsRate =
+    totalIncome > 0 ? Math.round((1 - currentMonthTotal / totalIncome) * 100) : null;
+
   return {
     filterMode,
     currentMonthTotal,
     previousMonthTotal,
     percentChange,
     dailyAverage,
+    totalIncome,
+    savingsRate,
     topCategories,
     monthlyTrend,
     topMerchants: getTopMerchants(currentTxs),

@@ -23,9 +23,11 @@ import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto'
 import type { PaginatedTransactionsDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 
 const BANK_LABELS: Record<string, string> = {
-  santander: 'Santander',
-  falabella: 'Falabella',
-  liderbci: 'LiderBCI',
+  santander:   'Santander',
+  falabella:   'Falabella',
+  liderbci:    'LiderBCI',
+  bci:         'BCI',
+  bancoestado: 'BancoEstado',
 };
 
 type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
@@ -444,6 +446,7 @@ export function TransactionsView() {
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [selectedReview, setSelectedReview] = useState('all');
+  const [selectedType, setSelectedType] = useState('all');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
@@ -483,6 +486,7 @@ export function TransactionsView() {
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
     else if (selectedInstallment === 'false') params.set('isInstallment', 'false');
     if (selectedReview !== 'all') params.set('reviewStatus', selectedReview);
+    if (selectedType !== 'all') params.set('transactionType', selectedType);
     params.set('page', String(page));
 
     const [txRes, catRes] = await Promise.all([
@@ -497,17 +501,17 @@ export function TransactionsView() {
     setTotalPages(txData.totalPages ?? 1);
     setCategories(Array.isArray(catData) ? catData : []);
     setLoading(false);
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, page]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   useEffect(() => { load(); }, [load]);
 
   // Reset page on filter change
-  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview]);
+  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, page]);
+  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   useEffect(() => {
     fetch('/api/statements')
@@ -619,15 +623,28 @@ export function TransactionsView() {
     <div className="space-y-4">
       {/* ── Filters row ── */}
       <div className="flex flex-wrap items-center gap-2">
-        <Select value={selectedBank} onValueChange={setSelectedBank}>
-          <SelectTrigger className="w-40">
-            <SelectValue placeholder="Todas las tarjetas" />
+        <Select value={selectedType} onValueChange={setSelectedType}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todas las tarjetas</SelectItem>
+            <SelectItem value="all">Gastos e ingresos</SelectItem>
+            <SelectItem value="expense">Solo gastos</SelectItem>
+            <SelectItem value="income">Solo ingresos</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedBank} onValueChange={setSelectedBank}>
+          <SelectTrigger className="w-40">
+            <SelectValue placeholder="Todas las cuentas" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todas las cuentas</SelectItem>
             <SelectItem value="santander">Santander</SelectItem>
             <SelectItem value="falabella">Falabella</SelectItem>
             <SelectItem value="liderbci">LiderBCI</SelectItem>
+            <SelectItem value="bci">BCI</SelectItem>
+            <SelectItem value="bancoestado">BancoEstado</SelectItem>
           </SelectContent>
         </Select>
 
@@ -857,7 +874,7 @@ export function TransactionsView() {
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Tarjeta</th>
+              <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuenta/Tarjeta</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
               <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
               <th className="px-4 py-3" />
@@ -924,8 +941,13 @@ export function TransactionsView() {
                       <span className="text-zinc-300">—</span>
                     )}
                   </td>
-                  <td className={`px-4 py-3 text-right font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                    {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
+                  <td className="px-4 py-3 text-right">
+                    {t.transactionType === 'income' && (
+                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 align-middle">Ingreso</span>
+                    )}
+                    <span className={`font-semibold ${t.amount < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                      {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
+                    </span>
                   </td>
                   <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">

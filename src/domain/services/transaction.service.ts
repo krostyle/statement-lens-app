@@ -18,17 +18,21 @@ export interface Subscription {
 }
 
 /**
- * Nets all transaction amounts by category.
+ * Nets all EXPENSE transactions by category.
  * Returns only categories whose net is negative (spent more than was returned),
  * with the value already converted to a positive number representing net spend.
  *
- * This correctly handles returns and credit notes: a positive-amount transaction
- * in an expense category reduces that category's spend. Income categories (net
- * positive overall) are naturally excluded.
+ * Income transactions (transactionType === 'income') are excluded so salary and
+ * received transfers never reduce an expense category's total.
+ * Credit-card returns (transactionType === 'expense', positive amount) correctly
+ * reduce the expense category they belong to.
  */
 export function netSpendByCategory(transactions: Transaction[]): Map<string, number> {
+  const expenseTxs = transactions.filter(
+    (t) => (t.transactionType ?? 'expense') === 'expense',
+  );
   const map = new Map<string, number>();
-  for (const t of transactions) {
+  for (const t of expenseTxs) {
     if (t.amount === 0) continue;
     map.set(t.categoryId, (map.get(t.categoryId) ?? 0) + t.amount);
   }
@@ -37,6 +41,16 @@ export function netSpendByCategory(transactions: Transaction[]): Map<string, num
     if (net < 0) result.set(catId, Math.abs(net));
   }
   return result;
+}
+
+/**
+ * Total income for the given transactions (sum of positive amounts where
+ * transactionType === 'income').
+ */
+export function calculateTotalIncome(transactions: Transaction[]): number {
+  return transactions
+    .filter((t) => (t.transactionType ?? 'expense') === 'income' && t.amount > 0)
+    .reduce((sum, t) => sum + t.amount, 0);
 }
 
 export function calculateTotalExpenses(transactions: Transaction[]): number {
@@ -64,8 +78,12 @@ export function groupByMonth(transactions: Transaction[]): MonthlySpend[] {
 }
 
 export function getTopMerchants(transactions: Transaction[], limit = 10): MerchantSpend[] {
+  // Only include expense transactions in the top merchants list
+  const expenseTxs = transactions.filter(
+    (t) => (t.transactionType ?? 'expense') === 'expense',
+  );
   const map = new Map<string, { total: number; count: number }>();
-  for (const t of transactions) {
+  for (const t of expenseTxs) {
     if (t.amount === 0) continue;
     const entry = map.get(t.merchant) ?? { total: 0, count: 0 };
     if (t.amount < 0) {

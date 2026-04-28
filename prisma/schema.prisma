@@ -21,19 +21,20 @@ model UserProfile {
 }
 
 model Statement {
-  id           String        @id @default(uuid())
-  userId       String
-  bank         String
-  month        String
-  fileName     String
-  s3Key        String
-  s3Url        String
-  status       String        @default("pending")
-  errorMessage String?
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  transactions Transaction[]
+  id            String        @id @default(uuid())
+  userId        String
+  bank          String
+  month         String
+  statementType String        @default("credit_card") // 'credit_card' | 'checking'
+  fileName      String
+  s3Key         String
+  s3Url         String
+  status        String        @default("pending")
+  errorMessage  String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  user          UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  transactions  Transaction[]
 }
 
 model Category {
@@ -99,7 +100,8 @@ model Transaction {
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
-  reviewStatus     String      @default("pending") // 'pending' | 'auto' | 'confirmed' | 'manual'
+  reviewStatus     String      @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
+  transactionType  String      @default("expense")   // 'expense' | 'income'
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)

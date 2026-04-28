@@ -10,6 +10,7 @@ export interface StatementResponseDTO {
   userId: string;
   bank: string;
   month: string;
+  statementType: string;
   fileName: string;
   s3Url: string;
   status: string;

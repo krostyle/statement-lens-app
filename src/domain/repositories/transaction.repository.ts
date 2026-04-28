@@ -11,6 +11,7 @@ export interface TransactionFilters {
   minInstallmentTotal?: number;
   maxInstallmentTotal?: number;
   reviewStatus?: string;
+  transactionType?: string;
   skip?: number;
   take?: number;
 }

@@ -24,8 +24,22 @@ interface Props {
   onCancel: () => void;
 }
 
+const CREDIT_CARD_BANKS = [
+  { value: 'santander', label: 'Santander' },
+  { value: 'falabella', label: 'Falabella' },
+  { value: 'liderbci',  label: 'LiderBCI' },
+];
+
+const CHECKING_BANKS = [
+  { value: 'santander',   label: 'Santander' },
+  { value: 'falabella',   label: 'Falabella' },
+  { value: 'bci',         label: 'BCI' },
+  { value: 'bancoestado', label: 'BancoEstado / Cuenta RUT' },
+];
+
 export function UploadDropzone({ onSuccess, onCancel }: Props) {
   const [file, setFile] = useState<File | null>(null);
+  const [statementType, setStatementType] = useState<'credit_card' | 'checking'>('credit_card');
   const [bank, setBank] = useState('santander');
   const [month, setMonth] = useState(() => {
     const now = new Date();
@@ -34,6 +48,15 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const bankOptions = statementType === 'checking' ? CHECKING_BANKS : CREDIT_CARD_BANKS;
+
+  const handleTypeChange = (type: 'credit_card' | 'checking') => {
+    setStatementType(type);
+    // Reset bank to first option of the new type
+    const options = type === 'checking' ? CHECKING_BANKS : CREDIT_CARD_BANKS;
+    setBank(options[0].value);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,14 +76,13 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
       return;
     }
 
-    const monthISO = month;
-
     setUploading(true);
 
     const formData = new FormData();
     formData.append('file', file);
     formData.append('bank', bank);
-    formData.append('month', monthISO);
+    formData.append('month', month);
+    formData.append('statementType', statementType);
 
     const res = await fetch('/api/statements', { method: 'POST', body: formData });
     setUploading(false);
@@ -96,6 +118,20 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
           />
         </div>
 
+        {/* Tipo de estado de cuenta */}
+        <div className="space-y-1.5">
+          <Label>Tipo de estado de cuenta</Label>
+          <Select value={statementType} onValueChange={(v) => handleTypeChange(v as 'credit_card' | 'checking')}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+              <SelectItem value="checking">Cuenta Corriente / Cuenta RUT</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <Label>Banco</Label>
@@ -104,9 +140,9 @@ export function UploadDropzone({ onSuccess, onCancel }: Props) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="santander">Santander</SelectItem>
-                <SelectItem value="falabella">Falabella</SelectItem>
-                <SelectItem value="liderbci">LiderBCI</SelectItem>
+                {bankOptions.map((b) => (
+                  <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

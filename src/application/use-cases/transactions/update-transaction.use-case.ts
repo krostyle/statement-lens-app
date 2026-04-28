@@ -42,6 +42,7 @@ export class UpdateTransactionUseCase {
       installmentTotal: updated.installmentTotal,
       notes: updated.notes,
       reviewStatus: updated.reviewStatus,
+      transactionType: (updated.transactionType ?? 'expense') as 'expense' | 'income',
     };
   }
 }
