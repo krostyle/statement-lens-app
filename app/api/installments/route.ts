@@ -43,12 +43,16 @@ export async function GET(request: Request) {
   });
 
   // Deduplicate: one entry per installment plan.
-  // Key = bank + merchant + installmentTotal + rounded monthly amount.
+  // Key = bank + installmentTotal + rounded monthly amount.
+  // Merchant name is intentionally excluded: banks often print slightly different
+  // descriptions for the same plan across months (e.g. "Paris Puente Alto" → "Paris",
+  // or case changes). The combination of bank + total installments + monthly amount
+  // is specific enough to identify a single plan in personal finance.
   // The most-recently-billed row arrives first (sorted above) and wins the map.
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    const key = `${tx.statement?.bank ?? ''}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }

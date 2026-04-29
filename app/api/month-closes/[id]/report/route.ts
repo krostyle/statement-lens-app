@@ -951,7 +951,7 @@ export async function GET(
   const instMap = new Map<string, typeof installmentTxs[number]>();
   for (const tx of installmentTxs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    const key = `${tx.statement?.bank ?? ''}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!instMap.has(key)) instMap.set(key, tx);
   }
   const activeInstallments: ActiveInstallment[] = Array.from(instMap.values())
