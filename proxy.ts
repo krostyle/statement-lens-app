@@ -8,7 +8,7 @@ export default clerkMiddleware(async (auth, req) => {
 
   // Authenticated users shouldn't see sign-in/sign-up → send to dashboard
   if (userId && isPublicRoute(req)) {
-    return NextResponse.redirect(new URL('/dashboard', req.url));
+    return NextResponse.redirect(new URL('/transactions', req.url));
   }
 
   // Unauthenticated users on protected routes → Clerk redirects to sign-in

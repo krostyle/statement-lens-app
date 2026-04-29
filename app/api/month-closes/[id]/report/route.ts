@@ -1,9 +1,10 @@
 import { auth } from '@clerk/nextjs/server';
 import { monthCloseRepo, transactionRepo, budgetRepo, categoryRepo } from '@/src/infrastructure/container';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
-import { netSpendByCategory, calculateTotalIncome } from '@/src/domain/services/transaction.service';
+import { netSpendByCategory, calculateTotalIncome, groupByMonth } from '@/src/domain/services/transaction.service';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
 import type { Transaction } from '@/src/domain/entities/transaction';
+import type { MonthlySpend } from '@/src/domain/services/transaction.service';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,114 @@ function generateBarChart(summary: CategorySummary[]): string {
   return `<div style="padding-top:2px;">${legend}${bars}</div>`;
 }
 
+// ─── Installments section ──────────────────────────────────────────────────────
+
+interface ActiveInstallment {
+  merchant: string;
+  bank: string | null;
+  amount: number;
+  installmentNum: number;
+  installmentTotal: number;
+  remaining: number;
+}
+
+const BANK_LABELS: Record<string, string> = {
+  santander: 'Santander',
+  falabella: 'Falabella',
+  liderbci: 'LiderBCI',
+  bci: 'BCI',
+  bancoestado: 'BancoEstado',
+};
+
+function generateInstallmentsSection(
+  items: ActiveInstallment[],
+  totalMonthly: number,
+  totalDebt: number,
+): string {
+  if (items.length === 0) return '';
+
+  const sorted = [...items].sort((a, b) => b.remaining - a.remaining);
+
+  const rows = sorted.map((i) => {
+    const bankLabel = i.bank ? (BANK_LABELS[i.bank] ?? i.bank) : '—';
+    const name = i.merchant.length > 28 ? `${i.merchant.slice(0, 26)}…` : i.merchant;
+    return `
+      <tr class="tx-row">
+        <td class="tx-merchant" style="padding-left:10px;">${esc(name)}</td>
+        <td style="font-size:12px;color:#6b7280;text-align:center;">${esc(bankLabel)}</td>
+        <td style="font-size:12px;color:#374151;text-align:center;">${i.installmentNum}/${i.installmentTotal}</td>
+        <td style="font-size:12px;font-weight:600;color:#18181b;text-align:right;padding-right:10px;">${clp(i.amount)}</td>
+        <td style="font-size:12px;color:#374151;text-align:right;padding-right:10px;">${clp(i.remaining)}</td>
+      </tr>`;
+  }).join('');
+
+  return `
+  <div class="section">
+    <div class="section-title">Cuotas activas</div>
+    <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">
+      Compras en cuotas con saldo pendiente. El monto mensual ya está incluido en el gasto correspondiente del mes en que se cargó cada cuota.
+    </p>
+    <table class="cat-table" style="font-size:12px;">
+      <thead class="cat-table-head">
+        <tr>
+          <th style="text-align:left;">Comercio</th>
+          <th style="text-align:center;">Tarjeta</th>
+          <th style="text-align:center;">Cuota</th>
+          <th style="text-align:right;">Cuota mensual</th>
+          <th style="text-align:right;">Deuda restante</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr style="background:#f9fafb;border-top:2px solid #d1d5db;">
+          <td colspan="3" style="padding:8px 10px;font-size:12px;font-weight:700;color:#374151;">Total</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#18181b;text-align:right;">${clp(totalMonthly)}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#dc2626;text-align:right;">${clp(totalDebt)}</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>`;
+}
+
+// ─── Trend section ────────────────────────────────────────────────────────────
+
+function generateTrendSection(trend: MonthlySpend[], reportMonth: string): string {
+  if (trend.length < 2) return '';
+
+  const maxVal = Math.max(...trend.map((t) => t.total));
+
+  const bars = trend.map((t) => {
+    const isReport = t.month === reportMonth;
+    const pct = maxVal > 0 ? (t.total / maxVal) * 100 : 0;
+    const [y, m] = t.month.split('-');
+    const label = `${MONTH_NAMES[m] ?? m} ${y}`;
+    const barColor = isReport ? '#1e40af' : '#93c5fd';
+    const textColor = isReport ? '#1e40af' : '#6b7280';
+    const fontWeight = isReport ? '700' : '500';
+
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+        <div style="width:90px;text-align:right;font-size:11px;color:${textColor};font-weight:${fontWeight};flex-shrink:0;white-space:nowrap;">
+          ${esc(label)}
+        </div>
+        <div style="flex:1;position:relative;height:18px;border-radius:3px;background:#f3f4f6;min-width:0;">
+          <div style="position:absolute;inset:0;width:${pct.toFixed(1)}%;background:${barColor};border-radius:3px;min-width:4px;"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:${Math.min(pct, 60).toFixed(1)}%;pointer-events:none;">
+            <span style="font-size:10px;font-weight:600;color:${pct > 35 ? '#fff' : textColor};padding-left:5px;white-space:nowrap;">
+              ${esc(clp(t.total))}
+            </span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+
+  return `
+  <div class="section">
+    <div class="section-title">Tendencia de gastos (últimos ${trend.length} meses)</div>
+    <div style="padding-top:4px;">${bars}</div>
+  </div>`;
+}
+
 // ─── HTML generator ───────────────────────────────────────────────────────────
 
 function generateReportHtml(
@@ -241,6 +350,10 @@ function generateReportHtml(
   previousClose: MonthClose | null,
   /** statementId → bank name (card label) */
   statementBankMap: Map<string, string>,
+  activeInstallments: ActiveInstallment[],
+  totalMonthlyInstallments: number,
+  totalDebtInstallments: number,
+  trend: MonthlySpend[],
 ): string {
   const diff = mc.totalBudget - mc.totalSpent;
   const isOver = mc.totalSpent > mc.totalBudget;
@@ -710,6 +823,8 @@ function generateReportHtml(
 
     ${comparisonHtml}
 
+    ${generateTrendSection(trend, mc.month)}
+
     <!-- Category breakdown with transactions -->
     <div class="section">
       <div class="section-title">Desglose por categoría con transacciones</div>
@@ -734,6 +849,8 @@ function generateReportHtml(
     </div>
 
     ${internalTransfersHtml}
+
+    ${generateInstallmentsSection(activeInstallments, totalMonthlyInstallments, totalDebtInstallments)}
 
     ${notesHtml}
 
@@ -825,7 +942,46 @@ export async function GET(
   // Previous close (calendar month immediately before)
   const previousClose = allCloses.find((c) => c.month === prevMonthStr(mc.month)) ?? null;
 
-  const html = generateReportHtml(enrichedMc, transactions, previousClose, statementBankMap);
+  // ── Active installments ──────────────────────────────────────────────────
+  const installmentTxs = await prisma.transaction.findMany({
+    where: { userId, isInstallment: true },
+    include: { statement: true },
+    orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
+  });
+  const instMap = new Map<string, typeof installmentTxs[number]>();
+  for (const tx of installmentTxs) {
+    if (tx.installmentNum === null || tx.installmentTotal === null) continue;
+    const key = `${tx.statement?.bank ?? ''}||${tx.merchant}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    if (!instMap.has(key)) instMap.set(key, tx);
+  }
+  const activeInstallments: ActiveInstallment[] = Array.from(instMap.values())
+    .filter((tx) => tx.installmentNum! < tx.installmentTotal!)
+    .map((tx) => ({
+      merchant: tx.merchant,
+      bank: tx.statement?.bank ?? null,
+      amount: Math.abs(tx.amount),
+      installmentNum: tx.installmentNum!,
+      installmentTotal: tx.installmentTotal!,
+      remaining: (tx.installmentTotal! - tx.installmentNum!) * Math.abs(tx.amount),
+    }));
+  const totalMonthlyInstallments = activeInstallments.reduce((s, i) => s + i.amount, 0);
+  const totalDebtInstallments = activeInstallments.reduce((s, i) => s + i.remaining, 0);
+
+  // ── 6-month spend trend ──────────────────────────────────────────────────
+  const trendFrom = new Date(Date.UTC(y, m - 7, 1)); // ~6 months before report month
+  const trendTxs = await transactionRepo.findByUserId(userId, { from: trendFrom, to });
+  const trend = groupByMonth(trendTxs);
+
+  const html = generateReportHtml(
+    enrichedMc,
+    transactions,
+    previousClose,
+    statementBankMap,
+    activeInstallments,
+    totalMonthlyInstallments,
+    totalDebtInstallments,
+    trend,
+  );
 
   return new Response(html, {
     headers: { 'Content-Type': 'text/html; charset=utf-8' },
