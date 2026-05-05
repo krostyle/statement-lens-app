@@ -279,24 +279,24 @@ function generateInstallmentsSection(
   <div class="section">
     <div class="section-title">Cuotas activas</div>
     <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">
-      Compras en cuotas con saldo pendiente. El monto mensual ya está incluido en el gasto correspondiente del mes en que se cargó cada cuota.
+      Compras que pagaste en cuotas y que aún tienen cuotas pendientes. <strong>Cuota mensual</strong> es lo que te descuenta la tarjeta cada mes. <strong>Cuotas pendientes × cuota mensual</strong> = lo que todavía debes pagar en total.
     </p>
     <table class="cat-table" style="font-size:12px;">
       <thead class="cat-table-head">
         <tr>
           <th style="text-align:left;">Comercio</th>
           <th style="text-align:center;">Tarjeta</th>
-          <th style="text-align:center;">Cuota</th>
-          <th style="text-align:right;">Cuota mensual</th>
-          <th style="text-align:right;">Deuda restante</th>
+          <th style="text-align:center;" title="Cuota actual / Total de cuotas">Progreso</th>
+          <th style="text-align:right;" title="Lo que te descuenta la tarjeta cada mes">Cuota mensual</th>
+          <th style="text-align:right;" title="Total de cuotas que aún faltan por pagar">Cuotas pendientes × cuota</th>
         </tr>
       </thead>
       <tbody>${rows}</tbody>
       <tfoot>
         <tr style="background:#f9fafb;border-top:2px solid #d1d5db;">
           <td colspan="3" style="padding:8px 10px;font-size:12px;font-weight:700;color:#374151;">Total</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#18181b;text-align:right;">${clp(totalMonthly)}</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#dc2626;text-align:right;">${clp(totalDebt)}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#18181b;text-align:right;" title="Lo que sumarán todas tus cuotas activas el próximo mes">${clp(totalMonthly)}</td>
+          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#dc2626;text-align:right;" title="Total que te queda por pagar entre todas las compras en cuotas">${clp(totalDebt)}</td>
         </tr>
       </tfoot>
     </table>
@@ -544,7 +544,7 @@ function generateReportHtml(
       ? `<div class="metric-card ${savingsRateVal >= 0 ? 'card-green' : 'card-red'}">
           <div class="metric-label">Tasa de ahorro (este mes)</div>
           <div class="metric-value ${savingsRateVal >= 0 ? 'text-green' : 'text-red'}">${savingsRateVal}%</div>
-          <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Puede variar por desfase del ciclo salarial</div>
+          <div class="metric-desc">De cada $100 que ingresaste este mes, ahorraste $${Math.max(0, savingsRateVal)}. Puede variar por desfase salarial.</div>
         </div>`
       : '';
 
@@ -555,10 +555,12 @@ function generateReportHtml(
         <div class="metric-card card-green">
           <div class="metric-label">Total ingresos</div>
           <div class="metric-value text-green">+${clp(totalIncome)}</div>
+          <div class="metric-desc">Sueldos y transferencias recibidas registradas este mes</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">Total gastos</div>
           <div class="metric-value">${clp(mc.totalSpent)}</div>
+          <div class="metric-desc">Solo gastos reales — pagos de tarjeta y traspasos propios no se cuentan</div>
         </div>
         ${srCard}
       </div>
@@ -667,6 +669,7 @@ function generateReportHtml(
     .metric-card.card-green { border-color: #86efac; background: #f0fdf4; }
     .metric-label { font-size: 11px; color: #6b7280; margin-bottom: 5px; font-weight: 500; }
     .metric-value { font-size: 17px; font-weight: 800; color: #0f172a; }
+    .metric-desc { font-size: 10px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
 
     /* ── Comparison ── */
     .cmp-box { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
@@ -791,31 +794,35 @@ function generateReportHtml(
         <div class="metric-card">
           <div class="metric-label">Total gastado</div>
           <div class="metric-value">${clp(mc.totalSpent)}</div>
+          <div class="metric-desc">Suma de todos tus gastos reales del mes</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">Presupuesto total</div>
           <div class="metric-value">${clp(mc.totalBudget)}</div>
+          <div class="metric-desc">Límite de gasto que tú mismo definiste para el mes</div>
         </div>
         <div class="metric-card ${isOver ? 'card-red' : 'card-green'}">
-          <div class="metric-label">${isOver ? 'Excedido en' : 'Ahorrado'}</div>
+          <div class="metric-label">${isOver ? 'Te pasaste en' : 'Bajo presupuesto'}</div>
           <div class="metric-value ${isOver ? 'text-red' : 'text-green'}">${clp(Math.abs(diff))}</div>
+          <div class="metric-desc">${isOver ? 'Gastaste más de lo planeado este mes' : 'Gastaste menos de lo que habías planeado'}</div>
         </div>
         <div class="metric-card">
           <div class="metric-label">% del presupuesto usado</div>
           <div class="metric-value ${pct > 100 ? 'text-red' : ''}">${pct}%</div>
+          <div class="metric-desc">De cada $100 presupuestados, usaste $${pct > 100 ? '100+' : pct}</div>
         </div>
       </div>
       ${savingsRate6m !== null ? `
-      <div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+      <div style="margin-top:12px;padding:12px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
         <div>
-          <span style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;">
-            Tasa de ahorro acumulada · últimos ${rolling6mMonths} ${rolling6mMonths === 1 ? 'mes' : 'meses'}
-          </span>
-          <span style="font-size:11px;color:#4b7c5e;margin-left:8px;">
-            (más representativa que la mensual por el desfase del ciclo salarial)
-          </span>
+          <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">
+            Tasa de ahorro · promedio de los últimos ${rolling6mMonths} ${rolling6mMonths === 1 ? 'mes' : 'meses'}
+          </div>
+          <div style="font-size:11px;color:#4b7c5e;">
+            De cada $100 que ganaste, ahorraste $${Math.max(0, savingsRate6m)} en promedio — más confiable que la tasa mensual porque el sueldo suele llegar un mes y gastarse al siguiente
+          </div>
         </div>
-        <span style="font-size:20px;font-weight:800;color:${savingsRate6m >= 0 ? '#166534' : '#dc2626'};">${savingsRate6m}%</span>
+        <span style="font-size:22px;font-weight:800;color:${savingsRate6m >= 0 ? '#166534' : '#dc2626'};flex-shrink:0;">${savingsRate6m}%</span>
       </div>` : ''}
     </div>
 
