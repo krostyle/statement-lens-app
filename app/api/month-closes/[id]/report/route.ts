@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { monthCloseRepo, transactionRepo, budgetRepo, categoryRepo } from '@/src/infrastructure/container';
 import { prisma } from '@/src/infrastructure/database/prisma.client';
-import { netSpendByCategory, calculateTotalIncome, groupByMonth } from '@/src/domain/services/transaction.service';
+import { netSpendByCategory, calculateTotalIncome, calculateTotalExpenses, groupByMonth } from '@/src/domain/services/transaction.service';
 import type { MonthClose, CategorySummary } from '@/src/domain/entities/month-close';
 import type { Transaction } from '@/src/domain/entities/transaction';
 import type { MonthlySpend } from '@/src/domain/services/transaction.service';
@@ -354,6 +354,8 @@ function generateReportHtml(
   totalMonthlyInstallments: number,
   totalDebtInstallments: number,
   trend: MonthlySpend[],
+  savingsRate6m: number | null,
+  rolling6mMonths: number,
 ): string {
   const diff = mc.totalBudget - mc.totalSpent;
   const isOver = mc.totalSpent > mc.totalBudget;
@@ -540,8 +542,9 @@ function generateReportHtml(
 
     const srCard = savingsRateVal !== null
       ? `<div class="metric-card ${savingsRateVal >= 0 ? 'card-green' : 'card-red'}">
-          <div class="metric-label">Tasa de ahorro</div>
+          <div class="metric-label">Tasa de ahorro (este mes)</div>
           <div class="metric-value ${savingsRateVal >= 0 ? 'text-green' : 'text-red'}">${savingsRateVal}%</div>
+          <div style="font-size:10px;color:#9ca3af;margin-top:4px;">Puede variar por desfase del ciclo salarial</div>
         </div>`
       : '';
 
@@ -802,6 +805,18 @@ function generateReportHtml(
           <div class="metric-value ${pct > 100 ? 'text-red' : ''}">${pct}%</div>
         </div>
       </div>
+      ${savingsRate6m !== null ? `
+      <div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <span style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;">
+            Tasa de ahorro acumulada · últimos ${rolling6mMonths} ${rolling6mMonths === 1 ? 'mes' : 'meses'}
+          </span>
+          <span style="font-size:11px;color:#4b7c5e;margin-left:8px;">
+            (más representativa que la mensual por el desfase del ciclo salarial)
+          </span>
+        </div>
+        <span style="font-size:20px;font-weight:800;color:${savingsRate6m >= 0 ? '#166534' : '#dc2626'};">${savingsRate6m}%</span>
+      </div>` : ''}
     </div>
 
     ${incomeHtml}
@@ -967,10 +982,19 @@ export async function GET(
   const totalMonthlyInstallments = activeInstallments.reduce((s, i) => s + i.amount, 0);
   const totalDebtInstallments = activeInstallments.reduce((s, i) => s + i.remaining, 0);
 
-  // ── 6-month spend trend ──────────────────────────────────────────────────
+  // ── 6-month spend trend + rolling savings rate ───────────────────────────
   const trendFrom = new Date(Date.UTC(y, m - 7, 1)); // ~6 months before report month
   const trendTxs = await transactionRepo.findByUserId(userId, { from: trendFrom, to });
   const trend = groupByMonth(trendTxs);
+
+  // Rolling savings rate over the full trend window (more reliable than single-month)
+  const rolling6mIncome   = calculateTotalIncome(trendTxs);
+  const rolling6mExpenses = calculateTotalExpenses(trendTxs);
+  const rolling6mMonths   = trend.length; // actual months with data
+  const savingsRate6m: number | null =
+    rolling6mIncome > 0
+      ? Math.round((1 - rolling6mExpenses / rolling6mIncome) * 100)
+      : null;
 
   const html = generateReportHtml(
     enrichedMc,
@@ -981,6 +1005,8 @@ export async function GET(
     totalMonthlyInstallments,
     totalDebtInstallments,
     trend,
+    savingsRate6m,
+    rolling6mMonths,
   );
 
   return new Response(html, {
