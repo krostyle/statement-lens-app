@@ -16,7 +16,6 @@ model UserProfile {
   categories     Category[]
   transactions   Transaction[]
   budgets        Budget[]
-  monthCloses    MonthClose[]
   merchantRules  MerchantRule[]
 }
 
@@ -67,23 +66,6 @@ model Budget {
   category      Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([userId, categoryId, month])
-}
-
-model MonthClose {
-  id            String      @id @default(uuid())
-  userId        String
-  month         String      // "YYYY-MM"
-  totalSpent    Float
-  totalBudget   Float
-  summary       Json        // CategorySummary[]
-  aiSuggestions String
-  notes         String?
-  closedAt      DateTime    @default(now())
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-  user          UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-
-  @@unique([userId, month])
 }
 
 model Transaction {

@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useState } from 'react';
-import { ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, CalendarCheck, X } from 'lucide-react';
+import { ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, BarChart2, X } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -23,7 +23,7 @@ const navItems = [
   { href: '/transactions', label: 'Transacciones', icon: ArrowLeftRight },
   { href: '/categories', label: 'Categorías', icon: Tag },
   { href: '/budgets', label: 'Presupuestos', icon: Target },
-  { href: '/month-closes', label: 'Cierre de mes', icon: CalendarCheck },
+  { href: '/reportes', label: 'Reportes', icon: BarChart2 },
   { href: '/statements', label: 'Extractos', icon: FileText },
 ];
 
