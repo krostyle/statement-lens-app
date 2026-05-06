@@ -194,7 +194,7 @@ export function BudgetsView() {
         </div>
         <Button variant="outline" onClick={() => setRecommendOpen(true)}>
           <Sparkles className="h-4 w-4 mr-2" />
-          Sugerir con IA
+          Sugerir presupuestos
         </Button>
       </div>
 
@@ -246,7 +246,7 @@ export function BudgetsView() {
               />
             </div>
             <p className="text-xs text-zinc-400">
-              Ingresa tu sueldo líquido mensual. Se usa para la regla 50/30/20 al generar sugerencias con IA.
+              Ingresa tu sueldo líquido mensual. Se usa para la regla 50/30/20 al generar sugerencias de presupuesto.
             </p>
           </div>
           <DialogFooter>
