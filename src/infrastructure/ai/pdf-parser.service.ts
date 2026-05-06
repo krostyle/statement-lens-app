@@ -90,13 +90,14 @@ export class PdfParserService {
     categories: string[],
     statementType: 'credit_card' | 'checking' = 'credit_card',
     userName?: string,
+    billingMonth?: string, // "YYYY-MM" — used to anchor dates to the correct year
   ): Promise<ParsedTransaction[]> {
     const categoriesList = categories.join(', ');
 
     const systemPrompt =
       statementType === 'checking'
-        ? this.buildCheckingPrompt(bank, userName)
-        : this.buildCreditCardPrompt(bank);
+        ? this.buildCheckingPrompt(bank, userName, billingMonth)
+        : this.buildCreditCardPrompt(bank, billingMonth);
 
     const message = await anthropicClient.messages.create({
       model: 'claude-sonnet-4-6',
@@ -132,23 +133,32 @@ export class PdfParserService {
     }));
   }
 
-  private buildCreditCardPrompt(bank: string): string {
+  private buildCreditCardPrompt(bank: string, billingMonth?: string): string {
+    const yearAnchor = billingMonth
+      ? `\nBILLING PERIOD: ${billingMonth}. All transaction dates must use year ${billingMonth.split('-')[0]}. Do not use any other year even if you see a different one in the document.`
+      : '';
     return `You are a parser for Chilean credit card statements.
 Extract ALL transactions and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
-Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category","transactionType":"expense"}
+Each item: {"date":"YYYY-MM-DD","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":bool,"installmentNum":number|null,"installmentTotal":number|null,"suggestedCategory":"category","transactionType":"expense"}
 amount: negative=expense, positive=credit/return/payment (devolución).
+AMOUNTS: Chilean format uses periods as thousands separators — "$1.234.567" = 1234567 (integer, no decimals).
 transactionType: always "expense" for credit card statements (returns are positive-amount expenses).
-CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.${getCreditCardBankHints(bank)}`;
+CRITICAL for installments: amount must be the monthly installment amount (cuota del mes), NOT the total purchase price. When the statement shows a "Valor cuota" or "Cuota mensual" field, use that value. Example: "Cuota 3/12 - Valor cuota $50.000 - Total $600.000" → amount=-50000, installmentNum=3, installmentTotal=12. Never use the total accumulated amount for installment transactions.${yearAnchor}${getCreditCardBankHints(bank)}`;
   }
 
-  private buildCheckingPrompt(bank: string, userName?: string): string {
+  private buildCheckingPrompt(bank: string, userName?: string, billingMonth?: string): string {
     const ownerHint = userName
       ? `\nThe account owner's name is "${userName}". Any outgoing transfer whose recipient name matches or closely resembles this name (e.g. "YO", "A MI MISMO", "${userName.toUpperCase()}") is an own-account transfer → transactionType "transfer".`
       : '';
+    const yearAnchor = billingMonth
+      ? `\nBILLING PERIOD: ${billingMonth}. ALL transaction dates must use year ${billingMonth.split('-')[0]}. This is the correct year — do not use any other year even if a different one appears in the document header or footer.`
+      : '';
     return `You are a parser for Chilean bank account (cuenta corriente / cuenta RUT / cuenta vista) statements.
 Extract ALL movements and return ONLY a valid compact JSON array (no whitespace, no explanation, no markdown).
-Each item: {"date":"ISO date","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":false,"installmentNum":null,"installmentTotal":null,"suggestedCategory":"category","transactionType":"expense"|"income"|"transfer"}
+Each item: {"date":"YYYY-MM-DD","description":"raw text","merchant":"clean name","amount":number,"currency":"CLP","isInstallment":false,"installmentNum":null,"installmentTotal":null,"suggestedCategory":"category","transactionType":"expense"|"income"|"transfer"}
 
+AMOUNTS: Chilean format uses periods as thousands separators — "$1.234.567" = 1234567 (integer, no decimals). Never interpret a period as a decimal point.
+${yearAnchor}
 Amount rules:
 - ALWAYS negative for outgoing money: debits, credit card payments, loan payments, transfers sent, bank fees
 - ALWAYS positive for incoming money: salary, received transfers, service refunds

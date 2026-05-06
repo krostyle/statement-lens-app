@@ -50,13 +50,30 @@ async function doProcess(
   const categories = await categoryRepo.findByUserId(userId);
   const categoryNames = categories.map((c) => c.name);
 
-  const parsed = (await pdfParser.parseTransactions(rawText, bank, categoryNames, statementType, userName)).filter((t) => {
+  const rawParsed = (await pdfParser.parseTransactions(rawText, bank, categoryNames, statementType, userName, month)).filter((t) => {
     // Santander (and potentially other banks) include informational "cuota 00/N"
     // entries in the "INFORMACION COMPRAS EN CUOTAS EN EL PERIODO" section.
     // These are NOT real charges — the first actual charge is cuota 01/N in
     // the next statement. Discard any row where installmentNum is 0.
     if (t.isInstallment && t.installmentNum === 0) return false;
     return true;
+  });
+
+  // Post-process: correct years that are clearly wrong (≥2 years off from billing month).
+  // This catches cases where the AI reads a stale year from a PDF header or footer.
+  const billingYear = Number(month.split('-')[0]);
+  const parsed = rawParsed.map((t) => {
+    try {
+      const d = new Date(t.date);
+      if (isNaN(d.getTime())) return t;
+      const diff = Math.abs(d.getUTCFullYear() - billingYear);
+      if (diff >= 2) {
+        const corrected = `${billingYear}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
+        console.warn(`Date year corrected: ${t.date} → ${corrected} (billing year: ${billingYear})`);
+        return { ...t, date: corrected };
+      }
+    } catch { /* leave as-is if parsing fails */ }
+    return t;
   });
 
   const categoryMap = new Map(categories.map((c) => [c.name, c.id]));
