@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, Zap, ShieldCheck, CheckCheck, Check, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -471,17 +471,42 @@ export function TransactionsView() {
   // Map statementId → bank for display in table rows
   const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
 
-  const load = useCallback(async () => {
+  // Debounce search — avoids firing a request on every keystroke
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Refresh counter — incremented after mutations to force a reload
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  // Fetch categories and statements once on mount
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((data) => setCategories(Array.isArray(data) ? data : []));
+  }, []);
+  useEffect(() => {
+    fetch('/api/statements')
+      .then((r) => r.json())
+      .then((data) => setStatements(Array.isArray(data) ? data : []));
+  }, []);
+
+  // Load transactions — cancels stale in-flight request when deps change
+  useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+
     const params = new URLSearchParams();
-    if (search) params.set('search', search);
-    if (selectedBank && selectedBank !== 'all') params.set('bank', selectedBank);
+    if (debouncedSearch) params.set('search', debouncedSearch);
+    if (selectedBank !== 'all') params.set('bank', selectedBank);
     if (selectedMonth) {
       const [y, m] = selectedMonth.split('-').map(Number);
       params.set('from', new Date(Date.UTC(y, m - 1, 1)).toISOString());
       params.set('to', new Date(Date.UTC(y, m, 1) - 1).toISOString());
     }
-    if (selectedCategoryId && selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
+    if (selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
     if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
     else if (selectedInstallment === 'false') params.set('isInstallment', 'false');
@@ -489,35 +514,27 @@ export function TransactionsView() {
     if (selectedType !== 'all') params.set('transactionType', selectedType);
     params.set('page', String(page));
 
-    const [txRes, catRes] = await Promise.all([
-      fetch(`/api/transactions?${params.toString()}`),
-      fetch('/api/categories'),
-    ]);
-    const txData: PaginatedTransactionsDTO = await txRes.json();
-    const catData = await catRes.json();
+    fetch(`/api/transactions?${params.toString()}`)
+      .then((r) => r.json())
+      .then((data: PaginatedTransactionsDTO) => {
+        if (cancelled) return;
+        setTransactions(Array.isArray(data.data) ? data.data : []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 1);
+        setLoading(false);
+      })
+      .catch(() => { if (!cancelled) setLoading(false); });
 
-    setTransactions(Array.isArray(txData.data) ? txData.data : []);
-    setTotal(txData.total ?? 0);
-    setTotalPages(txData.totalPages ?? 1);
-    setCategories(Array.isArray(catData) ? catData : []);
-    setLoading(false);
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
+    return () => { cancelled = true; };
+  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page, refreshKey]);
 
-  useEffect(() => { load(); }, [load]);
-
-  // Reset page on filter change
-  useEffect(() => { setPage(1); }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType]);
+  // Reset page when non-page filters change
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [search, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
-
-  useEffect(() => {
-    fetch('/api/statements')
-      .then((r) => r.json())
-      .then((data) => setStatements(Array.isArray(data) ? data : []));
-  }, []);
+  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   // Keep header checkbox in sync (checked / indeterminate)
   useEffect(() => {
@@ -541,7 +558,7 @@ export function TransactionsView() {
   const handleDelete = async (id: string) => {
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
     setDeleteTarget(null);
-    load();
+    setRefreshKey((k) => k + 1);
   };
 
   const openCreate = () => { setEditing(null); setOpen(true); };
@@ -593,7 +610,7 @@ export function TransactionsView() {
     });
     clearSelection();
     setBulkDialog(null);
-    load();
+    setRefreshKey((k) => k + 1);
   };
 
   const handleConfirmAll = async () => {
@@ -601,11 +618,11 @@ export function TransactionsView() {
     await fetch('/api/transactions/confirm-all', { method: 'PATCH' });
     setConfirmAllLoading(false);
     setConfirmAllOpen(false);
-    load();
+    setRefreshKey((k) => k + 1);
   };
 
   const exportParams = new URLSearchParams({
-    ...(search ? { search } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
     ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
     ...(selectedMonth ? (() => {
@@ -849,7 +866,7 @@ export function TransactionsView() {
             if (updated) {
               setTransactions((prev) => prev.map((t) => t.id === updated.id ? updated : t));
             } else {
-              load();
+              setRefreshKey((k) => k + 1);
             }
           }}
           onCancel={() => setOpen(false)}
