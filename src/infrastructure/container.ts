@@ -9,7 +9,6 @@ import { MerchantRulePrismaRepository } from './database/repositories/merchant-r
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
-import { BudgetRecommendationService } from './ai/budget-recommendation.service';
 
 import { CreateCategoryUseCase } from '@/src/application/use-cases/categories/create-category.use-case';
 import { UpdateCategoryUseCase } from '@/src/application/use-cases/categories/update-category.use-case';
@@ -61,9 +60,8 @@ export const analyzeFinancesUseCase = new AnalyzeFinancesUseCase(transactionRepo
 
 export const listBudgetsUseCase = new ListBudgetsUseCase(budgetRepo);
 export const upsertBudgetUseCase = new UpsertBudgetUseCase(budgetRepo, categoryRepo);
-export const budgetRecommendationService = new BudgetRecommendationService();
 export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
-  transactionRepo, categoryRepo, budgetRepo, userProfileRepo, budgetRecommendationService
+  transactionRepo, categoryRepo, budgetRepo, userProfileRepo
 );
 
 export const listMerchantRulesUseCase = new ListMerchantRulesUseCase(merchantRuleRepo);

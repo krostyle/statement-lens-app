@@ -141,13 +141,13 @@ export function BudgetRecommendationDialog({ open, month, onClose, onApplied }: 
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Sugerencias de presupuesto con IA</DialogTitle>
+          <DialogTitle>Sugerencias de presupuesto</DialogTitle>
         </DialogHeader>
 
         {phase === 'loading' && (
           <div className="flex flex-col items-center gap-3 py-12 text-zinc-500">
             <Loader2 className="h-6 w-6 animate-spin text-brand-600" />
-            <span className="text-sm">Analizando tus gastos con IA...</span>
+            <span className="text-sm">Calculando sugerencias...</span>
           </div>
         )}
 
