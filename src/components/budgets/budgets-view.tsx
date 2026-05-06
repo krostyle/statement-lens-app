@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Pencil, Trash2, Plus, Tag, Sparkles } from 'lucide-react';
+import { Pencil, Trash2, Plus, Tag, Wand2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -193,7 +193,7 @@ export function BudgetsView() {
           </div>
         </div>
         <Button variant="outline" onClick={() => setRecommendOpen(true)}>
-          <Sparkles className="h-4 w-4 mr-2" />
+          <Wand2 className="h-4 w-4 mr-2" />
           Sugerir presupuestos
         </Button>
       </div>
