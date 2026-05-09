@@ -6,6 +6,7 @@ import { StatementPrismaRepository } from './database/repositories/statement.pri
 import { TransactionPrismaRepository } from './database/repositories/transaction.prisma.repository';
 import { BudgetPrismaRepository } from './database/repositories/budget.prisma.repository';
 import { MerchantRulePrismaRepository } from './database/repositories/merchant-rule.prisma.repository';
+import { SnapshotPrismaRepository } from './database/repositories/snapshot.prisma.repository';
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
@@ -36,6 +37,7 @@ const statementRepo = new StatementPrismaRepository();
 const transactionRepo = new TransactionPrismaRepository();
 export const budgetRepo = new BudgetPrismaRepository();
 export const merchantRuleRepo = new MerchantRulePrismaRepository();
+export const snapshotRepo = new SnapshotPrismaRepository();
 
 // Services
 export const s3Service = new S3StorageService();

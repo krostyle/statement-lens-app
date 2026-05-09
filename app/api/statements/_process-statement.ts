@@ -1,4 +1,4 @@
-import { pdfParser, statementRepo, categoryRepo, transactionRepo, merchantRuleRepo } from '@/src/infrastructure/container';
+import { pdfParser, statementRepo, categoryRepo, transactionRepo, merchantRuleRepo, snapshotRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 
 /** Max time allowed for a single statement processing job (10 minutes). */
@@ -134,6 +134,9 @@ async function doProcess(
       };
     })
   );
+
+  // Remove any in-progress snapshot for this month — official data now takes over
+  try { await snapshotRepo.deleteByUserAndMonth(userId, month); } catch { /* ignore */ }
 
   await statementRepo.updateStatus(statementId, 'done');
 }

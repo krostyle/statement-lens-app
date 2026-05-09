@@ -17,6 +17,7 @@ model UserProfile {
   transactions   Transaction[]
   budgets        Budget[]
   merchantRules  MerchantRule[]
+  snapshots      Snapshot[]
 }
 
 model Statement {
@@ -103,4 +104,17 @@ model MerchantRule {
   category        Category    @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@unique([userId, merchantPattern, bank])
+}
+
+model Snapshot {
+  id          String   @id @default(uuid())
+  userId      String
+  month       String   // "YYYY-MM"
+  checkingTxs Json?    // SnapshotTransaction[] — cuenta corriente
+  ccTxs       Json?    // SnapshotTransaction[] — tarjeta de crédito
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+
+  @@unique([userId, month])
 }

@@ -16,12 +16,12 @@ function formatMonth(month: string) {
   return `${MONTH_NAMES[m] ?? m} ${y}`;
 }
 
-export function ReportesView() {
+export function ReportsView() {
   const [months, setMonths] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/reportes/months')
+    fetch('/api/reports/months')
       .then((r) => r.json())
       .then((d) => setMonths(d.months ?? []))
       .finally(() => setLoading(false));
@@ -69,7 +69,7 @@ export function ReportesView() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => window.open(`/api/reportes?month=${month}`, '_blank')}
+                  onClick={() => window.open(`/api/reports?month=${month}`, '_blank')}
                 >
                   <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                   Ver reporte

@@ -22,6 +22,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     const { saveMerchantRule, saveMerchantRuleBank, applyToInstallmentGroup, confirm, ...transactionData } = parsed.data;
 
+    // Read the original merchant before any update so the rule pattern matches
+    // future PDF imports (which will have the bank's original text, not the renamed value).
+    const originalMerchant = saveMerchantRule
+      ? (await transactionRepo.findById(id))?.merchant ?? null
+      : null;
+
     // confirm=true → mark as reviewed without changing any other field
     const dataToUpdate = confirm
       ? { reviewStatus: 'confirmed' as const }
@@ -35,7 +41,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       const categoryToRule = transactionData.categoryId ?? transaction.categoryId;
       try {
         const bank = saveMerchantRuleBank ?? ''; // '' = any card
-        await upsertMerchantRuleUseCase.execute(userId, transaction.merchant, bank, categoryToRule);
+        const merchantForRule = originalMerchant ?? transaction.merchant;
+        await upsertMerchantRuleUseCase.execute(userId, merchantForRule, bank, categoryToRule);
       } catch (ruleErr) {
         console.error('[PATCH /api/transactions/:id] rule upsert failed', ruleErr);
         ruleWarning = 'No se pudo guardar la regla. Es posible que ya exista una regla conflictiva para este comercio.';
