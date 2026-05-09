@@ -1,7 +1,8 @@
 export interface RawCCRow {
   date: string;        // "YYYY-MM-DD"
   description: string;
-  amount: number;      // always negative (expenses) for credit card
+  amount: number;      // negative = expense, positive = payment/credit
+  skip?: boolean;      // true = row should be excluded (balance snapshot, card payment)
 }
 
 /**
@@ -61,6 +62,12 @@ export function parseSantanderCCText(text: string): RawCCRow[] {
     }
 
     if (amount === null || !description) continue;
+
+    const descUpper = description.toUpperCase();
+    // "SALDO INICIAL" is a balance snapshot (not a transaction) — skip entirely.
+    // "PAGO" is a credit card payment — also skip (already counted as a transfer
+    // in the checking account statement; including it here would double-count).
+    if (descUpper === 'SALDO INICIAL' || descUpper === 'PAGO') continue;
 
     rows.push({ date: currentDate, description, amount });
   }
