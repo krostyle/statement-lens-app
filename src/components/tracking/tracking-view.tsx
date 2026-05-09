@@ -5,6 +5,7 @@ import { Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw } from 'luci
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
 import { Skeleton } from '@/src/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { formatCurrency } from '@/src/lib/utils';
 
 function currentMonth() {
@@ -278,15 +279,19 @@ export function TrackingView() {
                         </span>
                       </div>
                       {categories.length > 0 ? (
-                        <select
-                          className="mt-1 text-xs text-zinc-500 bg-transparent border-none outline-none cursor-pointer hover:text-zinc-700 max-w-[220px]"
-                          value={m.byCategory.find((c) => c.categoryName === mer.categoryName)?.categoryId ?? ''}
-                          onChange={(e) => handleCategoryChange(mer.merchant, e.target.value)}
+                        <Select
+                          value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
+                          onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
                         >
-                          {categories.map((c) => (
-                            <option key={c.id} value={c.id}>{c.name}</option>
-                          ))}
-                        </select>
+                          <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-[220px] focus:ring-0">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((c) => (
+                              <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       ) : (
                         <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
                       )}
