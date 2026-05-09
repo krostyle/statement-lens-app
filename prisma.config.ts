@@ -15,7 +15,5 @@ export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   datasource: {
     url: process.env.DATABASE_URL ?? 'postgresql://placeholder',
-    // directUrl bypasses the connection pooler for migrate (required for Neon)
-    directUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? 'postgresql://placeholder',
   },
 });
