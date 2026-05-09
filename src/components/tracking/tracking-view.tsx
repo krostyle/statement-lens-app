@@ -69,7 +69,7 @@ export function TrackingView() {
 
   const handleUpload = async () => {
     if (!checkingFile && !ccText.trim()) {
-      setError('Debes subir un archivo XLSX o pegar texto de tarjeta.');
+      setError('Debes subir tus movimientos en Excel (.xlsx) o pegar texto de tarjeta.');
       return;
     }
     setUploading(true);
@@ -124,7 +124,7 @@ export function TrackingView() {
           <h2 className="text-sm font-semibold text-zinc-700">Subir datos del mes</h2>
           {hasData && (
             <span className="text-xs text-zinc-400">
-              {data!.checkingTxs.length} cartola · {data!.ccTxs.length} tarjeta
+              {data!.checkingTxs.length} movimientos · {data!.ccTxs.length} tarjeta
             </span>
           )}
         </div>
@@ -132,10 +132,10 @@ export function TrackingView() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* XLSX upload */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-zinc-600">Cuenta corriente (XLSX)</p>
+            <p className="text-xs font-medium text-zinc-600">Últimos movimientos (.xlsx)</p>
             <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-400 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
               <Upload className="h-5 w-5" />
-              <span className="text-xs">{checkingFile ? checkingFile.name : 'Seleccionar archivo .xlsx'}</span>
+              <span className="text-xs">{checkingFile ? checkingFile.name : 'Seleccionar archivo Excel (.xlsx)'}</span>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -281,7 +281,7 @@ export function TrackingView() {
 
       {!loading && !hasData && (
         <div className="rounded-xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400 text-sm">
-          Sube tu cartola XLSX o pega el texto de tu tarjeta para ver el resumen del mes.
+          Sube tus últimos movimientos en Excel (.xlsx) o pega el texto de tu tarjeta para ver el resumen del mes.
         </div>
       )}
     </div>
