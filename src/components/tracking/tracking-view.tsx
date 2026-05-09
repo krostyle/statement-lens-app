@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
-import { Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw } from 'lucide-react';
+import { Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw, Bookmark } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
 import { Skeleton } from '@/src/components/ui/skeleton';
@@ -62,6 +62,9 @@ export function TrackingView() {
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
+
+  const [savedRules, setSavedRules] = useState<Set<string>>(new Set());
+  const [savingRule, setSavingRule] = useState<string | null>(null);
 
   const [checkingFile, setCheckingFile] = useState<File | null>(null);
   const [ccText, setCCText] = useState('');
@@ -125,6 +128,22 @@ export function TrackingView() {
   const handleClear = async () => {
     await fetch(`/api/snapshot/${month}`, { method: 'DELETE' });
     setData(null);
+  };
+
+  const handleSaveRule = async (merchant: string, categoryName: string) => {
+    const cat = categories.find((c) => c.name === categoryName);
+    if (!cat) return;
+    setSavingRule(merchant);
+    try {
+      await fetch('/api/merchant-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant, bank: '', categoryId: cat.id }),
+      });
+      setSavedRules((prev) => new Set([...prev, merchant]));
+    } finally {
+      setSavingRule(null);
+    }
   };
 
   const handleCategoryChange = async (merchant: string, categoryId: string) => {
@@ -272,7 +291,7 @@ export function TrackingView() {
                   <div key={mer.merchant} className="px-4 py-3 flex items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-zinc-800 truncate max-w-[200px]">{mer.merchant}</span>
+                        <span className="text-sm font-medium text-zinc-800 truncate max-w-50">{mer.merchant}</span>
                         <span className="text-xs text-zinc-400 shrink-0">{mer.count}×</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 shrink-0">
                           {SOURCE_LABEL[mer.source] ?? mer.source}
@@ -283,7 +302,7 @@ export function TrackingView() {
                           value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
                           onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
                         >
-                          <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-[220px] focus:ring-0">
+                          <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-55 focus:ring-0">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -297,6 +316,16 @@ export function TrackingView() {
                       )}
                     </div>
                     <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className={`h-7 w-7 shrink-0 ${savedRules.has(mer.merchant) ? 'text-brand-500' : 'text-zinc-300 hover:text-zinc-500'}`}
+                      onClick={() => handleSaveRule(mer.merchant, mer.categoryName)}
+                      disabled={savingRule === mer.merchant}
+                      title="Guardar como regla de comercio"
+                    >
+                      <Bookmark className="h-3.5 w-3.5" fill={savedRules.has(mer.merchant) ? 'currentColor' : 'none'} />
+                    </Button>
                   </div>
                 ))}
               </div>
