@@ -92,7 +92,9 @@ export function TrackingView() {
   useEffect(() => {
     fetch('/api/categories')
       .then((r) => r.ok ? r.json() : [])
-      .then((cats: Category[]) => setCategories(cats))
+      .then((cats: Category[]) =>
+        setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name, 'es')))
+      )
       .catch(() => {});
   }, []);
 
@@ -161,6 +163,9 @@ export function TrackingView() {
   const hasData = !!data && (data.checkingTxs.length > 0 || data.ccTxs.length > 0);
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
 
+  const totalBudget = m ? m.byCategory.reduce((s, c) => s + (c.budget ?? 0), 0) : 0;
+  const budgetPct   = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
+
   return (
     <div className="space-y-6">
       {/* Top bar */}
@@ -189,7 +194,7 @@ export function TrackingView() {
           {/* XLSX upload */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-zinc-600">Últimos movimientos (.xlsx)</p>
-            <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-400 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
+            <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
               <Upload className="h-5 w-5" />
               <span className="text-xs">{checkingFile ? checkingFile.name : 'Seleccionar archivo Excel (.xlsx)'}</span>
               <input
@@ -209,7 +214,7 @@ export function TrackingView() {
           <div className="space-y-2">
             <p className="text-xs font-medium text-zinc-600">Tarjeta de crédito (pegar texto)</p>
             <textarea
-              className="w-full h-24 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent placeholder:text-zinc-400"
+              className="w-full h-24 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
               placeholder={"date,description,amount\n2026-05-08,DELIVERY DEL SO,31430\n2026-05-08,PAYU *UBER TR,2077"}
               value={ccText}
               onChange={(e) => setCCText(e.target.value)}
@@ -269,15 +274,42 @@ export function TrackingView() {
             />
           </div>
 
-          {/* Month progress */}
-          <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-zinc-500">Avance del mes</span>
-              <span className="font-semibold text-zinc-700">Día {m.daysElapsed} / {m.daysInMonth} ({monthPct}%)</span>
+          {/* Progress bars */}
+          <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
+            {/* Time progress */}
+            <div className="space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-500">Avance del mes</span>
+                <span className="font-semibold text-zinc-700">
+                  Día {m.daysElapsed} / {m.daysInMonth} ({monthPct}%)
+                </span>
+              </div>
+              <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${monthPct}%` }} />
+              </div>
             </div>
-            <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
-              <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${monthPct}%` }} />
-            </div>
+
+            {/* Budget progress */}
+            {budgetPct !== null && (
+              <div className="space-y-2 pt-2 border-t border-zinc-100">
+                <div className="flex justify-between text-sm">
+                  <span className="text-zinc-500">vs Presupuesto</span>
+                  <span className="font-semibold text-zinc-700">
+                    {formatCurrency(m.totalExpenses)}
+                    <span className="text-zinc-400 font-normal"> / {formatCurrency(totalBudget)}</span>
+                    <span className={`ml-1.5 text-xs font-medium ${budgetPct > 100 ? 'text-red-500' : budgetPct > 80 ? 'text-amber-500' : 'text-green-600'}`}>
+                      ({budgetPct}%)
+                    </span>
+                  </span>
+                </div>
+                <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
+                    style={{ width: `${Math.min(budgetPct, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* By merchant */}
@@ -319,7 +351,7 @@ export function TrackingView() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      className={`h-7 w-7 shrink-0 ${savedRules.has(mer.merchant) ? 'text-brand-500' : 'text-zinc-300 hover:text-zinc-500'}`}
+                      className={`h-7 w-7 shrink-0 ${savedRules.has(mer.merchant) ? 'text-brand-600' : 'text-zinc-300 hover:text-zinc-500'}`}
                       onClick={() => handleSaveRule(mer.merchant, mer.categoryName)}
                       disabled={savingRule === mer.merchant}
                       title="Guardar como regla de comercio"
@@ -362,7 +394,7 @@ export function TrackingView() {
                     {cat.budget && (
                       <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
                         <div
-                          className={`h-full rounded-full transition-all ${cat.pctOfBudget! > 100 ? 'bg-red-500' : cat.pctOfBudget! > 80 ? 'bg-amber-400' : 'bg-brand-500'}`}
+                          className={`h-full rounded-full transition-all ${cat.pctOfBudget! > 100 ? 'bg-red-500' : cat.pctOfBudget! > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
                           style={{ width: `${Math.min(cat.pctOfBudget!, 100)}%` }}
                         />
                       </div>
