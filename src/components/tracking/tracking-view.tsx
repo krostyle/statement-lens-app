@@ -11,6 +11,8 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+interface Category { id: string; name: string; }
+
 interface MerchantMetric {
   merchant: string;
   total: number;
@@ -20,9 +22,12 @@ interface MerchantMetric {
 }
 
 interface CategoryMetric {
+  categoryId: string;
   categoryName: string;
   total: number;
-  pct: number;
+  pctOfTotal: number;
+  budget: number | null;
+  pctOfBudget: number | null;
 }
 
 interface Metrics {
@@ -46,12 +51,13 @@ interface SnapshotData {
 const SOURCE_LABEL: Record<string, string> = {
   credit_card: 'TC',
   checking:    'CC',
-  mixed:       '·',
+  mixed:       'TC+CC',
 };
 
 export function TrackingView() {
   const [month, setMonth] = useState(currentMonth);
   const [data, setData] = useState<SnapshotData | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -78,6 +84,13 @@ export function TrackingView() {
   }, []);
 
   useEffect(() => { load(month); }, [load, month]);
+
+  useEffect(() => {
+    fetch('/api/categories')
+      .then((r) => r.ok ? r.json() : [])
+      .then((cats: Category[]) => setCategories(cats))
+      .catch(() => {});
+  }, []);
 
   const handleUpload = async () => {
     if (!checkingFile && !ccText.trim()) {
@@ -111,6 +124,17 @@ export function TrackingView() {
   const handleClear = async () => {
     await fetch(`/api/snapshot/${month}`, { method: 'DELETE' });
     setData(null);
+  };
+
+  const handleCategoryChange = async (merchant: string, categoryId: string) => {
+    const cat = categories.find((c) => c.id === categoryId);
+    if (!cat) return;
+    await fetch(`/api/snapshot/${month}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ merchant, categoryId, categoryName: cat.name }),
+    });
+    load(month);
   };
 
   const m = data?.metrics;
@@ -244,16 +268,28 @@ export function TrackingView() {
               </div>
               <div className="divide-y divide-zinc-100">
                 {m.byMerchant.map((mer) => (
-                  <div key={mer.merchant} className="px-4 py-3 flex items-center justify-between gap-3">
+                  <div key={mer.merchant} className="px-4 py-3 flex items-center gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-zinc-800 truncate">{mer.merchant}</span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-zinc-800 truncate max-w-[200px]">{mer.merchant}</span>
                         <span className="text-xs text-zinc-400 shrink-0">{mer.count}×</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 shrink-0">
                           {SOURCE_LABEL[mer.source] ?? mer.source}
                         </span>
                       </div>
-                      <p className="text-xs text-zinc-400 truncate">{mer.categoryName}</p>
+                      {categories.length > 0 ? (
+                        <select
+                          className="mt-1 text-xs text-zinc-500 bg-transparent border-none outline-none cursor-pointer hover:text-zinc-700 max-w-[220px]"
+                          value={m.byCategory.find((c) => c.categoryName === mer.categoryName)?.categoryId ?? ''}
+                          onChange={(e) => handleCategoryChange(mer.merchant, e.target.value)}
+                        >
+                          {categories.map((c) => (
+                            <option key={c.id} value={c.id}>{c.name}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
+                      )}
                     </div>
                     <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
                   </div>
@@ -262,20 +298,41 @@ export function TrackingView() {
             </div>
           )}
 
-          {/* By category (simple summary) */}
+          {/* By category */}
           {m.byCategory.length > 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-700">Por categoría</h2>
+                <span className="text-xs text-zinc-400">% del total gastado</span>
               </div>
               <div className="divide-y divide-zinc-100">
                 {m.byCategory.map((cat) => (
-                  <div key={cat.categoryName} className="px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div key={cat.categoryId} className="px-4 py-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-medium text-zinc-800 truncate">{cat.categoryName}</span>
-                      <span className="text-xs text-zinc-400 shrink-0">{cat.pct}%</span>
+                      <div className="text-right shrink-0">
+                        <span className="text-sm font-semibold text-zinc-900">{formatCurrency(cat.total)}</span>
+                        {cat.budget && (
+                          <span className="text-xs text-zinc-400 ml-1">/ {formatCurrency(cat.budget)}</span>
+                        )}
+                      </div>
                     </div>
-                    <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(cat.total)}</span>
+                    <div className="flex items-center gap-2 text-xs text-zinc-400">
+                      <span>{cat.pctOfTotal}% del total</span>
+                      {cat.pctOfBudget !== null && (
+                        <span className={`font-medium ${cat.pctOfBudget > 100 ? 'text-red-500' : cat.pctOfBudget > 80 ? 'text-amber-500' : 'text-green-600'}`}>
+                          · {cat.pctOfBudget}% del presupuesto
+                        </span>
+                      )}
+                    </div>
+                    {cat.budget && (
+                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${cat.pctOfBudget! > 100 ? 'bg-red-500' : cat.pctOfBudget! > 80 ? 'bg-amber-400' : 'bg-brand-500'}`}
+                          style={{ width: `${Math.min(cat.pctOfBudget!, 100)}%` }}
+                        />
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

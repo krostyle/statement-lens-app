@@ -7,11 +7,22 @@ export interface RawCheckingRow {
   transactionType: 'expense' | 'income' | 'transfer';
 }
 
-/** Patterns that indicate an internal transfer (not a real expense). */
+/** Patterns that indicate an internal transfer (not a real expense/income). */
 const TRANSFER_PATTERNS = [
+  // Credit card payments
   /pago\s+tar/i,
   /pag\.?\s*tar/i,
   /pago\s+tarj/i,
+  /\bpago\s+tc\b/i,
+  /\bpag\.?\s*tc\b/i,
+  // Credit line transfers (línea de crédito — both draw and repayment)
+  /linea\s+(de\s+)?cred/i,
+  /l[íi]nea\s+cred/i,
+  /uso\s+lin/i,
+  /pago\s+lin/i,
+  /\bl\s*de\s*cr/i,
+  /cred\.?\s*hipot/i,
+  // Own-account transfers
   /trf\s+a\s+yo\b/i,
   /transf\.?\s+a\s+yo\b/i,
   /a\s+mi\s+mismo/i,
