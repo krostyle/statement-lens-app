@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { categoryRepo, merchantRuleRepo, snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseSantanderCheckingXlsx } from '@/src/infrastructure/parsers/santander-checking-xlsx';
-import { parseSantanderCCText } from '@/src/infrastructure/parsers/santander-cc-text';
+import { parseSantanderCCCsv } from '@/src/infrastructure/parsers/santander-cc-csv';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -162,10 +162,10 @@ export async function POST(request: Request) {
       newCheckingTxs = categorizeTxs(rows, 'checking', bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId);
     }
 
-    // Parse CC text (deterministic)
+    // Parse CC CSV (deterministic — both mobile Title Case and desktop UPPERCASE)
     let newCCTxs: SnapshotTransaction[] | null = null;
     if (ccText) {
-      const rows = parseSantanderCCText(ccText);
+      const rows = parseSantanderCCCsv(ccText);
       newCCTxs = categorizeTxs(
         rows.map((r) => ({ ...r, transactionType: 'expense' as const })),
         'credit_card',

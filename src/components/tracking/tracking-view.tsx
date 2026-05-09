@@ -190,7 +190,7 @@ export function TrackingView() {
             <p className="text-xs font-medium text-zinc-600">Tarjeta de crédito (pegar texto)</p>
             <textarea
               className="w-full h-24 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-400 focus:border-transparent placeholder:text-zinc-400"
-              placeholder={"08/05/2026\t\tDELIVERY DEL SO\t-$31.430\nPAYU *UBER TR\t-$2.077"}
+              placeholder={"date,description,amount\n2026-05-08,DELIVERY DEL SO,31430\n2026-05-08,PAYU *UBER TR,2077"}
               value={ccText}
               onChange={(e) => setCCText(e.target.value)}
             />
