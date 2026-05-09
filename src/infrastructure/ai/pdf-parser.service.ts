@@ -71,6 +71,14 @@ function getCheckingBankHints(bank: string): string {
   return '';
 }
 
+export interface CCTextTransaction {
+  date: string;
+  description: string;
+  merchant: string;
+  amount: number;
+  suggestedCategory: string;
+}
+
 export class PdfParserService {
   async extractText(buffer: Buffer): Promise<string> {
     const pdfParse = (await import('pdf-parse')).default;
@@ -131,6 +139,50 @@ export class PdfParserService {
           ? 'transfer'
           : 'expense',
     }));
+  }
+
+  async parseCCText(
+    rawText: string,
+    categories: string[],
+    billingMonth: string,
+  ): Promise<CCTextTransaction[]> {
+    const [year] = billingMonth.split('-');
+    const systemPrompt = `You are a parser for Santander Chile credit card transactions copy-pasted from the bank website.
+
+Format: tab-separated columns where the date (DD/MM/YYYY) only appears on the FIRST row of each day — carry it forward to all subsequent rows with an empty first column.
+Amounts are Chilean CLP with periods as thousands separators: "-$31.430" = -31430, "$5.500" = 5500. Negative = expense.
+
+Rules:
+- SKIP rows where description is "SALDO INICIAL" (balance snapshot) or "PAGO" (card payment already counted elsewhere)
+- CLEAN the merchant name: normalize variations such as "PAYU *UBER TRIP", "PAYU *UBER TR", "UBER RIDES" → "Uber". Remove payment-gateway prefixes (PAYU *, GPAY *, etc.).
+- All dates must use year ${year}
+- Pick suggestedCategory from the provided list (exact match, case-sensitive)
+
+Return ONLY a valid compact JSON array with no explanation or markdown:
+[{"date":"YYYY-MM-DD","description":"raw text","merchant":"clean name","amount":number,"suggestedCategory":"category"},...]`;
+
+    const message = await anthropicClient.messages.create({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: `Categories: ${categories.join(', ')}\n\nCC text:\n${rawText}`,
+        },
+      ],
+    });
+
+    const content = message.content[0];
+    if (content.type !== 'text') throw new Error('Unexpected response from Claude');
+
+    const raw = content.text.trim();
+    const start = raw.indexOf('[');
+    const end = raw.lastIndexOf(']');
+    if (start === -1 || end === -1) {
+      throw new Error(`Claude response missing JSON array. Preview: ${raw.slice(0, 200)}`);
+    }
+    return JSON.parse(raw.slice(start, end + 1)) as CCTextTransaction[];
   }
 
   private buildCreditCardPrompt(bank: string, billingMonth?: string): string {

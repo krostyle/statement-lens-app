@@ -11,12 +11,18 @@ function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
 
+interface MerchantMetric {
+  merchant: string;
+  total: number;
+  count: number;
+  categoryName: string;
+  source: 'checking' | 'credit_card' | 'mixed';
+}
+
 interface CategoryMetric {
-  categoryId: string;
   categoryName: string;
   total: number;
-  budget: number | null;
-  pct: number | null;
+  pct: number;
 }
 
 interface Metrics {
@@ -26,8 +32,8 @@ interface Metrics {
   projectedMonthTotal: number;
   daysElapsed: number;
   daysInMonth: number;
+  byMerchant: MerchantMetric[];
   byCategory: CategoryMetric[];
-  topMerchants: { merchant: string; total: number; count: number }[];
 }
 
 interface SnapshotData {
@@ -36,6 +42,12 @@ interface SnapshotData {
   ccTxs: unknown[];
   metrics: Metrics;
 }
+
+const SOURCE_LABEL: Record<string, string> = {
+  credit_card: 'TC',
+  checking:    'CC',
+  mixed:       '·',
+};
 
 export function TrackingView() {
   const [month, setMonth] = useState(currentMonth);
@@ -224,7 +236,33 @@ export function TrackingView() {
             </div>
           </div>
 
-          {/* By category */}
+          {/* By merchant */}
+          {m.byMerchant.length > 0 && (
+            <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
+                <h2 className="text-sm font-semibold text-zinc-700">Por comercio</h2>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {m.byMerchant.map((mer) => (
+                  <div key={mer.merchant} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-zinc-800 truncate">{mer.merchant}</span>
+                        <span className="text-xs text-zinc-400 shrink-0">{mer.count}×</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 shrink-0">
+                          {SOURCE_LABEL[mer.source] ?? mer.source}
+                        </span>
+                      </div>
+                      <p className="text-xs text-zinc-400 truncate">{mer.categoryName}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* By category (simple summary) */}
           {m.byCategory.length > 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
@@ -232,45 +270,12 @@ export function TrackingView() {
               </div>
               <div className="divide-y divide-zinc-100">
                 {m.byCategory.map((cat) => (
-                  <div key={cat.categoryId} className="px-4 py-3 space-y-1.5">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-zinc-800">{cat.categoryName}</span>
-                      <span className="text-zinc-700">
-                        {formatCurrency(cat.total)}
-                        {cat.budget && (
-                          <span className="text-zinc-400 font-normal"> / {formatCurrency(cat.budget)}</span>
-                        )}
-                      </span>
+                  <div key={cat.categoryName} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <span className="text-sm font-medium text-zinc-800 truncate">{cat.categoryName}</span>
+                      <span className="text-xs text-zinc-400 shrink-0">{cat.pct}%</span>
                     </div>
-                    {cat.budget && (
-                      <div className="h-1.5 rounded-full bg-zinc-100 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all ${cat.pct! > 100 ? 'bg-red-500' : cat.pct! > 80 ? 'bg-amber-400' : 'bg-brand-500'}`}
-                          style={{ width: `${Math.min(cat.pct!, 100)}%` }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Top merchants */}
-          {m.topMerchants.length > 0 && (
-            <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
-                <h2 className="text-sm font-semibold text-zinc-700">Top comercios</h2>
-              </div>
-              <div className="divide-y divide-zinc-100">
-                {m.topMerchants.map((mer, i) => (
-                  <div key={mer.merchant} className="px-4 py-3 flex items-center justify-between">
-                    <div className="flex items-center gap-3 min-w-0">
-                      <span className="text-xs font-bold text-zinc-400 w-4">{i + 1}</span>
-                      <span className="text-sm font-medium text-zinc-800 truncate">{mer.merchant}</span>
-                      <span className="text-xs text-zinc-400 shrink-0">{mer.count}×</span>
-                    </div>
-                    <span className="text-sm font-semibold text-zinc-900 shrink-0 ml-4">{formatCurrency(mer.total)}</span>
+                    <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(cat.total)}</span>
                   </div>
                 ))}
               </div>
