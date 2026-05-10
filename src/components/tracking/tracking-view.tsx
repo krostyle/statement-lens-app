@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
+import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
   ChevronDown, ChevronRight, Pencil,
@@ -11,11 +12,13 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
 import { formatCurrency } from '@/src/lib/utils';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
-import { SnapshotTxDialog } from './snapshot-tx-dialog';
+import { SnapshotTxDialog, type TxUpdate } from './snapshot-tx-dialog';
 
 function currentMonth() {
   return new Date().toISOString().slice(0, 7);
 }
+
+function normKey(s: string) { return s.toLowerCase().trim(); }
 
 interface SimpleCategory { id: string; name: string; }
 
@@ -90,7 +93,7 @@ export function TrackingView() {
   // Per-transaction edit
   const [editingTx, setEditingTx] = useState<SnapshotTransaction | null>(null);
 
-  // Merchant rules
+  // Merchant rules — keyed by normalized pattern (lowercase)
   const [savedRules, setSavedRules]   = useState<Set<string>>(new Set());
   const [savingRule, setSavingRule]   = useState<string | null>(null);
 
@@ -121,6 +124,16 @@ export function TrackingView() {
       .then((r) => r.ok ? r.json() : [])
       .then((cats: SimpleCategory[]) =>
         setCategories([...cats].sort((a, b) => a.name.localeCompare(b.name, 'es')))
+      )
+      .catch(() => {});
+  }, []);
+
+  // Pre-populate savedRules from existing merchant rules so state persists across page loads
+  useEffect(() => {
+    fetch('/api/merchant-rules')
+      .then((r) => r.ok ? r.json() : [])
+      .then((rules: { merchantPattern: string }[]) =>
+        setSavedRules(new Set(rules.map((r) => r.merchantPattern)))
       )
       .catch(() => {});
   }, []);
@@ -164,34 +177,29 @@ export function TrackingView() {
     setExpandedMerchants(new Set());
   };
 
-  const handleSaveRule = async (mer: MerchantMetric) => {
-    const cat = categories.find((c) => c.name === mer.categoryName);
-    if (!cat) return;
-    setSavingRule(mer.merchant);
+  const saveRule = async (merchant: string, bank: string, categoryId: string) => {
+    const key = normKey(merchant);
+    setSavingRule(key);
     try {
       await fetch('/api/merchant-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant: mer.merchant, bank: mer.banks[0] ?? 'santander', categoryId: cat.id }),
+        body: JSON.stringify({ merchant, bank, categoryId }),
       });
-      setSavedRules((prev) => new Set([...prev, mer.merchant]));
+      setSavedRules((prev) => new Set([...prev, key]));
     } finally {
       setSavingRule(null);
     }
   };
 
+  const handleSaveGroupRule = async (mer: MerchantMetric) => {
+    const cat = categories.find((c) => c.name === mer.categoryName);
+    if (!cat) return;
+    await saveRule(mer.merchant, mer.banks[0] ?? 'santander', cat.id);
+  };
+
   const handleSaveTxRule = async (tx: SnapshotTransaction) => {
-    setSavingRule(tx.merchant);
-    try {
-      await fetch('/api/merchant-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant: tx.merchant, bank: tx.bank ?? 'santander', categoryId: tx.categoryId }),
-      });
-      setSavedRules((prev) => new Set([...prev, tx.merchant]));
-    } finally {
-      setSavingRule(null);
-    }
+    await saveRule(tx.merchant, tx.bank ?? 'santander', tx.categoryId);
   };
 
   const handleCategoryChange = async (merchant: string, categoryId: string) => {
@@ -206,6 +214,20 @@ export function TrackingView() {
       const { metrics } = await res.json();
       setData((prev) => prev ? { ...prev, metrics } : null);
     }
+  };
+
+  const handleTxSuccess = (metrics: Metrics, txUpdate: TxUpdate) => {
+    setData((prev) => {
+      if (!prev) return null;
+      const updateArr = (txs: SnapshotTransaction[]) =>
+        txs.map((t) => t.id === txUpdate.id ? { ...t, ...txUpdate } : t);
+      return {
+        ...prev,
+        metrics,
+        checkingTxs: updateArr(prev.checkingTxs),
+        ccTxs:       updateArr(prev.ccTxs),
+      };
+    });
   };
 
   const toggleMerchant = (merchant: string) => {
@@ -235,7 +257,11 @@ export function TrackingView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
         {hasData && (
-          <Button variant="ghost" size="sm" className="text-red-500 hover:text-red-600" onClick={handleClear}>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleClear}
+          >
             <Trash2 className="h-3.5 w-3.5 mr-1" />
             Limpiar datos
           </Button>
@@ -253,7 +279,6 @@ export function TrackingView() {
           )}
         </div>
 
-        {/* Bank + source type selectors */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <p className="text-xs font-medium text-zinc-600">Banco</p>
@@ -282,33 +307,19 @@ export function TrackingView() {
           </div>
         </div>
 
-        {/* Text / file toggle */}
         <div className="flex gap-4 text-sm">
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="csvInputMode"
-              value="text"
-              checked={csvInputMode === 'text'}
-              onChange={() => setCsvInputMode('text')}
-              className="accent-brand-600"
-            />
+            <input type="radio" name="csvInputMode" value="text" checked={csvInputMode === 'text'}
+              onChange={() => setCsvInputMode('text')} className="accent-brand-600" />
             Pegar texto CSV
           </label>
           <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="radio"
-              name="csvInputMode"
-              value="file"
-              checked={csvInputMode === 'file'}
-              onChange={() => setCsvInputMode('file')}
-              className="accent-brand-600"
-            />
+            <input type="radio" name="csvInputMode" value="file" checked={csvInputMode === 'file'}
+              onChange={() => setCsvInputMode('file')} className="accent-brand-600" />
             Subir archivo .csv
           </label>
         </div>
 
-        {/* CSV input */}
         {csvInputMode === 'text' ? (
           <textarea
             className="w-full h-24 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
@@ -320,24 +331,17 @@ export function TrackingView() {
           <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
             <Upload className="h-5 w-5" />
             <span className="text-xs">{csvFile ? csvFile.name : 'Seleccionar archivo (.csv)'}</span>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)}
-            />
+            <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden"
+              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
           </label>
         )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
 
         <Button onClick={handleUpload} disabled={uploading} className="w-full sm:w-auto">
-          {uploading ? (
-            <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Procesando...</>
-          ) : (
-            <><RefreshCw className="h-4 w-4 mr-2" /> {hasData ? 'Actualizar datos' : 'Analizar'}</>
-          )}
+          {uploading
+            ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Procesando...</>
+            : <><RefreshCw className="h-4 w-4 mr-2" /> {hasData ? 'Agregar datos' : 'Analizar'}</>}
         </Button>
       </div>
 
@@ -353,30 +357,18 @@ export function TrackingView() {
         <>
           {/* Summary cards */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <SummaryCard
-              label="Gastado"
-              value={formatCurrency(m.totalExpenses)}
+            <SummaryCard label="Gastado" value={formatCurrency(m.totalExpenses)}
               icon={<TrendingDown className="h-4 w-4 text-red-500" />}
-              sub={`Día ${m.daysElapsed} de ${m.daysInMonth}`}
-            />
-            <SummaryCard
-              label="Ingresos"
-              value={formatCurrency(m.totalIncome)}
+              sub={`Día ${m.daysElapsed} de ${m.daysInMonth}`} />
+            <SummaryCard label="Ingresos" value={formatCurrency(m.totalIncome)}
               icon={<TrendingUp className="h-4 w-4 text-green-500" />}
-              sub={m.totalIncome > 0 ? `+${formatCurrency(m.totalIncome - m.totalExpenses)} disponible` : '—'}
-            />
-            <SummaryCard
-              label="Promedio diario"
-              value={formatCurrency(m.dailyAverage)}
+              sub={m.totalIncome > 0 ? `+${formatCurrency(m.totalIncome - m.totalExpenses)} disponible` : '—'} />
+            <SummaryCard label="Promedio diario" value={formatCurrency(m.dailyAverage)}
               icon={<Minus className="h-4 w-4 text-zinc-400" />}
-              sub="Gasto por día"
-            />
-            <SummaryCard
-              label="Proyección"
-              value={formatCurrency(m.projectedMonthTotal)}
+              sub="Gasto por día" />
+            <SummaryCard label="Proyección" value={formatCurrency(m.projectedMonthTotal)}
               icon={<TrendingUp className="h-4 w-4 text-amber-500" />}
-              sub="Estimado fin de mes"
-            />
+              sub="Estimado fin de mes" />
           </div>
 
           {/* Progress bars */}
@@ -418,28 +410,29 @@ export function TrackingView() {
           {/* By merchant — accordion */}
           {m.byMerchant.length > 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50">
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-700">Por comercio</h2>
+                <Link href="/rules" className="text-xs text-brand-600 hover:underline">
+                  Gestionar reglas →
+                </Link>
               </div>
               <div className="divide-y divide-zinc-100">
                 {m.byMerchant.map((mer) => {
-                  const isExpanded = expandedMerchants.has(mer.merchant);
-                  const txs        = isExpanded ? getMerchantTxs(mer.merchant) : [];
+                  const isExpanded  = expandedMerchants.has(mer.merchant);
+                  const txs         = isExpanded ? getMerchantTxs(mer.merchant) : [];
+                  const ruleKey     = normKey(mer.merchant);
+                  const ruleIsSaved = savedRules.has(ruleKey);
 
                   return (
                     <div key={mer.merchant}>
-                      {/* Merchant header row */}
-                      <div className="px-4 py-3 flex items-center gap-3">
-                        {/* Expand toggle */}
-                        <button
-                          onClick={() => toggleMerchant(mer.merchant)}
-                          className="shrink-0 text-zinc-400 hover:text-zinc-600"
-                          aria-label={isExpanded ? 'Contraer' : 'Expandir'}
-                        >
-                          {isExpanded
-                            ? <ChevronDown className="h-4 w-4" />
-                            : <ChevronRight className="h-4 w-4" />}
-                        </button>
+                      {/* Merchant header — entire row is clickable */}
+                      <div
+                        className="px-4 py-3 flex items-center gap-3 cursor-pointer hover:bg-zinc-50 transition-colors"
+                        onClick={() => toggleMerchant(mer.merchant)}
+                      >
+                        {isExpanded
+                          ? <ChevronDown className="h-4 w-4 text-zinc-400 shrink-0" />
+                          : <ChevronRight className="h-4 w-4 text-zinc-400 shrink-0" />}
 
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 flex-wrap">
@@ -454,81 +447,95 @@ export function TrackingView() {
                               {SOURCE_LABEL[mer.source] ?? mer.source}
                             </span>
                           </div>
-                          {categories.length > 0 ? (
-                            <Select
-                              value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
-                              onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
-                            >
-                              <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-55 focus:ring-0">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {categories.map((c) => (
-                                  <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          ) : (
-                            <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
-                          )}
+                          {/* Stop propagation so clicking the Select doesn't toggle accordion */}
+                          <div onClick={(e) => e.stopPropagation()}>
+                            {categories.length > 0 ? (
+                              <Select
+                                value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
+                                onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
+                              >
+                                <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-55 focus:ring-0">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {categories.map((c) => (
+                                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            ) : (
+                              <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
+                            )}
+                          </div>
                         </div>
 
                         <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
 
+                        {/* Bookmark — stop propagation so it doesn't toggle accordion */}
                         <button
-                          onClick={() => handleSaveRule(mer)}
-                          disabled={savingRule === mer.merchant || savedRules.has(mer.merchant)}
+                          onClick={(e) => { e.stopPropagation(); handleSaveGroupRule(mer); }}
+                          disabled={savingRule === ruleKey || ruleIsSaved}
+                          title={ruleIsSaved
+                            ? `Regla activa: ${mer.merchant} → ${mer.categoryName}`
+                            : `Guardar regla permanente para TODAS las transacciones futuras de "${mer.merchant}"`}
                           className={`text-xs shrink-0 px-2 py-1 rounded border transition-colors ${
-                            savedRules.has(mer.merchant)
+                            ruleIsSaved
                               ? 'border-brand-600 text-brand-600 bg-brand-50 cursor-default'
                               : 'border-zinc-200 text-zinc-500 hover:border-brand-600 hover:text-brand-600'
                           }`}
                         >
-                          {savedRules.has(mer.merchant) ? '✓ Regla guardada' : 'Guardar regla'}
+                          {ruleIsSaved ? '✓ Regla activa' : 'Guardar regla'}
                         </button>
                       </div>
 
                       {/* Expanded transaction rows */}
                       {isExpanded && txs.length > 0 && (
                         <div className="bg-zinc-50 border-t border-zinc-100 divide-y divide-zinc-100">
-                          {txs.map((tx) => (
-                            <div key={tx.id ?? tx.date + tx.amount} className="px-4 py-2 flex items-center gap-3 pl-11">
-                              <span className="text-xs text-zinc-400 shrink-0 w-12">
-                                {tx.date.slice(5).replace('-', '/')}
-                              </span>
-                              <span className="text-xs text-zinc-600 flex-1 min-w-0">{tx.description}</span>
-                              <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-500 shrink-0">
-                                {tx.categoryName}
-                              </span>
-                              <span className="text-xs font-semibold text-zinc-800 shrink-0">
-                                {formatCurrency(Math.abs(tx.amount))}
-                              </span>
-                              {tx.id && (
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-6 w-6 shrink-0 text-zinc-300 hover:text-zinc-600"
-                                  onClick={() => setEditingTx(tx)}
-                                  title="Editar transacción"
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                              )}
-                              {tx.id && (
-                                <button
-                                  onClick={() => handleSaveTxRule(tx)}
-                                  disabled={savingRule === tx.merchant || savedRules.has(tx.merchant)}
-                                  className={`text-xs shrink-0 ${
-                                    savedRules.has(tx.merchant)
-                                      ? 'text-brand-600 cursor-default'
-                                      : 'text-zinc-400 hover:text-brand-600'
-                                  }`}
-                                >
-                                  {savedRules.has(tx.merchant) ? '✓ Regla' : 'Guardar regla'}
-                                </button>
-                              )}
-                            </div>
-                          ))}
+                          {txs.map((tx) => {
+                            const txRuleKey     = normKey(tx.merchant);
+                            const txRuleIsSaved = savedRules.has(txRuleKey);
+                            return (
+                              <div key={tx.id ?? tx.date + tx.amount} className="px-4 py-2 flex items-center gap-3 pl-11">
+                                <span className="text-xs text-zinc-400 shrink-0 w-12">
+                                  {tx.date.slice(5).replace('-', '/')}
+                                </span>
+                                <span className="text-xs text-zinc-600 flex-1 min-w-0">{tx.description}</span>
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-500 shrink-0">
+                                  {tx.categoryName}
+                                </span>
+                                <span className="text-xs font-semibold text-zinc-800 shrink-0">
+                                  {formatCurrency(Math.abs(tx.amount))}
+                                </span>
+                                {tx.id && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 text-zinc-300 hover:text-zinc-600"
+                                    onClick={() => setEditingTx(tx)}
+                                    title="Editar categoría o tipo de esta transacción"
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {tx.id && (
+                                  <button
+                                    onClick={() => handleSaveTxRule(tx)}
+                                    disabled={savingRule === txRuleKey || txRuleIsSaved}
+                                    title={txRuleIsSaved
+                                      ? `Regla activa: ${tx.merchant} → ${tx.categoryName}`
+                                      : `Guardar regla para TODAS las futuras transacciones de "${tx.merchant}"`}
+                                    className={`text-xs shrink-0 whitespace-nowrap ${
+                                      txRuleIsSaved
+                                        ? 'text-brand-600 cursor-default'
+                                        : 'text-zinc-400 hover:text-brand-600'
+                                    }`}
+                                  >
+                                    {txRuleIsSaved ? '✓ Regla activa' : 'Guardar regla'}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
@@ -593,7 +600,7 @@ export function TrackingView() {
           tx={editingTx}
           categories={categories}
           month={month}
-          onSuccess={(metrics) => setData((prev) => prev ? { ...prev, metrics: metrics as Metrics } : null)}
+          onSuccess={(metrics, txUpdate) => handleTxSuccess(metrics as Metrics, txUpdate)}
           onClose={() => setEditingTx(null)}
         />
       )}
@@ -602,10 +609,7 @@ export function TrackingView() {
 }
 
 function SummaryCard({ label, value, icon, sub }: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-  sub: string;
+  label: string; value: string; icon: ReactNode; sub: string;
 }) {
   return (
     <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-1">

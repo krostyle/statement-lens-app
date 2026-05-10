@@ -24,19 +24,20 @@ interface SnapshotMetrics {
   byCategory: unknown[];
 }
 
+export interface TxUpdate {
+  id: string;
+  categoryId: string;
+  categoryName: string;
+  transactionType: SnapshotTransaction['transactionType'];
+}
+
 interface Props {
   tx: SnapshotTransaction;
   categories: SimpleCategory[];
   month: string;
-  onSuccess: (metrics: SnapshotMetrics) => void;
+  onSuccess: (metrics: SnapshotMetrics, txUpdate: TxUpdate) => void;
   onClose: () => void;
 }
-
-const TX_TYPE_LABELS: Record<string, string> = {
-  expense:  'Gasto',
-  income:   'Ingreso',
-  transfer: 'Transferencia',
-};
 
 export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: Props) {
   const [categoryId, setCategoryId] = useState(tx.categoryId);
@@ -50,21 +51,18 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
     setSaving(true);
     setError(null);
     try {
+      const categoryName = selectedCategory?.name ?? tx.categoryName;
       const res = await fetch(`/api/snapshot/${month}/tx/${tx.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          categoryId,
-          categoryName: selectedCategory?.name ?? tx.categoryName,
-          transactionType: txType,
-        }),
+        body: JSON.stringify({ categoryId, categoryName, transactionType: txType }),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Error al guardar');
       }
       const { metrics } = await res.json();
-      onSuccess(metrics);
+      onSuccess(metrics, { id: tx.id, categoryId, categoryName, transactionType: txType });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -81,7 +79,6 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          {/* Read-only fields */}
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <span className="text-slate-500">Fecha</span>
             <span>{tx.date}</span>
@@ -93,7 +90,6 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
             </span>
           </div>
 
-          {/* Category */}
           <div className="space-y-1">
             <label className="text-sm font-medium">Categoría</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
@@ -108,7 +104,6 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
             </Select>
           </div>
 
-          {/* Transaction type */}
           <div className="space-y-1">
             <label className="text-sm font-medium">Tipo</label>
             <Select value={txType} onValueChange={(v) => setTxType(v as typeof txType)}>
@@ -136,5 +131,3 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
     </Dialog>
   );
 }
-
-export { TX_TYPE_LABELS };
