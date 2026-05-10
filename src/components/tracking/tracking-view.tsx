@@ -151,12 +151,15 @@ export function TrackingView() {
   const handleCategoryChange = async (merchant: string, categoryId: string) => {
     const cat = categories.find((c) => c.id === categoryId);
     if (!cat) return;
-    await fetch(`/api/snapshot/${month}`, {
+    const res = await fetch(`/api/snapshot/${month}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ merchant, categoryId, categoryName: cat.name }),
     });
-    load(month);
+    if (res.ok) {
+      const { metrics } = await res.json();
+      setData((prev) => prev ? { ...prev, metrics } : null);
+    }
   };
 
   const m = data?.metrics;

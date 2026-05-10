@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { snapshotRepo } from '@/src/infrastructure/container';
+import { snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
+import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
 export async function DELETE(_: Request, { params }: { params: Promise<{ month: string }> }) {
@@ -12,7 +13,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ month: 
   return new NextResponse(null, { status: 204 });
 }
 
-/** Re-categorize all transactions for a given merchant in the snapshot. */
+/** Re-categorize all transactions for a given merchant and return updated metrics. */
 export async function PATCH(request: Request, { params }: { params: Promise<{ month: string }> }) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -38,6 +39,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ mo
     );
   };
 
-  await snapshotRepo.upsert(userId, month, remap(snapshot.checkingTxs), remap(snapshot.ccTxs));
-  return NextResponse.json({ ok: true });
+  const updatedChecking = remap(snapshot.checkingTxs);
+  const updatedCC       = remap(snapshot.ccTxs);
+
+  await snapshotRepo.upsert(userId, month, updatedChecking, updatedCC);
+
+  const budgets   = await budgetRepo.findByUserId(userId, month);
+  const allTxs    = [...(updatedChecking ?? []), ...(updatedCC ?? [])];
+  const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
+  const metrics   = computeSnapshotMetrics(allTxs, budgetMap, month);
+
+  return NextResponse.json({ metrics });
 }
