@@ -12,6 +12,9 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/src/components/ui/select';
 
+// Radix Select forbids empty string values — use sentinel for "any bank"
+const BANK_ANY = '__any__';
+
 interface MerchantRule {
   id: string;
   merchantPattern: string;
@@ -22,7 +25,7 @@ interface MerchantRule {
 interface SimpleCategory { id: string; name: string; }
 
 const BANKS = [
-  { value: '',           label: 'Cualquier banco' },
+  { value: BANK_ANY,       label: 'Cualquier banco' },
   { value: 'santander',   label: 'Santander' },
   { value: 'falabella',   label: 'Falabella' },
   { value: 'bci',         label: 'BCI' },
@@ -44,7 +47,7 @@ interface RuleDialogProps {
 function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
   const isEdit = !!rule;
   const [merchant,   setMerchant]   = useState(rule?.merchantPattern ?? '');
-  const [bank,       setBank]       = useState(rule?.bank ?? '');
+  const [bank,       setBank]       = useState(rule?.bank ? rule.bank : BANK_ANY);
   const [categoryId, setCategoryId] = useState(rule?.categoryId ?? '');
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState<string | null>(null);
@@ -57,10 +60,11 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
     setSaving(true);
     setError(null);
     try {
+      const bankToSave = bank === BANK_ANY ? '' : bank;
       const res = await fetch('/api/merchant-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant: merchant.trim(), bank, categoryId }),
+        body: JSON.stringify({ merchant: merchant.trim(), bank: bankToSave, categoryId }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -148,7 +152,7 @@ export function RulesView() {
   const [categories, setCategories] = useState<SimpleCategory[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [dialog,     setDialog]     = useState<{ rule: MerchantRule | null } | null>(null);
-  const [confirmDel, setConfirmDel] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<MerchantRule | null>(null);
 
   async function loadRules() {
     setLoading(true);
@@ -171,7 +175,7 @@ export function RulesView() {
   async function handleDelete(id: string) {
     await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
     setRules((prev) => prev.filter((r) => r.id !== id));
-    setConfirmDel(null);
+    setDeleteTarget(null);
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
@@ -186,7 +190,7 @@ export function RulesView() {
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1fr_140px_1fr_96px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4">
+          <div className="hidden md:grid grid-cols-[1fr_140px_1fr_72px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4">
             <span>Comercio</span>
             <span>Banco</span>
             <span>Categoría</span>
@@ -194,17 +198,17 @@ export function RulesView() {
           </div>
           <div className="divide-y divide-zinc-100">
             {rules.map((rule) => (
-              <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_1fr_96px] items-center px-4 py-3 gap-4">
+              <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_1fr_72px] items-center px-4 py-3 gap-4">
                 <div className="min-w-0">
                   <span className="text-sm font-mono text-zinc-800">{rule.merchantPattern}</span>
                   <div className="md:hidden flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-zinc-400">{BANK_LABEL[rule.bank] ?? 'Cualquier banco'}</span>
+                    <span className="text-xs text-zinc-400">{BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}</span>
                     <span className="text-xs text-zinc-300">·</span>
                     <span className="text-xs text-zinc-500">{catMap.get(rule.categoryId) ?? '—'}</span>
                   </div>
                 </div>
                 <span className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 w-fit">
-                  {BANK_LABEL[rule.bank] ?? 'Cualquier banco'}
+                  {BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}
                 </span>
                 <span className="hidden md:block text-sm text-zinc-700">
                   {catMap.get(rule.categoryId) ?? rule.categoryId}
@@ -213,38 +217,21 @@ export function RulesView() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 text-zinc-400 hover:text-zinc-700"
+                    className="h-8 w-8 text-zinc-400 hover:text-zinc-700"
                     onClick={() => setDialog({ rule })}
                     title="Editar"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </Button>
-                  {confirmDel === rule.id ? (
-                    <div className="flex items-center gap-2 text-xs">
-                      <button
-                        className="text-red-600 hover:underline font-medium"
-                        onClick={() => handleDelete(rule.id)}
-                      >
-                        Eliminar
-                      </button>
-                      <button
-                        className="text-zinc-400 hover:underline"
-                        onClick={() => setConfirmDel(null)}
-                      >
-                        Cancelar
-                      </button>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7 text-zinc-400 hover:text-red-500"
-                      onClick={() => setConfirmDel(rule.id)}
-                      title="Eliminar"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-zinc-400 hover:text-red-500"
+                    onClick={() => setDeleteTarget(rule)}
+                    title="Eliminar"
+                  >
+                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                  </Button>
                 </div>
               </div>
             ))}
@@ -252,23 +239,40 @@ export function RulesView() {
         </div>
       )}
 
-      {/* Dialog */}
-      {dialog !== null && (
-        <RuleDialog
-          rule={dialog.rule}
-          categories={categories}
-          onClose={() => { setDialog(null); setConfirmDel(null); }}
-          onSaved={loadRules}
-        />
-      )}
-
-      {/* FAB — always visible */}
-      <div className="fixed bottom-6 right-6 md:static md:flex md:justify-end">
+      <div className="flex justify-end">
         <Button onClick={() => setDialog({ rule: null })}>
           <Plus className="h-4 w-4 mr-2" />
           Nueva regla
         </Button>
       </div>
+
+      {/* Edit / Create dialog */}
+      {dialog !== null && (
+        <RuleDialog
+          rule={dialog.rule}
+          categories={categories}
+          onClose={() => setDialog(null)}
+          onSaved={loadRules}
+        />
+      )}
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Eliminar regla</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar la regla para «{deleteTarget?.merchantPattern}»? Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>
+              Eliminar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
