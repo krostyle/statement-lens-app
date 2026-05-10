@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useClerk, useUser } from '@clerk/nextjs';
 import { useState } from 'react';
-import { ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, BarChart2, TrendingUp, X } from 'lucide-react';
+import { ArrowLeftRight, Tag, FileText, LogOut, ScanLine, Loader2, Target, BarChart2, TrendingUp, X, BookMarked } from 'lucide-react';
 import {
   Sidebar,
   SidebarContent,
@@ -24,6 +24,7 @@ const navItems = [
   { href: '/categories', label: 'Categorías', icon: Tag },
   { href: '/budgets', label: 'Presupuestos', icon: Target },
   { href: '/tracking', label: 'Seguimiento', icon: TrendingUp },
+  { href: '/rules', label: 'Reglas', icon: BookMarked },
   { href: '/reports', label: 'Reportes', icon: BarChart2 },
   { href: '/statements', label: 'Extractos', icon: FileText },
 ];

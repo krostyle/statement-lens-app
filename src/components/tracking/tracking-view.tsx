@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
-  Bookmark, ChevronDown, ChevronRight, Pencil,
+  ChevronDown, ChevronRight, Pencil,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -175,6 +175,20 @@ export function TrackingView() {
         body: JSON.stringify({ merchant: mer.merchant, bank: mer.banks[0] ?? 'santander', categoryId: cat.id }),
       });
       setSavedRules((prev) => new Set([...prev, mer.merchant]));
+    } finally {
+      setSavingRule(null);
+    }
+  };
+
+  const handleSaveTxRule = async (tx: SnapshotTransaction) => {
+    setSavingRule(tx.merchant);
+    try {
+      await fetch('/api/merchant-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ merchant: tx.merchant, bank: tx.bank ?? 'santander', categoryId: tx.categoryId }),
+      });
+      setSavedRules((prev) => new Set([...prev, tx.merchant]));
     } finally {
       setSavingRule(null);
     }
@@ -461,16 +475,17 @@ export function TrackingView() {
 
                         <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
 
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className={`h-7 w-7 shrink-0 ${savedRules.has(mer.merchant) ? 'text-brand-600' : 'text-zinc-300 hover:text-zinc-500'}`}
+                        <button
                           onClick={() => handleSaveRule(mer)}
-                          disabled={savingRule === mer.merchant}
-                          title="Guardar como regla de comercio"
+                          disabled={savingRule === mer.merchant || savedRules.has(mer.merchant)}
+                          className={`text-xs shrink-0 px-2 py-1 rounded border transition-colors ${
+                            savedRules.has(mer.merchant)
+                              ? 'border-brand-600 text-brand-600 bg-brand-50 cursor-default'
+                              : 'border-zinc-200 text-zinc-500 hover:border-brand-600 hover:text-brand-600'
+                          }`}
                         >
-                          <Bookmark className="h-3.5 w-3.5" fill={savedRules.has(mer.merchant) ? 'currentColor' : 'none'} />
-                        </Button>
+                          {savedRules.has(mer.merchant) ? '✓ Regla guardada' : 'Guardar regla'}
+                        </button>
                       </div>
 
                       {/* Expanded transaction rows */}
@@ -498,6 +513,19 @@ export function TrackingView() {
                                 >
                                   <Pencil className="h-3 w-3" />
                                 </Button>
+                              )}
+                              {tx.id && (
+                                <button
+                                  onClick={() => handleSaveTxRule(tx)}
+                                  disabled={savingRule === tx.merchant || savedRules.has(tx.merchant)}
+                                  className={`text-xs shrink-0 ${
+                                    savedRules.has(tx.merchant)
+                                      ? 'text-brand-600 cursor-default'
+                                      : 'text-zinc-400 hover:text-brand-600'
+                                  }`}
+                                >
+                                  {savedRules.has(tx.merchant) ? '✓ Regla' : 'Guardar regla'}
+                                </button>
                               )}
                             </div>
                           ))}
