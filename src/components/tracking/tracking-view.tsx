@@ -212,7 +212,14 @@ export function TrackingView() {
     });
     if (res.ok) {
       const { metrics } = await res.json();
-      setData((prev) => prev ? { ...prev, metrics } : null);
+      const updateArr = (txs: SnapshotTransaction[]) =>
+        txs.map((t) => t.merchant === merchant ? { ...t, categoryId, categoryName: cat.name } : t);
+      setData((prev) => prev ? {
+        ...prev,
+        metrics,
+        checkingTxs: updateArr(prev.checkingTxs),
+        ccTxs:       updateArr(prev.ccTxs),
+      } : null);
     }
   };
 
