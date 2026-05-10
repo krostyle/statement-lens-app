@@ -30,21 +30,23 @@ export function computeSnapshotMetrics(
   const projected = Math.round(dailyAvg * total);
 
   // By merchant
-  const merchantMap = new Map<string, { total: number; count: number; categoryName: string; sources: Set<string> }>();
+  const merchantMap = new Map<string, { total: number; count: number; categoryName: string; sources: Set<string>; banks: Set<string> }>();
   for (const t of expenses) {
-    const e = merchantMap.get(t.merchant) ?? { total: 0, count: 0, categoryName: t.categoryName, sources: new Set<string>() };
+    const e = merchantMap.get(t.merchant) ?? { total: 0, count: 0, categoryName: t.categoryName, sources: new Set<string>(), banks: new Set<string>() };
     e.total += Math.abs(t.amount);
     e.count += 1;
     e.sources.add(t.source);
+    e.banks.add((t as { bank?: string }).bank ?? 'santander');
     merchantMap.set(t.merchant, e);
   }
   const byMerchant = Array.from(merchantMap.entries())
-    .map(([merchant, { total, count, categoryName, sources }]) => ({
+    .map(([merchant, { total, count, categoryName, sources, banks }]) => ({
       merchant,
       total: Math.round(total),
       count,
       categoryName,
       source: sources.size > 1 ? 'mixed' : (Array.from(sources)[0] ?? 'credit_card') as 'checking' | 'credit_card' | 'mixed',
+      banks: Array.from(banks),
     }))
     .sort((a, b) => b.total - a.total);
 

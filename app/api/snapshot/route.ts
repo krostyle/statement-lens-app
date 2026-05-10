@@ -2,38 +2,28 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { categoryRepo, merchantRuleRepo, snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
-import { parseSantanderCheckingXlsx } from '@/src/infrastructure/parsers/santander-checking-xlsx';
-import { parseSantanderCCCsv } from '@/src/infrastructure/parsers/santander-cc-csv';
+import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
 function categorizeTxs(
-  rows: { date: string; description: string; amount: number; transactionType: 'expense' | 'income' | 'transfer' }[],
-  source: 'checking' | 'credit_card',
+  rows: Pick<SnapshotTransaction, 'id' | 'date' | 'description' | 'merchant' | 'amount' | 'transactionType' | 'source' | 'bank'>[],
   bankRuleMap: Map<string, string>,
   wildcardRuleMap: Map<string, string>,
   categoryNameMap: Map<string, string>,
   defaultCategoryId: string,
+  bank: string,
 ): SnapshotTransaction[] {
   return rows.map((row) => {
     const pattern = normalizeMerchant(row.description);
     const categoryId =
-      bankRuleMap.get(`${pattern}|santander`) ??
+      bankRuleMap.get(`${pattern}|${bank}`) ??
       wildcardRuleMap.get(pattern) ??
       defaultCategoryId;
     const categoryName = categoryNameMap.get(categoryId) ?? 'Otros';
-    return {
-      date:            row.date,
-      description:     row.description,
-      merchant:        row.description,
-      amount:          row.amount,
-      transactionType: source === 'credit_card' ? 'expense' : row.transactionType,
-      categoryId,
-      categoryName,
-      source,
-    };
+    return { ...row, categoryId, categoryName };
   });
 }
 
@@ -44,16 +34,24 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const formData    = await request.formData();
-    const month       = (formData.get('month') as string | null)?.trim();
-    const checkingFile = formData.get('checkingFile') as File | null;
-    const ccText      = (formData.get('ccText') as string | null)?.trim();
+    const formData   = await request.formData();
+    const month      = (formData.get('month') as string | null)?.trim();
+    const bank       = (formData.get('bank') as string | null)?.trim();
+    const sourceType = (formData.get('sourceType') as string | null)?.trim() as 'checking' | 'credit_card' | null;
+    const csvText    = (formData.get('csvText') as string | null)?.trim();
+    const csvFile    = formData.get('csvFile') as File | null;
 
     if (!month || !/^\d{4}-\d{2}$/.test(month)) {
       return NextResponse.json({ error: 'month requerido (YYYY-MM)' }, { status: 400 });
     }
-    if (!checkingFile && !ccText) {
-      return NextResponse.json({ error: 'Debes subir un archivo XLSX o pegar texto de tarjeta.' }, { status: 400 });
+    if (!bank) {
+      return NextResponse.json({ error: 'bank es requerido' }, { status: 400 });
+    }
+    if (!sourceType || !['checking', 'credit_card'].includes(sourceType)) {
+      return NextResponse.json({ error: 'sourceType debe ser "checking" o "credit_card"' }, { status: 400 });
+    }
+    if (!csvText && (!csvFile || csvFile.size === 0)) {
+      return NextResponse.json({ error: 'Debes pegar texto CSV o subir un archivo .csv' }, { status: 400 });
     }
 
     const [categories, merchantRules, budgets] = await Promise.all([
@@ -72,32 +70,36 @@ export async function POST(request: Request) {
         : wildcardRuleMap.set(rule.merchantPattern, rule.categoryId);
     }
 
-    // Parse checking XLSX (deterministic)
-    let newCheckingTxs: SnapshotTransaction[] | null = null;
-    if (checkingFile && checkingFile.size > 0) {
-      const buffer = Buffer.from(await checkingFile.arrayBuffer());
-      const rows = parseSantanderCheckingXlsx(buffer);
-      newCheckingTxs = categorizeTxs(rows, 'checking', bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId);
+    // Resolve CSV text
+    let text = csvText ?? '';
+    if (!text && csvFile && csvFile.size > 0) {
+      text = await csvFile.text();
     }
 
-    // Parse CC CSV (deterministic — both mobile Title Case and desktop UPPERCASE)
-    let newCCTxs: SnapshotTransaction[] | null = null;
-    if (ccText) {
-      const rows = parseSantanderCCCsv(ccText);
-      newCCTxs = categorizeTxs(
-        rows.map((r) => ({ ...r, transactionType: 'expense' as const })),
-        'credit_card',
-        bankRuleMap,
-        wildcardRuleMap,
-        categoryNameMap,
-        defaultCategoryId,
+    // Parse CSV
+    const rawRows = parseCsvSnapshot(text, sourceType, bank);
+    const newTxs  = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
+
+    // Merge: replace existing rows of same bank+source, keep others
+    const existing = await snapshotRepo.findByUserAndMonth(userId, month);
+
+    const mergeArray = (
+      existing: SnapshotTransaction[] | null,
+      incoming: SnapshotTransaction[],
+    ): SnapshotTransaction[] => {
+      const kept = (existing ?? []).filter(
+        (t) => !((t.bank || 'santander') === bank && t.source === sourceType),
       );
-    }
+      return [...kept, ...incoming];
+    };
 
-    // Merge with existing snapshot (keep the source not provided this time)
-    const existing         = await snapshotRepo.findByUserAndMonth(userId, month);
-    const finalCheckingTxs = newCheckingTxs ?? existing?.checkingTxs ?? null;
-    const finalCCTxs       = newCCTxs       ?? existing?.ccTxs       ?? null;
+    const finalCheckingTxs = sourceType === 'checking'
+      ? mergeArray(existing?.checkingTxs ?? null, newTxs)
+      : (existing?.checkingTxs ?? null);
+
+    const finalCCTxs = sourceType === 'credit_card'
+      ? mergeArray(existing?.ccTxs ?? null, newTxs)
+      : (existing?.ccTxs ?? null);
 
     await snapshotRepo.upsert(userId, month, finalCheckingTxs, finalCCTxs);
 
