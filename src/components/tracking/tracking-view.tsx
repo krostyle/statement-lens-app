@@ -323,7 +323,7 @@ export function TrackingView() {
                   <div key={mer.merchant} className="px-4 py-3 flex items-center gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-sm font-medium text-zinc-800 truncate max-w-50">{mer.merchant}</span>
+                        <span className="text-sm font-medium text-zinc-800">{mer.merchant}</span>
                         <span className="text-xs text-zinc-400 shrink-0">{mer.count}×</span>
                         <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500 shrink-0">
                           {SOURCE_LABEL[mer.source] ?? mer.source}
