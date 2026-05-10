@@ -140,7 +140,7 @@ export function TrackingView() {
       await fetch('/api/merchant-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant, bank: '', categoryId: cat.id }),
+        body: JSON.stringify({ merchant, bank: 'santander', categoryId: cat.id }),
       });
       setSavedRules((prev) => new Set([...prev, merchant]));
     } finally {
