@@ -4,6 +4,7 @@ export interface MerchantRule {
   merchantPattern: string; // normalized: lowercase + trimmed
   bank: string;            // "" = any card; "santander" | "falabella" | "liderbci"
   categoryId: string;
+  transactionType: string | null; // null = auto-detect; "expense" | "income" | "transfer"
   createdAt: Date;
   updatedAt: Date;
 }

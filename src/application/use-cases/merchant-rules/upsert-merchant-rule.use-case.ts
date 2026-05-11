@@ -12,8 +12,7 @@ export class UpsertMerchantRuleUseCase {
   /**
    * @param bank  Empty string = any card; "santander" | "falabella" | "liderbci" = specific card.
    */
-  async execute(userId: string, merchant: string, bank: string, categoryId: string): Promise<MerchantRule> {
-    // Validate that the category belongs to this user
+  async execute(userId: string, merchant: string, bank: string, categoryId: string, transactionType?: string | null): Promise<MerchantRule> {
     const categories = await this.categoryRepo.findByUserId(userId);
     if (!categories.some((c) => c.id === categoryId)) {
       throw new Error('Categoría no válida');
@@ -22,6 +21,6 @@ export class UpsertMerchantRuleUseCase {
     const pattern = normalizeMerchant(merchant);
     if (!pattern) throw new Error('El nombre del comercio no puede estar vacío');
 
-    return this.merchantRuleRepo.upsert(userId, pattern, bank, categoryId);
+    return this.merchantRuleRepo.upsert(userId, pattern, bank, categoryId, transactionType ?? null);
   }
 }

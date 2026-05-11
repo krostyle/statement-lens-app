@@ -7,6 +7,7 @@ const upsertSchema = z.object({
   merchant: z.string().min(1).max(200),
   bank: z.string().optional().default(''), // '' = any card
   categoryId: z.string().uuid(),
+  transactionType: z.enum(['expense', 'income', 'transfer']).nullable().optional(),
 });
 
 export async function GET() {
@@ -28,7 +29,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const rule = await upsertMerchantRuleUseCase.execute(userId, parsed.data.merchant, parsed.data.bank, parsed.data.categoryId);
+    const rule = await upsertMerchantRuleUseCase.execute(userId, parsed.data.merchant, parsed.data.bank, parsed.data.categoryId, parsed.data.transactionType ?? null);
     return NextResponse.json(rule, { status: 201 });
   } catch (err) {
     const message = err instanceof Error ? err.message : '';

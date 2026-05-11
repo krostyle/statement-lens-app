@@ -73,7 +73,7 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>Editar transacción</DialogTitle>
         </DialogHeader>
@@ -90,10 +90,10 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
             </span>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Categoría</label>
             <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecciona categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -104,10 +104,10 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
             </Select>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <label className="text-sm font-medium">Tipo</label>
             <Select value={txType} onValueChange={(v) => setTxType(v as typeof txType)}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

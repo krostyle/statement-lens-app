@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
-  ChevronDown, ChevronRight, Pencil,
+  ChevronDown, ChevronRight, Pencil, BookMarked,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -419,9 +419,12 @@ export function TrackingView() {
             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
               <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-zinc-700">Por comercio</h2>
-                <Link href="/rules" className="text-xs text-brand-600 hover:underline">
-                  Gestionar reglas →
-                </Link>
+                <Button variant="outline" size="sm" asChild title="Gestionar reglas de categorización">
+                  <Link href="/rules">
+                    <BookMarked className="h-4 w-4" />
+                    <span>Reglas</span>
+                  </Link>
+                </Button>
               </div>
               <div className="divide-y divide-zinc-100">
                 {m.byMerchant.map((mer) => {

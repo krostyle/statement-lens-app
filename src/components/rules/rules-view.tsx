@@ -12,14 +12,16 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/src/components/ui/select';
 
-// Radix Select forbids empty string values — use sentinel for "any bank"
+// Radix Select forbids empty string values — use sentinels
 const BANK_ANY = '__any__';
+const TX_TYPE_AUTO = '__auto__';
 
 interface MerchantRule {
   id: string;
   merchantPattern: string;
   bank: string;
   categoryId: string;
+  transactionType: string | null;
 }
 
 interface SimpleCategory { id: string; name: string; }
@@ -33,7 +35,15 @@ const BANKS = [
   { value: 'liderbci',    label: 'LiderBCI' },
 ];
 
+const TX_TYPES = [
+  { value: TX_TYPE_AUTO, label: 'Auto-detectar' },
+  { value: 'expense',    label: 'Gasto' },
+  { value: 'income',     label: 'Ingreso' },
+  { value: 'transfer',   label: 'Transferencia' },
+];
+
 const BANK_LABEL: Record<string, string> = Object.fromEntries(BANKS.map((b) => [b.value, b.label]));
+const TX_TYPE_LABEL: Record<string, string> = Object.fromEntries(TX_TYPES.map((t) => [t.value, t.label]));
 
 // ─── Create / Edit dialog ──────────────────────────────────────────────────────
 
@@ -49,6 +59,7 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
   const [merchant,   setMerchant]   = useState(rule?.merchantPattern ?? '');
   const [bank,       setBank]       = useState(rule?.bank ? rule.bank : BANK_ANY);
   const [categoryId, setCategoryId] = useState(rule?.categoryId ?? '');
+  const [txType,     setTxType]     = useState(rule?.transactionType ?? TX_TYPE_AUTO);
   const [saving,     setSaving]     = useState(false);
   const [error,      setError]      = useState<string | null>(null);
 
@@ -60,11 +71,12 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
     setSaving(true);
     setError(null);
     try {
-      const bankToSave = bank === BANK_ANY ? '' : bank;
+      const bankToSave   = bank === BANK_ANY ? '' : bank;
+      const txTypeToSave = txType === TX_TYPE_AUTO ? null : txType;
       const res = await fetch('/api/merchant-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ merchant: merchant.trim(), bank: bankToSave, categoryId }),
+        body: JSON.stringify({ merchant: merchant.trim(), bank: bankToSave, categoryId, transactionType: txTypeToSave }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -81,13 +93,13 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
 
   return (
     <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent>
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar regla' : 'Nueva regla'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          <div className="space-y-1">
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
             <Label htmlFor="rule-merchant">Comercio (patrón)</Label>
             <Input
               id="rule-merchant"
@@ -103,10 +115,10 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
             )}
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <Label>Banco</Label>
             <Select value={bank} onValueChange={setBank}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -117,10 +129,10 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
             </Select>
           </div>
 
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <Label>Categoría</Label>
             <Select value={categoryId} onValueChange={setCategoryId}>
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue placeholder="Selecciona categoría" />
               </SelectTrigger>
               <SelectContent>
@@ -129,6 +141,23 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Tipo de transacción</Label>
+            <Select value={txType} onValueChange={setTxType}>
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TX_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-zinc-400">
+              Si se define, reemplaza la detección automática al subir CSV.
+            </p>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}
@@ -190,21 +219,28 @@ export function RulesView() {
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1fr_140px_1fr_72px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4">
+          <div className="hidden md:grid grid-cols-[1fr_120px_1fr_100px_72px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4">
             <span>Comercio</span>
             <span>Banco</span>
             <span>Categoría</span>
+            <span>Tipo</span>
             <span />
           </div>
           <div className="divide-y divide-zinc-100">
             {rules.map((rule) => (
-              <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_140px_1fr_72px] items-center px-4 py-3 gap-4">
+              <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_120px_1fr_100px_72px] items-center px-4 py-3 gap-4">
                 <div className="min-w-0">
                   <span className="text-sm font-mono text-zinc-800">{rule.merchantPattern}</span>
-                  <div className="md:hidden flex items-center gap-1.5 mt-0.5">
+                  <div className="md:hidden flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <span className="text-xs text-zinc-400">{BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}</span>
                     <span className="text-xs text-zinc-300">·</span>
                     <span className="text-xs text-zinc-500">{catMap.get(rule.categoryId) ?? '—'}</span>
+                    {rule.transactionType && (
+                      <>
+                        <span className="text-xs text-zinc-300">·</span>
+                        <span className="text-xs text-zinc-500">{TX_TYPE_LABEL[rule.transactionType]}</span>
+                      </>
+                    )}
                   </div>
                 </div>
                 <span className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 w-fit">
@@ -212,6 +248,9 @@ export function RulesView() {
                 </span>
                 <span className="hidden md:block text-sm text-zinc-700">
                   {catMap.get(rule.categoryId) ?? rule.categoryId}
+                </span>
+                <span className="hidden md:block text-xs text-zinc-500">
+                  {rule.transactionType ? TX_TYPE_LABEL[rule.transactionType] : <span className="text-zinc-300">Auto</span>}
                 </span>
                 <div className="flex items-center gap-1 justify-end">
                   <Button
@@ -246,7 +285,6 @@ export function RulesView() {
         </Button>
       </div>
 
-      {/* Edit / Create dialog */}
       {dialog !== null && (
         <RuleDialog
           rule={dialog.rule}
@@ -256,7 +294,6 @@ export function RulesView() {
         />
       )}
 
-      {/* Delete confirmation dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>

@@ -98,6 +98,7 @@ model MerchantRule {
   merchantPattern String      // normalized (lowercase, trimmed) merchant name
   bank            String      @default("") // "" = any card; "santander" | "falabella" | "liderbci"
   categoryId      String
+  transactionType String?     // null = auto-detect; "expense" | "income" | "transfer"
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   user            UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)

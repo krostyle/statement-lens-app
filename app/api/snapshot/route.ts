@@ -8,22 +8,23 @@ import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
+type RuleEntry = { categoryId: string; transactionType?: string | null };
+
 function categorizeTxs(
   rows: Pick<SnapshotTransaction, 'id' | 'date' | 'description' | 'merchant' | 'amount' | 'transactionType' | 'source' | 'bank'>[],
-  bankRuleMap: Map<string, string>,
-  wildcardRuleMap: Map<string, string>,
+  bankRuleMap: Map<string, RuleEntry>,
+  wildcardRuleMap: Map<string, RuleEntry>,
   categoryNameMap: Map<string, string>,
   defaultCategoryId: string,
   bank: string,
 ): SnapshotTransaction[] {
   return rows.map((row) => {
     const pattern = normalizeMerchant(row.description);
-    const categoryId =
-      bankRuleMap.get(`${pattern}|${bank}`) ??
-      wildcardRuleMap.get(pattern) ??
-      defaultCategoryId;
+    const ruleEntry = bankRuleMap.get(`${pattern}|${bank}`) ?? wildcardRuleMap.get(pattern);
+    const categoryId = ruleEntry?.categoryId ?? defaultCategoryId;
     const categoryName = categoryNameMap.get(categoryId) ?? 'Otros';
-    return { ...row, categoryId, categoryName };
+    const transactionType = (ruleEntry?.transactionType as SnapshotTransaction['transactionType'] | undefined | null) ?? row.transactionType;
+    return { ...row, categoryId, categoryName, transactionType };
   });
 }
 
@@ -62,12 +63,13 @@ export async function POST(request: Request) {
 
     const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
     const defaultCategoryId = categories.find((c) => c.name === 'Otros')?.id ?? categories[0]?.id ?? '';
-    const bankRuleMap       = new Map<string, string>();
-    const wildcardRuleMap   = new Map<string, string>();
+    const bankRuleMap       = new Map<string, RuleEntry>();
+    const wildcardRuleMap   = new Map<string, RuleEntry>();
     for (const rule of merchantRules) {
+      const entry: RuleEntry = { categoryId: rule.categoryId, transactionType: rule.transactionType };
       rule.bank
-        ? bankRuleMap.set(`${rule.merchantPattern}|${rule.bank}`, rule.categoryId)
-        : wildcardRuleMap.set(rule.merchantPattern, rule.categoryId);
+        ? bankRuleMap.set(`${rule.merchantPattern}|${rule.bank}`, entry)
+        : wildcardRuleMap.set(rule.merchantPattern, entry);
     }
 
     // Resolve CSV text
