@@ -457,26 +457,26 @@ export function TrackingView() {
                               {SOURCE_LABEL[mer.source] ?? mer.source}
                             </span>
                           </div>
-                          {/* Stop propagation so clicking the Select doesn't toggle accordion */}
-                          <div onClick={(e) => e.stopPropagation()}>
-                            {categories.length > 0 ? (
-                              <Select
-                                value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
-                                onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
+                          {categories.length > 0 ? (
+                            <Select
+                              value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
+                              onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
+                            >
+                              <SelectTrigger
+                                onClick={(e) => e.stopPropagation()}
+                                className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-55 focus:ring-0"
                               >
-                                <SelectTrigger className="mt-0.5 h-5 text-xs text-zinc-400 border-none shadow-none px-0 gap-1 w-auto max-w-55 focus:ring-0">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {categories.map((c) => (
-                                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            ) : (
-                              <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
-                            )}
-                          </div>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {categories.map((c) => (
+                                  <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
+                          )}
                         </div>
 
                         <span className="text-sm font-semibold text-zinc-900 shrink-0">{formatCurrency(mer.total)}</span>
