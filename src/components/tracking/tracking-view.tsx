@@ -10,6 +10,8 @@ import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/src/components/ui/dialog';
+import { Label } from '@/src/components/ui/label';
 import { formatCurrency } from '@/src/lib/utils';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import { SnapshotTxDialog, type TxUpdate } from './snapshot-tx-dialog';
@@ -101,13 +103,24 @@ export function TrackingView() {
   const [savedRules, setSavedRules]   = useState<Set<string>>(new Set());
   const [savingRule, setSavingRule]   = useState<string | null>(null);
 
-  // Upload form
+  // Upload dialog
+  const [uploadOpen, setUploadOpen]   = useState(false);
   const [bank, setBank]               = useState('santander');
   const [sourceType, setSourceType]   = useState<'checking' | 'credit_card'>('credit_card');
   const [csvInputMode, setCsvInputMode] = useState<'text' | 'file'>('text');
   const [csvText, setCsvText]         = useState('');
   const [csvFile, setCsvFile]         = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const openUpload = () => {
+    setBank('santander');
+    setSourceType('credit_card');
+    setCsvInputMode('text');
+    setCsvText('');
+    setCsvFile(null);
+    setError('');
+    setUploadOpen(true);
+  };
 
   const load = useCallback(async (m: string) => {
     setLoading(true);
@@ -174,9 +187,7 @@ export function TrackingView() {
         setError(json?.error ?? 'Error al procesar los datos.');
       } else {
         setData(json);
-        setCsvText('');
-        setCsvFile(null);
-        if (fileInputRef.current) fileInputRef.current.value = '';
+        setUploadOpen(false);
       }
     } catch {
       setError('Error de red al subir los datos.');
@@ -275,94 +286,105 @@ export function TrackingView() {
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
-        {hasData && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClear}
-          >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
-            Limpiar datos
-          </Button>
-        )}
-      </div>
-
-      {/* Upload section */}
-      <div className="rounded-xl border border-zinc-200 bg-white p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-zinc-700">Subir datos del mes</h2>
+        <div className="flex items-center gap-2">
           {hasData && (
             <span className="text-xs text-zinc-400">
-              {data!.checkingTxs.length + data!.ccTxs.length} transacciones cargadas
+              {data!.checkingTxs.length + data!.ccTxs.length} transacciones
             </span>
           )}
+          <Button size="sm" onClick={openUpload}>
+            <Upload className="h-3.5 w-3.5 mr-1.5" />
+            {hasData ? 'Agregar cartola' : 'Subir cartola'}
+          </Button>
+          {hasData && (
+            <Button variant="destructive" size="sm" onClick={handleClear}>
+              <Trash2 className="h-3.5 w-3.5 mr-1" />
+              Limpiar
+            </Button>
+          )}
         </div>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-zinc-600">Banco</p>
-            <Select value={bank} onValueChange={setBank}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {BANKS.map((b) => (
-                  <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <p className="text-xs font-medium text-zinc-600">Tipo</p>
-            <Select value={sourceType} onValueChange={(v) => setSourceType(v as typeof sourceType)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
-                <SelectItem value="checking">Cuenta Corriente</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="flex gap-4 text-sm">
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="radio" name="csvInputMode" value="text" checked={csvInputMode === 'text'}
-              onChange={() => setCsvInputMode('text')} className="accent-brand-600" />
-            Pegar texto CSV
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input type="radio" name="csvInputMode" value="file" checked={csvInputMode === 'file'}
-              onChange={() => setCsvInputMode('file')} className="accent-brand-600" />
-            Subir archivo .csv
-          </label>
-        </div>
-
-        {csvInputMode === 'text' ? (
-          <textarea
-            className="w-full h-24 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
-            placeholder={"date,description,amount\n2026-05-08,DELIVERY DEL SO,31430\n2026-05-08,PAYU *UBER TR,2077"}
-            value={csvText}
-            onChange={(e) => setCsvText(e.target.value)}
-          />
-        ) : (
-          <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
-            <Upload className="h-5 w-5" />
-            <span className="text-xs">{csvFile ? csvFile.name : 'Seleccionar archivo (.csv)'}</span>
-            <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden"
-              onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
-          </label>
-        )}
-
-        {error && <p className="text-sm text-red-600">{error}</p>}
-
-        <Button onClick={handleUpload} disabled={uploading} className="w-full sm:w-auto">
-          {uploading
-            ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" /> Procesando...</>
-            : <><RefreshCw className="h-4 w-4 mr-2" /> {hasData ? 'Agregar datos' : 'Analizar'}</>}
-        </Button>
       </div>
+
+      {/* Upload dialog */}
+      <Dialog open={uploadOpen} onOpenChange={(v) => { if (!v) setUploadOpen(false); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Subir cartola CSV</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label>Banco</Label>
+                <Select value={bank} onValueChange={setBank}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {BANKS.map((b) => (
+                      <SelectItem key={b.value} value={b.value}>{b.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Tipo</Label>
+                <Select value={sourceType} onValueChange={(v) => setSourceType(v as typeof sourceType)}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
+                    <SelectItem value="checking">Cuenta Corriente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="flex gap-4 text-sm">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="csvInputMode" value="text" checked={csvInputMode === 'text'}
+                  onChange={() => setCsvInputMode('text')} className="accent-brand-600" />
+                Pegar texto
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input type="radio" name="csvInputMode" value="file" checked={csvInputMode === 'file'}
+                  onChange={() => setCsvInputMode('file')} className="accent-brand-600" />
+                Subir archivo
+              </label>
+            </div>
+
+            {csvInputMode === 'text' ? (
+              <textarea
+                className="w-full h-36 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
+                placeholder={"date,description,amount\n2026-05-08,DELIVERY DEL SO,31430\n2026-05-08,PAYU *UBER TR,2077"}
+                value={csvText}
+                onChange={(e) => setCsvText(e.target.value)}
+              />
+            ) : (
+              <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
+                <Upload className="h-5 w-5" />
+                <span className="text-xs">{csvFile ? csvFile.name : 'Seleccionar archivo (.csv)'}</span>
+                <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden"
+                  onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
+              </label>
+            )}
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUploadOpen(false)} disabled={uploading}>
+              Cancelar
+            </Button>
+            <Button onClick={handleUpload} disabled={uploading}>
+              {uploading
+                ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Procesando…</>
+                : <><Upload className="h-4 w-4 mr-2" />Subir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Metrics */}
       {loading && (
