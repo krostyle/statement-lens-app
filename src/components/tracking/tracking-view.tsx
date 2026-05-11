@@ -382,38 +382,52 @@ export function TrackingView() {
 
           {/* Progress bars */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
+            {/* Total spent — always visible */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-zinc-500">Avance del mes</span>
-                <span className="font-semibold text-zinc-700">
-                  Día {m.daysElapsed} / {m.daysInMonth} ({monthPct}%)
-                </span>
-              </div>
-              <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
-                <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${monthPct}%` }} />
-              </div>
-            </div>
-
-            {budgetPct !== null && (
-              <div className="space-y-2 pt-2 border-t border-zinc-100">
-                <div className="flex justify-between text-sm">
-                  <span className="text-zinc-500">vs Presupuesto</span>
-                  <span className="font-semibold text-zinc-700">
-                    {formatCurrency(m.totalExpenses)}
-                    <span className="text-zinc-400 font-normal"> / {formatCurrency(totalBudget)}</span>
+                <div>
+                  <span className="text-zinc-700 font-medium">Total gastado</span>
+                  {budgetPct !== null && (
+                    <span className="ml-2 text-xs text-zinc-400">de {formatCurrency(totalBudget)} en presupuesto</span>
+                  )}
+                </div>
+                <div className="text-right">
+                  <span className="font-semibold text-zinc-900">{formatCurrency(m.totalExpenses)}</span>
+                  {budgetPct !== null && (
                     <span className={`ml-1.5 text-xs font-medium ${budgetPct > 100 ? 'text-red-500' : budgetPct > 80 ? 'text-amber-500' : 'text-green-600'}`}>
                       ({budgetPct}%)
                     </span>
-                  </span>
+                  )}
                 </div>
+              </div>
+              {budgetPct !== null ? (
                 <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
                   <div
                     className={`h-full rounded-full transition-all ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
                     style={{ width: `${Math.min(budgetPct, 100)}%` }}
                   />
                 </div>
+              ) : (
+                <p className="text-xs text-zinc-400">
+                  Sin presupuesto definido — configúralo en{' '}
+                  <Link href="/budgets" className="text-brand-600 hover:underline">Presupuestos</Link>
+                </p>
+              )}
+            </div>
+
+            {/* Month progress */}
+            <div className="space-y-2 pt-2 border-t border-zinc-100">
+              <div className="flex justify-between text-sm">
+                <span className="text-zinc-500">Avance del mes</span>
+                <span className="font-semibold text-zinc-700">
+                  Día {m.daysElapsed} / {m.daysInMonth}
+                  <span className="text-zinc-400 font-normal ml-1">({monthPct}%)</span>
+                </span>
               </div>
-            )}
+              <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                <div className="h-full rounded-full bg-zinc-300 transition-all" style={{ width: `${monthPct}%` }} />
+              </div>
+            </div>
           </div>
 
           {/* By merchant — accordion */}
