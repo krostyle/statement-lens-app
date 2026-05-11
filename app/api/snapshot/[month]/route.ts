@@ -4,11 +4,36 @@ import { snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
-export async function DELETE(_: Request, { params }: { params: Promise<{ month: string }> }) {
+export async function DELETE(request: Request, { params }: { params: Promise<{ month: string }> }) {
   const { userId } = await auth();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { month } = await params;
+  const { searchParams } = new URL(request.url);
+  const bank   = searchParams.get('bank');
+  const source = searchParams.get('source') as 'checking' | 'credit_card' | null;
+
+  if (bank && source) {
+    // Partial delete — remove only transactions matching bank+source
+    const snapshot = await snapshotRepo.findByUserAndMonth(userId, month);
+    if (!snapshot) return new NextResponse(null, { status: 204 });
+
+    const keep = (txs: SnapshotTransaction[] | null) =>
+      (txs ?? []).filter(
+        (t) => ((t as { bank?: string }).bank ?? 'santander') !== bank || t.source !== source,
+      );
+
+    const newChecking = keep(snapshot.checkingTxs);
+    const newCC       = keep(snapshot.ccTxs);
+
+    if (newChecking.length === 0 && newCC.length === 0) {
+      await snapshotRepo.deleteByUserAndMonth(userId, month);
+    } else {
+      await snapshotRepo.upsert(userId, month, newChecking, newCC);
+    }
+    return new NextResponse(null, { status: 204 });
+  }
+
   await snapshotRepo.deleteByUserAndMonth(userId, month);
   return new NextResponse(null, { status: 204 });
 }

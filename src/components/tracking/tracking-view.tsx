@@ -202,6 +202,13 @@ export function TrackingView() {
     await fetch(`/api/snapshot/${month}`, { method: 'DELETE' });
     setData(null);
     setExpandedMerchants(new Set());
+    setFilterBank(null);
+  };
+
+  const handleDeleteSource = async (bank: string, source: 'checking' | 'credit_card') => {
+    await fetch(`/api/snapshot/${month}?bank=${encodeURIComponent(bank)}&source=${encodeURIComponent(source)}`, { method: 'DELETE' });
+    await load(month);
+    setFilterBank(null);
   };
 
   const saveRule = async (merchant: string, bank: string, categoryId: string) => {
@@ -284,6 +291,20 @@ export function TrackingView() {
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
   const budgetPct = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
 
+  type LoadedSource = { bank: string; source: 'checking' | 'credit_card' };
+  const loadedSources: LoadedSource[] = data
+    ? [...new Map<string, LoadedSource>([
+        ...data.checkingTxs.map((t): [string, LoadedSource] => {
+          const b = (t as { bank?: string }).bank ?? 'santander';
+          return [`${b}|checking`, { bank: b, source: 'checking' }];
+        }),
+        ...data.ccTxs.map((t): [string, LoadedSource] => {
+          const b = (t as { bank?: string }).bank ?? 'santander';
+          return [`${b}|credit_card`, { bank: b, source: 'credit_card' }];
+        }),
+      ]).values()]
+    : [];
+
   const availableBanks: string[] = data
     ? [...new Set([...data.checkingTxs, ...data.ccTxs].map((t) => (t as { bank?: string }).bank ?? 'santander'))].sort()
     : [];
@@ -296,12 +317,19 @@ export function TrackingView() {
       {/* Top bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
-        <div className="flex items-center gap-2">
-          {hasData && (
-            <span className="text-xs text-zinc-400">
-              {data!.checkingTxs.length + data!.ccTxs.length} transacciones
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {loadedSources.map(({ bank, source }) => (
+            <span key={`${bank}|${source}`} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+              {BANK_LABEL[bank] ?? bank} {source === 'credit_card' ? 'TC' : 'CC'}
+              <button
+                onClick={() => handleDeleteSource(bank, source)}
+                className="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors leading-none"
+                title={`Eliminar ${BANK_LABEL[bank] ?? bank} ${source === 'credit_card' ? 'TC' : 'CC'}`}
+              >
+                ×
+              </button>
             </span>
-          )}
+          ))}
           <Button size="sm" onClick={openUpload}>
             <Upload className="h-3.5 w-3.5 mr-1.5" />
             {hasData ? 'Agregar cartola' : 'Subir cartola'}
