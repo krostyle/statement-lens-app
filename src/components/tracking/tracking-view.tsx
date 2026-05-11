@@ -90,6 +90,8 @@ export function TrackingView() {
 
   // Accordion
   const [expandedMerchants, setExpandedMerchants] = useState<Set<string>>(new Set());
+  // Merchants the user has manually marked as "unassigned" this session
+  const [unassignedMerchants, setUnassignedMerchants] = useState<Set<string>>(new Set());
   // Per-transaction edit
   const [editingTx, setEditingTx] = useState<SnapshotTransaction | null>(null);
 
@@ -117,7 +119,7 @@ export function TrackingView() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(month); }, [load, month]);
+  useEffect(() => { load(month); setUnassignedMerchants(new Set()); }, [load, month]);
 
   useEffect(() => {
     fetch('/api/categories')
@@ -459,8 +461,19 @@ export function TrackingView() {
                           </div>
                           {categories.length > 0 ? (
                             <Select
-                              value={categories.find((c) => c.name === mer.categoryName)?.id ?? ''}
-                              onValueChange={(value) => handleCategoryChange(mer.merchant, value)}
+                              value={
+                                unassignedMerchants.has(mer.merchant) || !mer.categoryName
+                                  ? '__unassigned__'
+                                  : (categories.find((c) => c.name === mer.categoryName)?.id ?? '__unassigned__')
+                              }
+                              onValueChange={(value) => {
+                                if (value === '__unassigned__') {
+                                  setUnassignedMerchants((prev) => new Set([...prev, mer.merchant]));
+                                } else {
+                                  setUnassignedMerchants((prev) => { const next = new Set(prev); next.delete(mer.merchant); return next; });
+                                  handleCategoryChange(mer.merchant, value);
+                                }
+                              }}
                             >
                               <SelectTrigger
                                 onClick={(e) => e.stopPropagation()}
@@ -469,13 +482,14 @@ export function TrackingView() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="__unassigned__" className="text-xs text-zinc-400">Sin asignar</SelectItem>
                                 {categories.map((c) => (
                                   <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                           ) : (
-                            <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName}</p>
+                            <p className="text-xs text-zinc-400 mt-0.5">{mer.categoryName || 'Sin asignar'}</p>
                           )}
                         </div>
 

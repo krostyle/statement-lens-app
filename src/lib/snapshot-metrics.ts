@@ -29,22 +29,35 @@ export function computeSnapshotMetrics(
   const dailyAvg  = elapsed > 0 ? totalExpenses / elapsed : 0;
   const projected = Math.round(dailyAvg * total);
 
-  // By merchant
-  const merchantMap = new Map<string, { total: number; count: number; categoryName: string; sources: Set<string>; banks: Set<string> }>();
+  // By merchant — categoryName is empty string when transactions have mixed categories
+  const merchantMap = new Map<string, {
+    total: number; count: number;
+    categoryName: string; categoryId: string; mixedCategories: boolean;
+    sources: Set<string>; banks: Set<string>;
+  }>();
   for (const t of expenses) {
-    const e = merchantMap.get(t.merchant) ?? { total: 0, count: 0, categoryName: t.categoryName, sources: new Set<string>(), banks: new Set<string>() };
-    e.total += Math.abs(t.amount);
-    e.count += 1;
-    e.sources.add(t.source);
-    e.banks.add((t as { bank?: string }).bank ?? 'santander');
-    merchantMap.set(t.merchant, e);
+    const e = merchantMap.get(t.merchant);
+    if (!e) {
+      merchantMap.set(t.merchant, {
+        total: Math.abs(t.amount), count: 1,
+        categoryName: t.categoryName, categoryId: t.categoryId, mixedCategories: false,
+        sources: new Set([t.source]),
+        banks: new Set([(t as { bank?: string }).bank ?? 'santander']),
+      });
+    } else {
+      e.total += Math.abs(t.amount);
+      e.count += 1;
+      if (e.categoryId !== t.categoryId) e.mixedCategories = true;
+      e.sources.add(t.source);
+      e.banks.add((t as { bank?: string }).bank ?? 'santander');
+    }
   }
   const byMerchant = Array.from(merchantMap.entries())
-    .map(([merchant, { total, count, categoryName, sources, banks }]) => ({
+    .map(([merchant, { total, count, categoryName, mixedCategories, sources, banks }]) => ({
       merchant,
       total: Math.round(total),
       count,
-      categoryName,
+      categoryName: mixedCategories ? '' : categoryName,
       source: sources.size > 1 ? 'mixed' : (Array.from(sources)[0] ?? 'credit_card') as 'checking' | 'credit_card' | 'mixed',
       banks: Array.from(banks),
     }))
