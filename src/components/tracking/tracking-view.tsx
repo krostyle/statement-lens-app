@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
-  ChevronDown, ChevronRight, Pencil, BookMarked,
+  ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -296,6 +296,14 @@ export function TrackingView() {
             <Upload className="h-3.5 w-3.5 mr-1.5" />
             {hasData ? 'Agregar cartola' : 'Subir cartola'}
           </Button>
+          {hasData && (
+            <Button variant="outline" size="sm" asChild>
+              <a href={`/api/snapshot/report?month=${month}`} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                Ver reporte
+              </a>
+            </Button>
+          )}
           {hasData && (
             <Button variant="destructive" size="sm" onClick={handleClear}>
               <Trash2 className="h-3.5 w-3.5 mr-1" />

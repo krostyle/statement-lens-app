@@ -40,6 +40,15 @@ export class SnapshotPrismaRepository implements ISnapshotRepository {
     };
   }
 
+  async findAllMonthsByUserId(userId: string): Promise<string[]> {
+    const rows = await prisma.snapshot.findMany({
+      where: { userId },
+      select: { month: true },
+      orderBy: { month: 'desc' },
+    });
+    return rows.map((r) => r.month);
+  }
+
   async deleteByUserAndMonth(userId: string, month: string): Promise<void> {
     await prisma.snapshot.deleteMany({ where: { userId, month } });
   }
