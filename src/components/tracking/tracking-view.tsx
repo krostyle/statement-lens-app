@@ -505,7 +505,7 @@ export function TrackingView() {
                               >
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent>
+                              <SelectContent position="popper">
                                 <SelectItem value="__unassigned__" className="text-xs text-zinc-400">Sin asignar</SelectItem>
                                 {categories.map((c) => (
                                   <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
@@ -543,44 +543,50 @@ export function TrackingView() {
                             const txRuleKey     = normKey(tx.merchant);
                             const txRuleIsSaved = savedRules.has(txRuleKey);
                             return (
-                              <div key={tx.id ?? tx.date + tx.amount} className="px-4 py-2 flex items-center gap-3 pl-11">
-                                <span className="text-xs text-zinc-400 shrink-0 w-12">
-                                  {tx.date.slice(5).replace('-', '/')}
-                                </span>
-                                <span className="text-xs text-zinc-600 flex-1 min-w-0">{tx.description}</span>
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-500 shrink-0">
-                                  {tx.categoryName}
-                                </span>
-                                <span className="text-xs font-semibold text-zinc-800 shrink-0">
-                                  {formatCurrency(Math.abs(tx.amount))}
-                                </span>
-                                {tx.id && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 shrink-0 text-zinc-300 hover:text-zinc-600"
-                                    onClick={() => setEditingTx(tx)}
-                                    title="Editar categoría o tipo de esta transacción"
-                                  >
-                                    <Pencil className="h-3 w-3" />
-                                  </Button>
-                                )}
-                                {tx.id && (
-                                  <button
-                                    onClick={() => handleSaveTxRule(tx)}
-                                    disabled={savingRule === txRuleKey || txRuleIsSaved}
-                                    title={txRuleIsSaved
-                                      ? `Regla activa: ${tx.merchant} → ${tx.categoryName}`
-                                      : `Guardar regla para TODAS las futuras transacciones de "${tx.merchant}"`}
-                                    className={`text-xs shrink-0 whitespace-nowrap ${
-                                      txRuleIsSaved
-                                        ? 'text-brand-600 cursor-default'
-                                        : 'text-zinc-400 hover:text-brand-600'
-                                    }`}
-                                  >
-                                    {txRuleIsSaved ? '✓ Regla activa' : 'Guardar regla'}
-                                  </button>
-                                )}
+                              <div key={tx.id ?? tx.date + tx.amount} className="px-4 py-2 pl-11">
+                                {/* Top row: date · description · amount · edit */}
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-zinc-400 shrink-0 w-10">
+                                    {tx.date.slice(5).replace('-', '/')}
+                                  </span>
+                                  <span className="text-xs text-zinc-600 flex-1 min-w-0 truncate">{tx.description}</span>
+                                  <span className="text-xs font-semibold text-zinc-800 shrink-0">
+                                    {formatCurrency(Math.abs(tx.amount))}
+                                  </span>
+                                  {tx.id && (
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-6 w-6 shrink-0 text-zinc-300 hover:text-zinc-600"
+                                      onClick={() => setEditingTx(tx)}
+                                      title="Editar categoría o tipo de esta transacción"
+                                    >
+                                      <Pencil className="h-3 w-3" />
+                                    </Button>
+                                  )}
+                                </div>
+                                {/* Bottom row: category badge · save rule */}
+                                <div className="flex items-center gap-2 mt-0.5 ml-12">
+                                  <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-200 text-zinc-500">
+                                    {tx.categoryName}
+                                  </span>
+                                  {tx.id && (
+                                    <button
+                                      onClick={() => handleSaveTxRule(tx)}
+                                      disabled={savingRule === txRuleKey || txRuleIsSaved}
+                                      title={txRuleIsSaved
+                                        ? `Regla activa: ${tx.merchant} → ${tx.categoryName}`
+                                        : `Guardar regla para TODAS las futuras transacciones de "${tx.merchant}"`}
+                                      className={`text-xs whitespace-nowrap ${
+                                        txRuleIsSaved
+                                          ? 'text-brand-600 cursor-default'
+                                          : 'text-zinc-400 hover:text-brand-600'
+                                      }`}
+                                    >
+                                      {txRuleIsSaved ? '✓ Regla activa' : 'Guardar regla'}
+                                    </button>
+                                  )}
+                                </div>
                               </div>
                             );
                           })}
