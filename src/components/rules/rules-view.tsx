@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pencil, Trash2, Plus } from 'lucide-react';
+import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import { Skeleton } from '@/src/components/ui/skeleton';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from '@/src/components/ui/dialog';
@@ -164,6 +165,7 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {saving ? 'Guardando…' : 'Guardar'}
           </Button>
         </DialogFooter>
@@ -210,7 +212,17 @@ export function RulesView() {
   return (
     <div className="space-y-6">
       {loading ? (
-        <p className="text-sm text-zinc-400">Cargando reglas…</p>
+        <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="grid grid-cols-[1fr_120px_1fr_100px_72px] px-4 py-3 gap-4 border-b border-zinc-100 last:border-0">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-4 w-12" />
+              <Skeleton className="h-4 w-12 ml-auto" />
+            </div>
+          ))}
+        </div>
       ) : rules.length === 0 ? (
         <div className="rounded-xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400 text-sm">
           No hay reglas creadas. Crea una desde aquí o usa &ldquo;Guardar regla&rdquo; en la página de seguimiento.
