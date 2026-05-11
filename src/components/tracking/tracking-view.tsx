@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
-  ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink,
+  ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink, X,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -104,6 +104,10 @@ export function TrackingView() {
   // Merchant rules — keyed by normalized pattern (lowercase)
   const [savedRules, setSavedRules]   = useState<Set<string>>(new Set());
   const [savingRule, setSavingRule]   = useState<string | null>(null);
+
+  // Delete-source confirmation
+  const [confirmDelete, setConfirmDelete] = useState<{ bank: string; source: 'checking' | 'credit_card' } | null>(null);
+  const [deleting, setDeleting]           = useState(false);
 
   // Upload dialog
   const [uploadOpen, setUploadOpen]   = useState(false);
@@ -205,8 +209,12 @@ export function TrackingView() {
     setFilterBank(null);
   };
 
-  const handleDeleteSource = async (bank: string, source: 'checking' | 'credit_card') => {
-    await fetch(`/api/snapshot/${month}?bank=${encodeURIComponent(bank)}&source=${encodeURIComponent(source)}`, { method: 'DELETE' });
+  const handleDeleteSource = async () => {
+    if (!confirmDelete) return;
+    setDeleting(true);
+    await fetch(`/api/snapshot/${month}?bank=${encodeURIComponent(confirmDelete.bank)}&source=${encodeURIComponent(confirmDelete.source)}`, { method: 'DELETE' });
+    setConfirmDelete(null);
+    setDeleting(false);
     await load(month);
     setFilterBank(null);
   };
@@ -319,14 +327,14 @@ export function TrackingView() {
         <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
         <div className="flex items-center gap-2 flex-wrap justify-end">
           {loadedSources.map(({ bank, source }) => (
-            <span key={`${bank}|${source}`} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
+            <span key={`${bank}|${source}`} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
               {BANK_LABEL[bank] ?? bank} {source === 'credit_card' ? 'TC' : 'CC'}
               <button
-                onClick={() => handleDeleteSource(bank, source)}
-                className="ml-0.5 text-zinc-400 hover:text-red-500 transition-colors leading-none"
+                onClick={() => setConfirmDelete({ bank, source })}
+                className="text-zinc-400 hover:text-red-500 transition-colors"
                 title={`Eliminar ${BANK_LABEL[bank] ?? bank} ${source === 'credit_card' ? 'TC' : 'CC'}`}
               >
-                ×
+                <X className="h-3 w-3" />
               </button>
             </span>
           ))}
@@ -427,6 +435,33 @@ export function TrackingView() {
               {uploading
                 ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Procesando…</>
                 : <><Upload className="h-4 w-4 mr-2" />Subir</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete source confirmation */}
+      <Dialog open={!!confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Eliminar datos?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600">
+            Se eliminarán todos los movimientos de{' '}
+            <span className="font-semibold">
+              {confirmDelete ? (BANK_LABEL[confirmDelete.bank] ?? confirmDelete.bank) : ''}{' '}
+              {confirmDelete?.source === 'credit_card' ? 'Tarjeta de Crédito' : 'Cuenta Corriente'}
+            </span>{' '}
+            de este mes. Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteSource} disabled={deleting}>
+              {deleting
+                ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Eliminando…</>
+                : <><Trash2 className="h-4 w-4 mr-2" />Eliminar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
