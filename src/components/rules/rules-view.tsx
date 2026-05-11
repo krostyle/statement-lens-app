@@ -39,7 +39,7 @@ const TX_TYPES = [
   { value: TX_TYPE_AUTO, label: 'Auto-detectar' },
   { value: 'expense',    label: 'Gasto' },
   { value: 'income',     label: 'Ingreso' },
-  { value: 'transfer',   label: 'Transferencia' },
+  { value: 'transfer',   label: 'Transferencia interna' },
 ];
 
 const BANK_LABEL: Record<string, string> = Object.fromEntries(BANKS.map((b) => [b.value, b.label]));

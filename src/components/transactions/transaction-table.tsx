@@ -681,7 +681,7 @@ export function TransactionsView() {
                       <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 align-middle">Ingreso</span>
                     )}
                     {t.transactionType === 'transfer' && (
-                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500 align-middle">Transferencia</span>
+                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500 align-middle">Transf. interna</span>
                     )}
                     <span className={`font-semibold ${
                       t.transactionType === 'transfer'

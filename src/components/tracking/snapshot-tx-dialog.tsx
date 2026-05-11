@@ -113,7 +113,7 @@ export function SnapshotTxDialog({ tx, categories, month, onSuccess, onClose }: 
               <SelectContent>
                 <SelectItem value="expense">Gasto</SelectItem>
                 <SelectItem value="income">Ingreso</SelectItem>
-                <SelectItem value="transfer">Transferencia</SelectItem>
+                <SelectItem value="transfer">Transferencia interna</SelectItem>
               </SelectContent>
             </Select>
           </div>
