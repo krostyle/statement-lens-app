@@ -95,6 +95,8 @@ export function TrackingView() {
   // Per-transaction edit
   const [editingTx, setEditingTx] = useState<SnapshotTransaction | null>(null);
 
+  const [totalBudget, setTotalBudget] = useState(0);
+
   // Merchant rules — keyed by normalized pattern (lowercase)
   const [savedRules, setSavedRules]   = useState<Set<string>>(new Set());
   const [savingRule, setSavingRule]   = useState<string | null>(null);
@@ -119,7 +121,16 @@ export function TrackingView() {
     setLoading(false);
   }, []);
 
-  useEffect(() => { load(month); setUnassignedMerchants(new Set()); }, [load, month]);
+  useEffect(() => {
+    load(month);
+    setUnassignedMerchants(new Set());
+    fetch(`/api/budgets?month=${month}`)
+      .then((r) => r.ok ? r.json() : [])
+      .then((budgets: { monthlyAmount: number }[]) =>
+        setTotalBudget(budgets.reduce((s, b) => s + b.monthlyAmount, 0))
+      )
+      .catch(() => {});
+  }, [load, month]);
 
   useEffect(() => {
     fetch('/api/categories')
@@ -257,7 +268,6 @@ export function TrackingView() {
   const m        = data?.metrics;
   const hasData  = !!data && (data.checkingTxs.length > 0 || data.ccTxs.length > 0);
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
-  const totalBudget = m ? m.byCategory.reduce((s, c) => s + (c.budget ?? 0), 0) : 0;
   const budgetPct   = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
 
   return (

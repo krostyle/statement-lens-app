@@ -8,14 +8,19 @@ const TRANSFER_PATTERNS = [
   /pago\s+tarj/i,
   /\bpago\s+tc\b/i,
   /\bpag\.?\s*tc\b/i,
-  // Credit line transfers (línea de crédito — draw and repayment)
-  /linea\s+(de\s+)?cred/i,
-  /l[íi]nea\s+cred/i,
+  /traspaso.*t\.?\s*cr[eé]d/i,        // "Traspaso ... T. Crédito"
+  // Credit line (Línea de Crédito — accent-safe)
+  /l[íi]nea\s+(de\s+)?cr[eé]d/i,
+  /linea\s+(de\s+)?cr[eé]?d/i,
   /uso\s+lin/i,
   /pago\s+lin/i,
   /\bl\s*de\s*cr/i,
-  /cred\.?\s*hipot/i,
+  /cr[eé]d\.?\s*hipot/i,
+  /\blca\b/i,                          // Línea de Crédito Automática
+  /pago\s+cuota\s+cr[eé]d/i,          // consumer loan installment
+  /traspaso.*l[íi]nea/i,              // "Traspaso ... Línea"
   // Own-account transfers
+  /traspaso\s+con\s+la\s+cuenta/i,    // "TRASPASO CON LA CUENTA N°"
   /trf\s+a\s+yo\b/i,
   /transf\.?\s+a\s+yo\b/i,
   /a\s+mi\s+mismo/i,
