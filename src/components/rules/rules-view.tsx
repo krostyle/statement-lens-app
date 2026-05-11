@@ -51,7 +51,7 @@ interface RuleDialogProps {
   rule: MerchantRule | null; // null = create
   categories: SimpleCategory[];
   onClose: () => void;
-  onSaved: () => void;
+  onSaved: (saved: MerchantRule) => void;
 }
 
 function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
@@ -78,11 +78,9 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ merchant: merchant.trim(), bank: bankToSave, categoryId, transactionType: txTypeToSave }),
       });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? 'Error al guardar');
-      }
-      onSaved();
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? 'Error al guardar');
+      onSaved(data);
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error inesperado');
@@ -290,7 +288,13 @@ export function RulesView() {
           rule={dialog.rule}
           categories={categories}
           onClose={() => setDialog(null)}
-          onSaved={loadRules}
+          onSaved={(saved) => {
+            setRules((prev) =>
+              prev.some((r) => r.id === saved.id)
+                ? prev.map((r) => r.id === saved.id ? saved : r)
+                : [...prev, saved].sort((a, b) => a.merchantPattern.localeCompare(b.merchantPattern))
+            );
+          }}
         />
       )}
 
