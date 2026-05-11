@@ -94,6 +94,8 @@ export function TrackingView() {
   const [expandedMerchants, setExpandedMerchants] = useState<Set<string>>(new Set());
   // Merchants the user has manually marked as "unassigned" this session
   const [unassignedMerchants, setUnassignedMerchants] = useState<Set<string>>(new Set());
+  // Bank filter for the merchant list
+  const [filterBank, setFilterBank] = useState<string | null>(null);
   // Per-transaction edit
   const [editingTx, setEditingTx] = useState<SnapshotTransaction | null>(null);
 
@@ -137,6 +139,7 @@ export function TrackingView() {
   useEffect(() => {
     load(month);
     setUnassignedMerchants(new Set());
+    setFilterBank(null);
     fetch(`/api/budgets?month=${month}`)
       .then((r) => r.ok ? r.json() : [])
       .then((budgets: { monthlyAmount: number }[]) =>
@@ -279,7 +282,14 @@ export function TrackingView() {
   const m        = data?.metrics;
   const hasData  = !!data && (data.checkingTxs.length > 0 || data.ccTxs.length > 0);
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
-  const budgetPct   = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
+  const budgetPct = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
+
+  const availableBanks: string[] = data
+    ? [...new Set([...data.checkingTxs, ...data.ccTxs].map((t) => (t as { bank?: string }).bank ?? 'santander'))].sort()
+    : [];
+  const visibleMerchants = m
+    ? (filterBank ? m.byMerchant.filter((mer) => mer.banks.includes(filterBank)) : m.byMerchant)
+    : [];
 
   return (
     <div className="space-y-6">
@@ -473,8 +483,37 @@ export function TrackingView() {
           {/* By merchant — accordion */}
           {m.byMerchant.length > 0 && (
             <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50 flex items-center justify-between">
-                <h2 className="text-sm font-semibold text-zinc-700">Por comercio</h2>
+              <div className="px-4 py-3 border-b border-zinc-100 bg-zinc-50 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-sm font-semibold text-zinc-700">Por comercio</h2>
+                  {availableBanks.length > 1 && (
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <button
+                        onClick={() => setFilterBank(null)}
+                        className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                          filterBank === null
+                            ? 'bg-brand-600 text-white border-brand-600'
+                            : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'
+                        }`}
+                      >
+                        Todos
+                      </button>
+                      {availableBanks.map((b) => (
+                        <button
+                          key={b}
+                          onClick={() => setFilterBank(filterBank === b ? null : b)}
+                          className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                            filterBank === b
+                              ? 'bg-brand-600 text-white border-brand-600'
+                              : 'border-zinc-200 text-zinc-500 hover:border-zinc-400'
+                          }`}
+                        >
+                          {BANK_LABEL[b] ?? b}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <Button variant="outline" size="sm" asChild title="Gestionar reglas de categorización">
                   <Link href="/rules">
                     <BookMarked className="h-4 w-4" />
@@ -483,7 +522,10 @@ export function TrackingView() {
                 </Button>
               </div>
               <div className="divide-y divide-zinc-100">
-                {m.byMerchant.map((mer) => {
+                {visibleMerchants.length === 0 && (
+                  <p className="text-sm text-zinc-400 px-4 py-6 text-center">Sin comercios para este banco.</p>
+                )}
+                {visibleMerchants.map((mer) => {
                   const isExpanded  = expandedMerchants.has(mer.merchant);
                   const txs         = isExpanded ? getMerchantTxs(mer.merchant) : [];
                   const ruleKey     = normKey(mer.merchant);
