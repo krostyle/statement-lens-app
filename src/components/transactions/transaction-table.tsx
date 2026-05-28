@@ -591,11 +591,10 @@ export function TransactionsView() {
       </Dialog>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[680px] text-sm">
+      <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+        <table className="w-full text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
-              {/* Select-all checkbox */}
               <th className="px-3 py-3 w-10">
                 <input
                   ref={headerCheckboxRef}
@@ -605,28 +604,30 @@ export function TransactionsView() {
                   aria-label="Seleccionar todas las transacciones de esta página"
                 />
               </th>
-              <th className="px-3 py-3 w-6" title="Estado de revisión" />
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
+              <th className="px-2 py-3 w-6" title="Estado de revisión" />
+              {/* Fecha — hidden below sm */}
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuenta/Tarjeta</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
+              {/* Categoría, Cuenta, Cuotas — hidden below md */}
+              <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
+              <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Cuenta</th>
+              <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
               <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
-              <th className="px-4 py-3" />
+              <th className="px-3 py-3" />
             </tr>
           </thead>
           <tbody>
             {loading && Array.from({ length: 5 }).map((_, i) => (
               <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
                 <td className="px-3 py-3"><Skeleton className="h-4 w-4" /></td>
-                <td className="px-3 py-3"><Skeleton className="h-2.5 w-2.5 rounded-full" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                <td className="px-2 py-3"><Skeleton className="h-2.5 w-2.5 rounded-full" /></td>
+                <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="px-4 py-3"><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-24 mt-1" /></td>
+                <td className="hidden md:table-cell px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                <td className="hidden md:table-cell px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="hidden md:table-cell px-4 py-3"><Skeleton className="h-4 w-12" /></td>
                 <td className="px-4 py-3 text-right"><Skeleton className="h-4 w-16 ml-auto" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
+                <td className="px-3 py-3"><Skeleton className="h-4 w-10 ml-auto" /></td>
               </tr>
             ))}
             {!loading && transactions.map((t) => {
@@ -638,7 +639,7 @@ export function TransactionsView() {
                   className={`border-b border-zinc-50 cursor-pointer transition-colors ${isSelected ? 'bg-brand-50 hover:bg-brand-100' : 'hover:bg-zinc-50'}`}
                   onClick={() => toggleRow(t.id)}
                 >
-                  {/* Row checkbox */}
+                  {/* Checkbox */}
                   <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
@@ -648,7 +649,8 @@ export function TransactionsView() {
                       aria-label={`Seleccionar ${t.merchant}`}
                     />
                   </td>
-                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
+                  {/* Review dot */}
+                  <td className="px-2 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-center">
                       <ReviewDot
                         status={t.reviewStatus as ReviewStatus}
@@ -656,18 +658,46 @@ export function TransactionsView() {
                       />
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-zinc-500">{formatDate(t.date)}</td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium text-zinc-900">{t.merchant}</p>
-                    <p className="text-xs text-zinc-400">{t.description}</p>
+                  {/* Fecha — hidden below sm */}
+                  <td className="hidden sm:table-cell px-4 py-3 text-zinc-500 whitespace-nowrap">
+                    {formatDate(t.date)}
                   </td>
-                  <td className="px-4 py-3">
+                  {/* Comercio — always visible; packs hidden-column info below md */}
+                  <td className="px-4 py-3 min-w-0 max-w-[200px]">
+                    <p className="font-medium text-zinc-900 truncate">{t.merchant}</p>
+                    {t.description && (
+                      <p className="text-xs text-zinc-400 truncate">{t.description}</p>
+                    )}
+                    {/* Sub-info row — visible only when columns are hidden */}
+                    <div className="md:hidden flex items-center gap-1.5 mt-1 flex-wrap">
+                      {/* Date — only below sm (sm+ has its own column) */}
+                      <span className="sm:hidden text-xs text-zinc-400 whitespace-nowrap">
+                        {formatDate(t.date)}
+                      </span>
+                      <span className="sm:hidden text-zinc-200 text-xs">·</span>
+                      <Badge variant="secondary" className="text-xs py-0 px-1.5 font-normal">
+                        {getCategoryName(t.categoryId)}
+                      </Badge>
+                      {t.isInstallment && t.installmentNum != null && t.installmentTotal != null && (
+                        <Badge variant="outline" className="text-xs py-0 px-1.5 font-normal">
+                          {t.installmentNum}/{t.installmentTotal}
+                        </Badge>
+                      )}
+                      {bankLabel && (
+                        <span className="text-xs text-zinc-400">{bankLabel}</span>
+                      )}
+                    </div>
+                  </td>
+                  {/* Categoría — hidden below md */}
+                  <td className="hidden md:table-cell px-4 py-3">
                     <Badge variant="secondary">{getCategoryName(t.categoryId)}</Badge>
                   </td>
-                  <td className="px-4 py-3 text-sm text-zinc-500">
+                  {/* Cuenta — hidden below md */}
+                  <td className="hidden md:table-cell px-4 py-3 text-sm text-zinc-500 whitespace-nowrap">
                     {bankLabel ?? <span className="text-zinc-300">—</span>}
                   </td>
-                  <td className="px-4 py-3">
+                  {/* Cuotas — hidden below md */}
+                  <td className="hidden md:table-cell px-4 py-3">
                     {t.isInstallment && t.installmentNum != null && t.installmentTotal != null ? (
                       <Badge variant="outline" className="text-xs font-normal">
                         {t.installmentNum}/{t.installmentTotal}
@@ -676,12 +706,18 @@ export function TransactionsView() {
                       <span className="text-zinc-300">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  {/* Monto */}
+                  <td className="px-4 py-3 text-right whitespace-nowrap">
                     {t.transactionType === 'income' && (
-                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 align-middle">Ingreso</span>
+                      <span className="inline-block mr-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-green-100 text-green-700 align-middle">
+                        Ingreso
+                      </span>
                     )}
                     {t.transactionType === 'transfer' && (
-                      <span className="inline-block mr-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500 align-middle">Transf. interna</span>
+                      <span className="inline-block mr-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 text-zinc-500 align-middle">
+                        <span className="hidden sm:inline">Transf. interna</span>
+                        <span className="sm:hidden">T.I.</span>
+                      </span>
                     )}
                     <span className={`font-semibold ${
                       t.transactionType === 'transfer'
@@ -691,12 +727,13 @@ export function TransactionsView() {
                       {t.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(t.amount))}
                     </span>
                   </td>
-                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                  {/* Actions */}
+                  <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => openEdit(t)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}>
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleteTarget(t)}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteTarget(t)}>
                         <Trash2 className="h-3.5 w-3.5 text-red-500" />
                       </Button>
                     </div>
