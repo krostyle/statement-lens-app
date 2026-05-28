@@ -37,4 +37,15 @@ export class MerchantRulePrismaRepository implements IMerchantRuleRepository {
   async delete(id: string, userId: string): Promise<void> {
     await prisma.merchantRule.deleteMany({ where: { id, userId } });
   }
+
+  async bulkUpdateTransactionType(userId: string, ids: string[], transactionType: string | null): Promise<MerchantRule[]> {
+    await prisma.merchantRule.updateMany({
+      where: { id: { in: ids }, userId },
+      data: { transactionType },
+    });
+    return prisma.merchantRule.findMany({
+      where: { id: { in: ids }, userId },
+      orderBy: { merchantPattern: 'asc' },
+    }) as Promise<MerchantRule[]>;
+  }
 }

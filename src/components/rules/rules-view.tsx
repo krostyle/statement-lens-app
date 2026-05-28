@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pencil, Trash2, Plus, Loader2, Search, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Skeleton } from '@/src/components/ui/skeleton';
@@ -177,13 +177,19 @@ function RuleDialog({ rule, categories, onClose, onSaved }: RuleDialogProps) {
 // ─── Main view ─────────────────────────────────────────────────────────────────
 
 export function RulesView() {
-  const [rules,      setRules]      = useState<MerchantRule[]>([]);
-  const [categories, setCategories] = useState<SimpleCategory[]>([]);
-  const [loading,    setLoading]    = useState(true);
-  const [dialog,     setDialog]     = useState<{ rule: MerchantRule | null } | null>(null);
+  const [rules,        setRules]        = useState<MerchantRule[]>([]);
+  const [categories,   setCategories]   = useState<SimpleCategory[]>([]);
+  const [loading,      setLoading]      = useState(true);
+  const [dialog,       setDialog]       = useState<{ rule: MerchantRule | null } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantRule | null>(null);
-  const [deleting,   setDeleting]   = useState(false);
-  const [search,     setSearch]     = useState('');
+  const [deleting,     setDeleting]     = useState(false);
+  const [search,       setSearch]       = useState('');
+
+  // Bulk selection
+  const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set());
+  const [bulkTxType,    setBulkTxType]    = useState<string>('expense');
+  const [bulkApplying,  setBulkApplying]  = useState(false);
+  const selectAllRef = useRef<HTMLInputElement>(null);
 
   async function loadRules() {
     setLoading(true);
@@ -207,8 +213,27 @@ export function RulesView() {
     setDeleting(true);
     await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
     setRules((prev) => prev.filter((r) => r.id !== id));
+    setSelectedIds((prev) => { const next = new Set(prev); next.delete(id); return next; });
     setDeleting(false);
     setDeleteTarget(null);
+  }
+
+  async function handleBulkUpdate() {
+    if (selectedIds.size === 0) return;
+    setBulkApplying(true);
+    const transactionType = bulkTxType === TX_TYPE_AUTO ? null : bulkTxType;
+    const res = await fetch('/api/merchant-rules', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selectedIds], transactionType }),
+    });
+    if (res.ok) {
+      const updated: MerchantRule[] = await res.json();
+      const updatedMap = new Map(updated.map((r) => [r.id, r]));
+      setRules((prev) => prev.map((r) => updatedMap.get(r.id) ?? r));
+      setSelectedIds(new Set());
+    }
+    setBulkApplying(false);
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
@@ -222,9 +247,41 @@ export function RulesView() {
       )
     : rules;
 
+  const visibleIds = filteredRules.map((r) => r.id);
+  const selectedVisible = visibleIds.filter((id) => selectedIds.has(id));
+  const allVisibleSelected = visibleIds.length > 0 && selectedVisible.length === visibleIds.length;
+  const someVisibleSelected = selectedVisible.length > 0 && !allVisibleSelected;
+
+  // Sync indeterminate state on the "select all" checkbox
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  function toggleSelectAll() {
+    if (allVisibleSelected) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        visibleIds.forEach((id) => next.delete(id));
+        return next;
+      });
+    } else {
+      setSelectedIds((prev) => new Set([...prev, ...visibleIds]));
+    }
+  }
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
   return (
     <div className="space-y-4">
-      {/* Search bar — always visible (disabled while loading) */}
+      {/* Search bar */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
         <Input
@@ -247,7 +304,8 @@ export function RulesView() {
       {loading ? (
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="grid grid-cols-[1fr_120px_1fr_100px_72px] px-4 py-3 gap-4 border-b border-zinc-100 last:border-0">
+            <div key={i} className="grid grid-cols-[40px_1fr_120px_1fr_100px_72px] px-4 py-3 gap-4 border-b border-zinc-100 last:border-0">
+              <Skeleton className="h-4 w-4 rounded" />
               <Skeleton className="h-4 w-32" />
               <Skeleton className="h-4 w-16" />
               <Skeleton className="h-4 w-24" />
@@ -262,67 +320,123 @@ export function RulesView() {
         </div>
       ) : (
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
-          <div className="hidden md:grid grid-cols-[1fr_120px_1fr_100px_72px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4">
+          {/* Table header */}
+          <div className="hidden md:grid grid-cols-[40px_1fr_120px_1fr_100px_72px] px-4 py-2 bg-zinc-50 border-b border-zinc-100 text-xs font-medium text-zinc-500 uppercase tracking-wide gap-4 items-center">
+            <input
+              ref={selectAllRef}
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={toggleSelectAll}
+              className="h-4 w-4 rounded border-zinc-300 accent-brand-600 cursor-pointer"
+              title="Seleccionar todos los visibles"
+            />
             <span>Comercio</span>
             <span>Banco</span>
             <span>Categoría</span>
             <span>Tipo</span>
             <span />
           </div>
+
           <div className="divide-y divide-zinc-100">
             {filteredRules.length === 0 && (
               <p className="text-sm text-zinc-400 px-4 py-8 text-center">
                 Sin resultados para &ldquo;{search}&rdquo;.
               </p>
             )}
-            {filteredRules.map((rule) => (
-              <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_120px_1fr_100px_72px] items-center px-4 py-3 gap-4">
-                <div className="min-w-0">
-                  <span className="text-sm font-mono text-zinc-800">{rule.merchantPattern}</span>
-                  <div className="md:hidden flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <span className="text-xs text-zinc-400">{BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}</span>
-                    <span className="text-xs text-zinc-300">·</span>
-                    <span className="text-xs text-zinc-500">{catMap.get(rule.categoryId) ?? '—'}</span>
-                    {rule.transactionType && (
-                      <>
-                        <span className="text-xs text-zinc-300">·</span>
-                        <span className="text-xs text-zinc-500">{TX_TYPE_LABEL[rule.transactionType]}</span>
-                      </>
-                    )}
+            {filteredRules.map((rule) => {
+              const isSelected = selectedIds.has(rule.id);
+              return (
+                <div
+                  key={rule.id}
+                  className={`grid grid-cols-[40px_1fr_auto] md:grid-cols-[40px_1fr_120px_1fr_100px_72px] items-center px-4 py-3 gap-4 transition-colors ${isSelected ? 'bg-brand-50' : 'hover:bg-zinc-50'}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleRow(rule.id)}
+                    className="h-4 w-4 rounded border-zinc-300 accent-brand-600 cursor-pointer"
+                  />
+                  <div className="min-w-0">
+                    <span className="text-sm font-mono text-zinc-800">{rule.merchantPattern}</span>
+                    <div className="md:hidden flex items-center gap-1.5 mt-0.5 flex-wrap">
+                      <span className="text-xs text-zinc-400">{BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}</span>
+                      <span className="text-xs text-zinc-300">·</span>
+                      <span className="text-xs text-zinc-500">{catMap.get(rule.categoryId) ?? '—'}</span>
+                      {rule.transactionType && (
+                        <>
+                          <span className="text-xs text-zinc-300">·</span>
+                          <span className="text-xs text-zinc-500">{TX_TYPE_LABEL[rule.transactionType]}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <span className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 w-fit">
+                    {BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}
+                  </span>
+                  <span className="hidden md:block text-sm text-zinc-700">
+                    {catMap.get(rule.categoryId) ?? rule.categoryId}
+                  </span>
+                  <span className="hidden md:block text-xs text-zinc-500">
+                    {rule.transactionType ? TX_TYPE_LABEL[rule.transactionType] : <span className="text-zinc-300">Auto</span>}
+                  </span>
+                  <div className="flex items-center gap-1 justify-end">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-zinc-400 hover:text-zinc-700"
+                      onClick={() => setDialog({ rule })}
+                      title="Editar"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-zinc-400 hover:text-red-500"
+                      onClick={() => setDeleteTarget(rule)}
+                      title="Eliminar"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-500" />
+                    </Button>
                   </div>
                 </div>
-                <span className="hidden md:inline-block text-xs px-2 py-0.5 rounded bg-zinc-100 text-zinc-600 w-fit">
-                  {BANK_LABEL[rule.bank] ?? BANK_LABEL[BANK_ANY]}
-                </span>
-                <span className="hidden md:block text-sm text-zinc-700">
-                  {catMap.get(rule.categoryId) ?? rule.categoryId}
-                </span>
-                <span className="hidden md:block text-xs text-zinc-500">
-                  {rule.transactionType ? TX_TYPE_LABEL[rule.transactionType] : <span className="text-zinc-300">Auto</span>}
-                </span>
-                <div className="flex items-center gap-1 justify-end">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-zinc-400 hover:text-zinc-700"
-                    onClick={() => setDialog({ rule })}
-                    title="Editar"
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-zinc-400 hover:text-red-500"
-                    onClick={() => setDeleteTarget(rule)}
-                    title="Eliminar"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-red-500" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Bulk action bar — visible inside the card when there's a selection */}
+          {selectedIds.size > 0 && (
+            <div className="px-4 py-3 border-t border-brand-200 bg-brand-50 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-medium text-brand-700">
+                {selectedIds.size} {selectedIds.size === 1 ? 'regla seleccionada' : 'reglas seleccionadas'}
+              </span>
+              <div className="flex items-center gap-2 ml-auto flex-wrap">
+                <span className="text-xs text-zinc-500 shrink-0">Cambiar tipo a:</span>
+                <Select value={bulkTxType} onValueChange={setBulkTxType}>
+                  <SelectTrigger className="h-8 text-xs w-44">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TX_TYPES.map((t) => (
+                      <SelectItem key={t.value} value={t.value} className="text-xs">{t.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button size="sm" onClick={handleBulkUpdate} disabled={bulkApplying} className="h-8">
+                  {bulkApplying
+                    ? <><Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />Aplicando…</>
+                    : 'Aplicar'}
+                </Button>
+                <button
+                  onClick={() => setSelectedIds(new Set())}
+                  className="text-xs text-zinc-400 hover:text-zinc-600 transition-colors"
+                  disabled={bulkApplying}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

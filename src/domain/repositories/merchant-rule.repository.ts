@@ -5,4 +5,5 @@ export interface IMerchantRuleRepository {
   findById(id: string): Promise<MerchantRule | null>;
   upsert(userId: string, merchantPattern: string, bank: string, categoryId: string, transactionType?: string | null): Promise<MerchantRule>;
   delete(id: string, userId: string): Promise<void>;
+  bulkUpdateTransactionType(userId: string, ids: string[], transactionType: string | null): Promise<MerchantRule[]>;
 }
