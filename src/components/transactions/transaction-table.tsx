@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -107,6 +107,7 @@ function BulkCategoryDialog({
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={handleApply} disabled={!categoryId || loading}>
+          {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
         </Button>
       </DialogFooter>
@@ -154,6 +155,7 @@ function BulkMerchantDialog({
       <DialogFooter>
         <Button variant="outline" onClick={onClose}>Cancelar</Button>
         <Button onClick={handleApply} disabled={!merchant.trim() || loading}>
+          {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
         </Button>
       </DialogFooter>
@@ -188,6 +190,7 @@ export function TransactionsView() {
   // ── Bulk selection ──────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [bulkDialog, setBulkDialog] = useState<'category' | 'merchant' | null>(null);
+  const [bulkApplying, setBulkApplying] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
   // ── Confirm-all pending dialog ──────────────────────────
@@ -329,11 +332,13 @@ export function TransactionsView() {
   };
 
   const applyBulk = async (update: { categoryId?: string; merchant?: string; reviewStatus?: string }) => {
+    setBulkApplying(true);
     await fetch('/api/transactions/bulk', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ids: [...selectedIds], update }),
     });
+    setBulkApplying(false);
     clearSelection();
     setBulkDialog(null);
     setRefreshKey((k) => k + 1);
@@ -485,6 +490,7 @@ export function TransactionsView() {
             size="sm"
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
             onClick={() => setBulkDialog('category')}
           >
             <Tags className="h-3.5 w-3.5 mr-1.5" />
@@ -494,6 +500,7 @@ export function TransactionsView() {
             size="sm"
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
             onClick={() => setBulkDialog('merchant')}
           >
             <PenLine className="h-3.5 w-3.5 mr-1.5" />
@@ -503,15 +510,20 @@ export function TransactionsView() {
             size="sm"
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
             onClick={() => applyBulk({ reviewStatus: 'confirmed' })}
           >
-            <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-            Verificar
+            {bulkApplying
+              ? <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+              : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+            }
+            {bulkApplying ? 'Aplicando...' : 'Verificar'}
           </Button>
           <Button
             size="sm"
             variant="ghost"
             className="ml-auto text-zinc-500 hover:text-zinc-700"
+            disabled={bulkApplying}
             onClick={clearSelection}
           >
             Cancelar
