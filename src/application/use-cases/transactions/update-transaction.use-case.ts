@@ -18,7 +18,9 @@ export class UpdateTransactionUseCase {
       dto.amount          !== undefined ||
       dto.notes           !== undefined ||
       dto.date            !== undefined ||
-      dto.transactionType !== undefined;
+      dto.transactionType !== undefined ||
+      dto.installmentNum  !== undefined ||
+      dto.installmentTotal !== undefined;
 
     const reviewStatus = dto.reviewStatus ?? (hasContentChange ? 'manual' : undefined);
 

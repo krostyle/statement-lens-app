@@ -48,6 +48,8 @@ const editSchema = z.object({
   saveMerchantRule: z.boolean(),
   saveMerchantRuleBank: z.string(), // BANK_ANY = any card, else specific bank key
   applyToInstallmentGroup: z.boolean(),
+  installmentNum: z.number().int().positive().optional().nullable(),
+  installmentTotal: z.number().int().positive().optional().nullable(),
 });
 type EditInput = z.infer<typeof editSchema>;
 
@@ -80,6 +82,8 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
       saveMerchantRule: false,
       saveMerchantRuleBank: bank ?? BANK_ANY, // pre-select the transaction's card
       applyToInstallmentGroup: false,
+      installmentNum: transaction?.installmentNum ?? null,
+      installmentTotal: transaction?.installmentTotal ?? null,
     },
   });
 
@@ -125,6 +129,10 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
         applyToInstallmentGroup: transaction?.isInstallment
           ? data.applyToInstallmentGroup
           : false,
+        ...(transaction?.isInstallment && {
+          installmentNum: data.installmentNum,
+          installmentTotal: data.installmentTotal,
+        }),
       }),
     });
     if (res.ok) {
@@ -198,10 +206,36 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
                 <p className="text-xs text-zinc-400 uppercase tracking-wide">Fecha</p>
                 <p className="text-sm text-zinc-600">{formatDate(transaction.date)}</p>
               </div>
-              {transaction.isInstallment && transaction.installmentNum && transaction.installmentTotal && (
-                <div>
+              {transaction.isInstallment && (
+                <div className="space-y-1">
                   <p className="text-xs text-zinc-400 uppercase tracking-wide">Cuotas</p>
-                  <p className="text-sm text-zinc-600">{transaction.installmentNum} de {transaction.installmentTotal}</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 space-y-0.5">
+                      <p className="text-[10px] text-zinc-400">N° cuota</p>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-8 text-sm"
+                        {...editRegister('installmentNum', { valueAsNumber: true })}
+                      />
+                      {editErrors.installmentNum && (
+                        <p className="text-xs text-destructive">{editErrors.installmentNum.message}</p>
+                      )}
+                    </div>
+                    <span className="text-zinc-400 mt-4">de</span>
+                    <div className="flex-1 space-y-0.5">
+                      <p className="text-[10px] text-zinc-400">Total cuotas</p>
+                      <Input
+                        type="number"
+                        min={1}
+                        className="h-8 text-sm"
+                        {...editRegister('installmentTotal', { valueAsNumber: true })}
+                      />
+                      {editErrors.installmentTotal && (
+                        <p className="text-xs text-destructive">{editErrors.installmentTotal.message}</p>
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>

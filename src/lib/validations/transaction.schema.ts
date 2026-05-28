@@ -28,6 +28,8 @@ export const updateTransactionSchema = z.object({
   confirm: z.boolean().optional(),
   // Manual type override (expense / income / transfer)
   transactionType: z.enum(['expense', 'income', 'transfer']).optional(),
+  installmentNum: z.number().int().positive().optional().nullable(),
+  installmentTotal: z.number().int().positive().optional().nullable(),
 });
 
 export type CreateTransactionInput = z.input<typeof createTransactionSchema>;
