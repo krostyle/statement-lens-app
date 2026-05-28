@@ -358,10 +358,12 @@ export function TransactionsView() {
 
   return (
     <div className="space-y-4">
-      {/* ── Filters row ── */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* ── Filters row ──
+          Mobile  (< md): 2-column grid, search spans full width at bottom
+          Desktop (≥ md): single flex row as before                       */}
+      <div className="grid grid-cols-2 md:flex md:flex-wrap items-center gap-2">
         <Select value={selectedType} onValueChange={setSelectedType}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full md:w-40">
             <SelectValue placeholder="Tipo" />
           </SelectTrigger>
           <SelectContent>
@@ -373,7 +375,7 @@ export function TransactionsView() {
         </Select>
 
         <Select value={selectedBank} onValueChange={setSelectedBank}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full md:w-40">
             <SelectValue placeholder="Todas las cuentas" />
           </SelectTrigger>
           <SelectContent>
@@ -390,10 +392,11 @@ export function TransactionsView() {
           value={selectedMonth}
           onChange={setSelectedMonth}
           placeholder="Todos los meses"
+          className="w-full md:w-44"
         />
 
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
-          <SelectTrigger className="w-44">
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue placeholder="Todas las categorías" />
           </SelectTrigger>
           <SelectContent>
@@ -405,7 +408,7 @@ export function TransactionsView() {
         </Select>
 
         <Select value={selectedInstallment} onValueChange={setSelectedInstallment}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-full md:w-36">
             <SelectValue placeholder="Tipo de pago" />
           </SelectTrigger>
           <SelectContent>
@@ -417,7 +420,7 @@ export function TransactionsView() {
         </Select>
 
         <Select value={selectedReview} onValueChange={setSelectedReview}>
-          <SelectTrigger className="w-40">
+          <SelectTrigger className="w-full md:w-40">
             <SelectValue placeholder="Revisión" />
           </SelectTrigger>
           <SelectContent>
@@ -429,11 +432,12 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
+        {/* Search spans both columns on mobile, grows in flex on desktop */}
         <Input
           placeholder="Buscar comercio o descripción..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 min-w-[160px]"
+          className="col-span-2 w-full md:flex-1 md:min-w-[160px]"
         />
       </div>
 
@@ -467,11 +471,10 @@ export function TransactionsView() {
 
       {/* Bulk action bar */}
       {hasSelection && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-brand-50 border border-brand-200 rounded-lg text-sm">
-          <span className="font-semibold text-brand-700">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 bg-brand-50 border border-brand-200 rounded-lg text-sm">
+          <span className="font-semibold text-brand-700 shrink-0">
             {selectedIds.size} seleccionada{selectedIds.size !== 1 ? 's' : ''}
           </span>
-          <div className="h-4 w-px bg-brand-200" />
           <Button
             size="sm"
             variant="outline"
@@ -479,7 +482,7 @@ export function TransactionsView() {
             onClick={() => setBulkDialog('category')}
           >
             <Tags className="h-3.5 w-3.5 mr-1.5" />
-            Cambiar categoría
+            Categoría
           </Button>
           <Button
             size="sm"
@@ -488,7 +491,7 @@ export function TransactionsView() {
             onClick={() => setBulkDialog('merchant')}
           >
             <PenLine className="h-3.5 w-3.5 mr-1.5" />
-            Cambiar nombre de comercio
+            Comercio
           </Button>
           <Button
             size="sm"
@@ -497,7 +500,7 @@ export function TransactionsView() {
             onClick={() => applyBulk({ reviewStatus: 'confirmed' })}
           >
             <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-            Verificar seleccionadas
+            Verificar
           </Button>
           <Button
             size="sm"
@@ -505,7 +508,7 @@ export function TransactionsView() {
             className="ml-auto text-zinc-500 hover:text-zinc-700"
             onClick={clearSelection}
           >
-            Cancelar selección
+            Cancelar
           </Button>
         </div>
       )}
@@ -663,7 +666,7 @@ export function TransactionsView() {
                     {formatDate(t.date)}
                   </td>
                   {/* Comercio — always visible; packs hidden-column info below md */}
-                  <td className="px-4 py-3 min-w-0 max-w-[200px]">
+                  <td className="px-4 py-3 min-w-0 max-w-[180px] sm:max-w-xs md:max-w-none">
                     <p className="font-medium text-zinc-900 truncate">{t.merchant}</p>
                     {t.description && (
                       <p className="text-xs text-zinc-400 truncate">{t.description}</p>

@@ -12,9 +12,10 @@ interface Props {
   value: string; // 'YYYY-MM' or ''
   onChange: (value: string) => void;
   placeholder?: string;
+  className?: string;
 }
 
-export function MonthPicker({ value, onChange, placeholder = 'Seleccionar mes...' }: Props) {
+export function MonthPicker({ value, onChange, placeholder = 'Seleccionar mes...', className }: Props) {
   const now = new Date();
   const [year, setYear] = useState(value ? Number(value.split('-')[0]) : now.getUTCFullYear());
   const [open, setOpen] = useState(false);
@@ -35,7 +36,7 @@ export function MonthPicker({ value, onChange, placeholder = 'Seleccionar mes...
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className={cn('w-44 justify-start font-normal', !value && 'text-zinc-400')}>
+        <Button variant="outline" className={cn('w-44 justify-start font-normal', !value && 'text-zinc-400', className)}>
           {label}
         </Button>
       </PopoverTrigger>
