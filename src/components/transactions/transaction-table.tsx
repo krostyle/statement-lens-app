@@ -671,24 +671,26 @@ export function TransactionsView() {
                     {t.description && (
                       <p className="text-xs text-zinc-400 truncate">{t.description}</p>
                     )}
-                    {/* Sub-info row — visible only when columns are hidden */}
-                    <div className="md:hidden flex items-center gap-1.5 mt-1 flex-wrap">
-                      {/* Date — only below sm (sm+ has its own column) */}
-                      <span className="sm:hidden text-xs text-zinc-400 whitespace-nowrap">
+                    {/* Sub-info — shown when columns are hidden (< md) */}
+                    <div className="md:hidden mt-1 space-y-0.5">
+                      {/* Date on its own line — only when date column is hidden (< sm) */}
+                      <p className="sm:hidden text-xs text-zinc-400 leading-none">
                         {formatDate(t.date)}
-                      </span>
-                      <span className="sm:hidden text-zinc-200 text-xs">·</span>
-                      <Badge variant="secondary" className="text-xs py-0 px-1.5 font-normal">
-                        {getCategoryName(t.categoryId)}
-                      </Badge>
-                      {t.isInstallment && t.installmentNum != null && t.installmentTotal != null && (
-                        <Badge variant="outline" className="text-xs py-0 px-1.5 font-normal">
-                          {t.installmentNum}/{t.installmentTotal}
+                      </p>
+                      {/* Badges always on their own consistent line */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <Badge variant="secondary" className="text-xs py-0 px-1.5 font-normal">
+                          {getCategoryName(t.categoryId)}
                         </Badge>
-                      )}
-                      {bankLabel && (
-                        <span className="text-xs text-zinc-400">{bankLabel}</span>
-                      )}
+                        {t.isInstallment && t.installmentNum != null && t.installmentTotal != null && (
+                          <Badge variant="outline" className="text-xs py-0 px-1.5 font-normal">
+                            {t.installmentNum}/{t.installmentTotal}
+                          </Badge>
+                        )}
+                        {bankLabel && (
+                          <span className="text-xs text-zinc-400">{bankLabel}</span>
+                        )}
+                      </div>
                     </div>
                   </td>
                   {/* Categoría — hidden below md */}
