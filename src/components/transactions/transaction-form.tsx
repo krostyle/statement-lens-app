@@ -1,7 +1,8 @@
 'use client';
 
 import { useForm, Controller, useWatch } from 'react-hook-form';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { Loader2, BookMarked } from 'lucide-react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -30,10 +31,26 @@ import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 
 const BANK_LABELS: Record<string, string> = {
-  santander: 'Santander',
-  falabella: 'Falabella',
-  liderbci:  'LiderBCI',
+  santander:   'Santander',
+  falabella:   'Falabella',
+  liderbci:    'LiderBCI',
+  bci:         'BCI',
+  bancoestado: 'BancoEstado',
 };
+
+const TYPE_LABELS: Record<string, string> = {
+  expense:  'Gasto',
+  income:   'Ingreso',
+  transfer: 'Transf. interna',
+};
+
+interface MerchantRule {
+  id: string;
+  merchant: string;
+  bank: string;
+  categoryId: string;
+  transactionType: string | null;
+}
 
 // Radix Select forbids value="", so we use this sentinel for "any card"
 // and convert it to "" at the API boundary.
@@ -69,6 +86,26 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
   // Two-phase state for rule conflicts: transaction saved OK but rule failed
   const [ruleWarning, setRuleWarning] = useState<string | null>(null);
   const [savedTransaction, setSavedTransaction] = useState<TransactionResponseDTO | null>(null);
+
+  // undefined = loading, null = no rule found, MerchantRule = existing rule
+  const [existingRule, setExistingRule] = useState<MerchantRule | null | undefined>(
+    isEdit ? undefined : null, // create mode: no need to check
+  );
+
+  // Check for an existing rule matching this transaction's merchant on mount (edit mode only)
+  useEffect(() => {
+    if (!isEdit || !transaction) return;
+    fetch('/api/merchant-rules')
+      .then((r) => r.json())
+      .then((rules: MerchantRule[]) => {
+        const match = rules.find(
+          (r) => r.merchant.toLowerCase() === transaction.merchant.toLowerCase(),
+        );
+        setExistingRule(match ?? null);
+      })
+      .catch(() => setExistingRule(null));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, transaction?.merchant]);
 
   // ── Edit form ────────────────────────────────────────────────────────────
   const editForm = useForm<EditInput>({
@@ -291,43 +328,103 @@ export function TransactionForm({ categories, transaction, bank, onSuccess, onCa
             <div className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-3 space-y-2.5">
               <p className="text-xs font-medium text-brand-700 uppercase tracking-wide">Automatización</p>
 
-              {/* "Recordar" — always available, uses current category if unchanged */}
-              <div className="space-y-2">
-                <label className="flex items-start gap-2.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
-                    {...editRegister('saveMerchantRule')}
-                  />
-                  <span className="text-sm text-zinc-700 leading-snug">
-                    Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
-                  </span>
-                </label>
-
-                {/* Bank scope selector — only visible when the checkbox is checked */}
-                {watchedSaveRule && (
-                  <div className="ml-6 flex items-center gap-2">
-                    <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
-                    <Controller
-                      name="saveMerchantRuleBank"
-                      control={editControl}
-                      render={({ field }) => (
-                        <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="h-7 text-xs flex-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent position="popper">
-                            <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
-                            {Object.entries(BANK_LABELS).map(([key, label]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
+              {/* Rule section: loading → existing rule → no rule */}
+              {existingRule === undefined ? (
+                /* Loading */
+                <div className="flex items-center gap-2 text-xs text-zinc-400 py-0.5">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Verificando reglas...
+                </div>
+              ) : existingRule !== null ? (
+                /* Existing rule — show its details and offer to update */
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <BookMarked className="h-4 w-4 text-brand-600 mt-0.5 shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-brand-700 mb-0.5">Regla activa para este comercio</p>
+                      <p className="text-xs text-zinc-500 flex flex-wrap gap-x-2">
+                        <span>{categories.find((c) => c.id === existingRule.categoryId)?.name ?? existingRule.categoryId}</span>
+                        <span className="text-zinc-300">·</span>
+                        <span>{existingRule.bank ? (BANK_LABELS[existingRule.bank] ?? existingRule.bank) : 'Cualquier tarjeta'}</span>
+                        {existingRule.transactionType && (
+                          <>
+                            <span className="text-zinc-300">·</span>
+                            <span>{TYPE_LABELS[existingRule.transactionType] ?? existingRule.transactionType}</span>
+                          </>
+                        )}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                      {...editRegister('saveMerchantRule')}
+                    />
+                    <span className="text-sm text-zinc-700 leading-snug">
+                      Actualizar la regla con la categoría y tipo actuales
+                    </span>
+                  </label>
+                  {watchedSaveRule && (
+                    <div className="ml-6 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
+                      <Controller
+                        name="saveMerchantRuleBank"
+                        control={editControl}
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="h-7 text-xs flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
+                              {Object.entries(BANK_LABELS).map(([key, label]) => (
+                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* No rule yet — offer to create one */
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 rounded border-zinc-300 text-primary accent-primary"
+                      {...editRegister('saveMerchantRule')}
+                    />
+                    <span className="text-sm text-zinc-700 leading-snug">
+                      Recordar esta categoría para <span className="font-medium">«{transaction.merchant}»</span> en futuros estados de cuenta
+                    </span>
+                  </label>
+                  {watchedSaveRule && (
+                    <div className="ml-6 flex items-center gap-2">
+                      <span className="text-xs text-zinc-500 shrink-0">Aplicar a:</span>
+                      <Controller
+                        name="saveMerchantRuleBank"
+                        control={editControl}
+                        render={({ field }) => (
+                          <Select value={field.value} onValueChange={field.onChange}>
+                            <SelectTrigger className="h-7 text-xs flex-1">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent position="popper">
+                              <SelectItem value={BANK_ANY}>Cualquier tarjeta</SelectItem>
+                              {Object.entries(BANK_LABELS).map(([key, label]) => (
+                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        )}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Propagate to installment group — always visible for installment transactions */}
               {transaction.isInstallment && (
