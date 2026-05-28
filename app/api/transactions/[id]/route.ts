@@ -63,6 +63,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
         userId,
         transaction.merchant,
         transaction.installmentTotal,
+        id, // used to identify which purchase group this cuota belongs to
       );
       const siblingIds = group.filter((t) => t.id !== id).map((t) => t.id);
       if (siblingIds.length > 0) {

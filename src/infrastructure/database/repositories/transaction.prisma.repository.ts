@@ -55,10 +55,55 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     return prisma.transaction.findMany({ where: { statementId } }) as Promise<Transaction[]>;
   }
 
-  async findInstallmentGroup(userId: string, merchant: string, installmentTotal: number): Promise<Transaction[]> {
-    return prisma.transaction.findMany({
+  async findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]> {
+    // Fetch all cuotas for this merchant+total combination
+    const candidates = await prisma.transaction.findMany({
       where: { userId, merchant, installmentTotal, isInstallment: true },
-    }) as Promise<Transaction[]>;
+      orderBy: { date: 'asc' },
+    }) as Transaction[];
+
+    // Fast path: if there are at most installmentTotal rows there can only be one group
+    if (candidates.length <= installmentTotal) return candidates;
+
+    // Detect multiple purchases: build connected components.
+    // Two cuotas are "adjacent" if their installmentNum values differ by 1
+    // AND their dates are at most 45 days apart (one billing cycle).
+    const MS_PER_DAY = 86_400_000;
+    const MAX_GAP_MS = 45 * MS_PER_DAY;
+
+    const groups: Transaction[][] = [];
+    const assigned = new Set<string>();
+
+    for (const tx of candidates) {
+      if (assigned.has(tx.id)) continue;
+
+      const group: Transaction[] = [tx];
+      assigned.add(tx.id);
+
+      // Expand group greedily until no new neighbors are found
+      let changed = true;
+      while (changed) {
+        changed = false;
+        for (const candidate of candidates) {
+          if (assigned.has(candidate.id)) continue;
+          const isNeighbor = group.some((g) => {
+            const numDiff = Math.abs((g.installmentNum ?? 0) - (candidate.installmentNum ?? 0));
+            const dateDiff = Math.abs(g.date.getTime() - candidate.date.getTime());
+            return numDiff === 1 && dateDiff <= MAX_GAP_MS;
+          });
+          if (isNeighbor) {
+            group.push(candidate);
+            assigned.add(candidate.id);
+            changed = true;
+          }
+        }
+      }
+
+      groups.push(group);
+    }
+
+    // Return the group that contains the transaction being edited
+    return groups.find((g) => g.some((t) => t.id === currentId)) ?? candidates;
   }
 
   async create(data: CreateTransactionInput): Promise<Transaction> {

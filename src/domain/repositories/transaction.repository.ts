@@ -21,7 +21,7 @@ export interface ITransactionRepository {
   findByUserId(userId: string, filters?: TransactionFilters): Promise<Transaction[]>;
   countByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<number>;
   findByStatementId(statementId: string): Promise<Transaction[]>;
-  findInstallmentGroup(userId: string, merchant: string, installmentTotal: number): Promise<Transaction[]>;
+  findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]>;
   create(data: CreateTransactionInput): Promise<Transaction>;
   createMany(data: CreateTransactionInput[]): Promise<void>;
   update(id: string, data: UpdateTransactionInput): Promise<Transaction>;
