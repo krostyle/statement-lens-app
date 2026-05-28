@@ -42,7 +42,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       try {
         const bank = saveMerchantRuleBank ?? ''; // '' = any card
         const merchantForRule = originalMerchant ?? transaction.merchant;
-        await upsertMerchantRuleUseCase.execute(userId, merchantForRule, bank, categoryToRule);
+        // Prefer the type the user just set; fall back to the transaction's stored type
+        const typeForRule = transactionData.transactionType ?? transaction.transactionType ?? null;
+        await upsertMerchantRuleUseCase.execute(userId, merchantForRule, bank, categoryToRule, typeForRule);
       } catch (ruleErr) {
         console.error('[PATCH /api/transactions/:id] rule upsert failed', ruleErr);
         ruleWarning = 'No se pudo guardar la regla. Es posible que ya exista una regla conflictiva para este comercio.';
