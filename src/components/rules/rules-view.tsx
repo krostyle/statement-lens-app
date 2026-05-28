@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Pencil, Trash2, Plus, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, Loader2, Search, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import {
@@ -182,6 +182,8 @@ export function RulesView() {
   const [loading,    setLoading]    = useState(true);
   const [dialog,     setDialog]     = useState<{ rule: MerchantRule | null } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MerchantRule | null>(null);
+  const [deleting,   setDeleting]   = useState(false);
+  const [search,     setSearch]     = useState('');
 
   async function loadRules() {
     setLoading(true);
@@ -202,15 +204,46 @@ export function RulesView() {
   }, []);
 
   async function handleDelete(id: string) {
+    setDeleting(true);
     await fetch(`/api/merchant-rules/${id}`, { method: 'DELETE' });
     setRules((prev) => prev.filter((r) => r.id !== id));
+    setDeleting(false);
     setDeleteTarget(null);
   }
 
   const catMap = new Map(categories.map((c) => [c.id, c.name]));
 
+  const q = search.toLowerCase().trim();
+  const filteredRules = q
+    ? rules.filter((r) =>
+        r.merchantPattern.includes(q) ||
+        (catMap.get(r.categoryId) ?? '').toLowerCase().includes(q) ||
+        (BANK_LABEL[r.bank] ?? '').toLowerCase().includes(q),
+      )
+    : rules;
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
+      {/* Search bar — always visible (disabled while loading) */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 pointer-events-none" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Buscar por comercio, categoría o banco…"
+          className="pl-9 pr-9"
+          disabled={loading}
+        />
+        {search && (
+          <button
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        )}
+      </div>
+
       {loading ? (
         <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
           {[...Array(4)].map((_, i) => (
@@ -237,7 +270,12 @@ export function RulesView() {
             <span />
           </div>
           <div className="divide-y divide-zinc-100">
-            {rules.map((rule) => (
+            {filteredRules.length === 0 && (
+              <p className="text-sm text-zinc-400 px-4 py-8 text-center">
+                Sin resultados para &ldquo;{search}&rdquo;.
+              </p>
+            )}
+            {filteredRules.map((rule) => (
               <div key={rule.id} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_120px_1fr_100px_72px] items-center px-4 py-3 gap-4">
                 <div className="min-w-0">
                   <span className="text-sm font-mono text-zinc-800">{rule.merchantPattern}</span>
@@ -310,7 +348,7 @@ export function RulesView() {
         />
       )}
 
-      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v) setDeleteTarget(null); }}>
+      <Dialog open={!!deleteTarget} onOpenChange={(v) => { if (!v && !deleting) setDeleteTarget(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Eliminar regla</DialogTitle>
@@ -319,9 +357,11 @@ export function RulesView() {
             ¿Estás seguro que deseas eliminar la regla para «{deleteTarget?.merchantPattern}»? Esta acción no se puede deshacer.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)}>
-              Eliminar
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteTarget && handleDelete(deleteTarget.id)} disabled={deleting}>
+              {deleting
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Eliminando…</>
+                : <><Trash2 className="h-4 w-4 mr-2" />Eliminar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
