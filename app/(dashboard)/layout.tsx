@@ -6,10 +6,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <SidebarProvider>
       <AppSidebar />
       <SidebarInset className="bg-zinc-50">
-        {/* Mobile header — only visible below md breakpoint */}
-        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 md:hidden">
+        {/* Top bar — always visible; trigger collapses sidebar on all screen sizes */}
+        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4">
           <SidebarTrigger className="text-zinc-600" />
-          <span className="text-sm font-semibold text-zinc-800">Statement Lens</span>
+          {/* App name only on mobile (sidebar shows it on desktop) */}
+          <span className="text-sm font-semibold text-zinc-800 md:hidden">Statement Lens</span>
         </header>
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           {children}
