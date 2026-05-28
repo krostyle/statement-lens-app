@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -233,6 +233,8 @@ export function TransactionsView() {
   const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [selectedReview, setSelectedReview] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TransactionResponseDTO | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TransactionResponseDTO | null>(null);
@@ -296,6 +298,8 @@ export function TransactionsView() {
     else if (selectedInstallment === 'false') params.set('isInstallment', 'false');
     if (selectedReview !== 'all') params.set('reviewStatus', selectedReview);
     if (selectedType !== 'all') params.set('transactionType', selectedType);
+    params.set('sortBy', sortBy);
+    params.set('sortDir', sortDir);
     params.set('page', String(page));
 
     fetch(`/api/transactions?${params.toString()}`)
@@ -310,10 +314,10 @@ export function TransactionsView() {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page, refreshKey]);
+  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
 
   // Reset page when non-page filters change
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
 
   // Clear selection when filters or page change
   useEffect(() => {
@@ -343,6 +347,16 @@ export function TransactionsView() {
     await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
     setDeleteTarget(null);
     setRefreshKey((k) => k + 1);
+  };
+
+  const toggleSort = (col: 'date' | 'amount') => {
+    if (sortBy === col) {
+      setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
+    } else {
+      setSortBy(col);
+      setSortDir('desc');
+    }
+    setPage(1);
   };
 
   const openCreate = () => { setEditing(null); setOpen(true); };
@@ -699,14 +713,41 @@ export function TransactionsView() {
                 />
               </th>
               <th className="px-2 py-3 w-6" title="Estado de revisión" />
-              {/* Fecha — hidden below sm */}
-              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">Fecha</th>
+              {/* Fecha — sortable, hidden below sm */}
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">
+                <button
+                  onClick={() => toggleSort('date')}
+                  className="inline-flex items-center gap-1 hover:text-zinc-800 transition-colors"
+                >
+                  Fecha
+                  {sortBy === 'date'
+                    ? sortDir === 'desc'
+                      ? <ArrowDown className="h-3.5 w-3.5 text-brand-600" />
+                      : <ArrowUp className="h-3.5 w-3.5 text-brand-600" />
+                    : <ArrowUpDown className="h-3.5 w-3.5 text-zinc-300" />
+                  }
+                </button>
+              </th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Comercio</th>
               {/* Categoría, Cuenta, Cuotas — hidden below md */}
               <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Categoría</th>
               <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Cuenta</th>
               <th className="hidden md:table-cell px-4 py-3 text-left font-medium text-zinc-500">Cuotas</th>
-              <th className="px-4 py-3 text-right font-medium text-zinc-500">Monto</th>
+              {/* Monto — sortable */}
+              <th className="px-4 py-3 text-right font-medium text-zinc-500">
+                <button
+                  onClick={() => toggleSort('amount')}
+                  className="inline-flex items-center gap-1 ml-auto hover:text-zinc-800 transition-colors"
+                >
+                  {sortBy === 'amount'
+                    ? sortDir === 'desc'
+                      ? <ArrowDown className="h-3.5 w-3.5 text-brand-600" />
+                      : <ArrowUp className="h-3.5 w-3.5 text-brand-600" />
+                    : <ArrowUpDown className="h-3.5 w-3.5 text-zinc-300" />
+                  }
+                  Monto
+                </button>
+              </th>
               <th className="px-3 py-3" />
             </tr>
           </thead>

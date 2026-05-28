@@ -27,6 +27,8 @@ export async function GET(request: Request) {
       maxInstallmentTotal: searchParams.get('maxInstallmentTotal') ? Number(searchParams.get('maxInstallmentTotal')) : undefined,
       reviewStatus: searchParams.get('reviewStatus') ?? undefined,
       transactionType: searchParams.get('transactionType') ?? undefined,
+      sortBy: (searchParams.get('sortBy') ?? undefined) as 'date' | 'amount' | undefined,
+      sortDir: (searchParams.get('sortDir') ?? undefined) as 'asc' | 'desc' | undefined,
     },
     page,
     PAGE_SIZE

@@ -12,6 +12,8 @@ export interface TransactionFilters {
   maxInstallmentTotal?: number;
   reviewStatus?: string;
   transactionType?: string;
+  sortBy?: 'date' | 'amount';
+  sortDir?: 'asc' | 'desc';
   skip?: number;
   take?: number;
 }

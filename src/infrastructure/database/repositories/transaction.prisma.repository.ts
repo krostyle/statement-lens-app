@@ -38,9 +38,11 @@ export class TransactionPrismaRepository implements ITransactionRepository {
   }
 
   async findByUserId(userId: string, filters?: TransactionFilters): Promise<Transaction[]> {
+    const sortBy  = filters?.sortBy  ?? 'date';
+    const sortDir = filters?.sortDir ?? 'desc';
     const results = await prisma.transaction.findMany({
       where: buildWhere(userId, filters),
-      orderBy: { date: 'desc' },
+      orderBy: { [sortBy]: sortDir },
       skip: filters?.skip,
       take: filters?.take,
     });

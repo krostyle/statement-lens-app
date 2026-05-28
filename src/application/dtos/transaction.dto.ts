@@ -36,6 +36,8 @@ export interface TransactionFiltersDTO {
   maxInstallmentTotal?: number;
   reviewStatus?: string;
   transactionType?: string;
+  sortBy?: 'date' | 'amount';
+  sortDir?: 'asc' | 'desc';
 }
 
 export interface TransactionResponseDTO {
