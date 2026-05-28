@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -163,6 +163,61 @@ function BulkMerchantDialog({
   );
 }
 
+function BulkTypeDialog({
+  count,
+  onApply,
+  onClose,
+}: {
+  count: number;
+  onApply: (transactionType: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [txType, setTxType] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleApply = async () => {
+    if (!txType) return;
+    setLoading(true);
+    await onApply(txType);
+    setLoading(false);
+  };
+
+  return (
+    <DialogContent className="sm:max-w-sm">
+      <DialogHeader>
+        <DialogTitle>Cambiar tipo de transacción</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-4 py-2">
+        <p className="text-sm text-zinc-500">
+          Se aplicará a <span className="font-semibold text-zinc-900">{count}</span> transacción{count !== 1 ? 'es' : ''} seleccionada{count !== 1 ? 's' : ''}.
+        </p>
+        <Select value={txType} onValueChange={setTxType}>
+          <SelectTrigger>
+            <SelectValue placeholder="Selecciona un tipo..." />
+          </SelectTrigger>
+          <SelectContent position="popper">
+            <SelectItem value="expense">Gasto</SelectItem>
+            <SelectItem value="income">Ingreso</SelectItem>
+            <SelectItem value="transfer">Transferencia interna</SelectItem>
+          </SelectContent>
+        </Select>
+        {txType === 'transfer' && (
+          <p className="text-xs text-zinc-400">
+            Las transferencias internas no suman al total de gastos ni ingresos — útil para pagos de tarjeta o traspasos entre cuentas propias.
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose} disabled={loading}>Cancelar</Button>
+        <Button onClick={handleApply} disabled={!txType || loading}>
+          {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
 // ─────────────────────────────────────────────────────────
 // Main view
 // ─────────────────────────────────────────────────────────
@@ -189,7 +244,7 @@ export function TransactionsView() {
 
   // ── Bulk selection ──────────────────────────────────────
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [bulkDialog, setBulkDialog] = useState<'category' | 'merchant' | null>(null);
+  const [bulkDialog, setBulkDialog] = useState<'category' | 'merchant' | 'type' | null>(null);
   const [bulkApplying, setBulkApplying] = useState(false);
   const headerCheckboxRef = useRef<HTMLInputElement>(null);
 
@@ -331,7 +386,7 @@ export function TransactionsView() {
     );
   };
 
-  const applyBulk = async (update: { categoryId?: string; merchant?: string; reviewStatus?: string }) => {
+  const applyBulk = async (update: { categoryId?: string; merchant?: string; reviewStatus?: string; transactionType?: string }) => {
     setBulkApplying(true);
     await fetch('/api/transactions/bulk', {
       method: 'PATCH',
@@ -511,6 +566,16 @@ export function TransactionsView() {
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
             disabled={bulkApplying}
+            onClick={() => setBulkDialog('type')}
+          >
+            <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
+            Tipo
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
             onClick={() => applyBulk({ reviewStatus: 'confirmed' })}
           >
             {bulkApplying
@@ -545,6 +610,14 @@ export function TransactionsView() {
         <BulkMerchantDialog
           count={selectedIds.size}
           onApply={(merchant) => applyBulk({ merchant, reviewStatus: 'confirmed' })}
+          onClose={() => setBulkDialog(null)}
+        />
+      </Dialog>
+
+      <Dialog open={bulkDialog === 'type'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
+        <BulkTypeDialog
+          count={selectedIds.size}
+          onApply={(transactionType) => applyBulk({ transactionType })}
           onClose={() => setBulkDialog(null)}
         />
       </Dialog>

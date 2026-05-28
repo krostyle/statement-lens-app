@@ -7,15 +7,17 @@ const bulkUpdateSchema = z.object({
   ids: z.array(z.string().uuid()).min(1, 'Selecciona al menos una transacción').max(500),
   update: z
     .object({
-      categoryId:   z.string().uuid().optional(),
-      merchant:     z.string().min(1).max(200).optional(),
-      reviewStatus: z.enum(['pending', 'auto', 'confirmed', 'manual']).optional(),
+      categoryId:      z.string().uuid().optional(),
+      merchant:        z.string().min(1).max(200).optional(),
+      reviewStatus:    z.enum(['pending', 'auto', 'confirmed', 'manual']).optional(),
+      transactionType: z.enum(['expense', 'income', 'transfer']).optional(),
     })
     .refine(
       (data) =>
-        data.categoryId !== undefined ||
-        data.merchant   !== undefined ||
-        data.reviewStatus !== undefined,
+        data.categoryId      !== undefined ||
+        data.merchant        !== undefined ||
+        data.reviewStatus    !== undefined ||
+        data.transactionType !== undefined,
       { message: 'Se requiere al menos un campo a actualizar' },
     ),
 });
