@@ -82,14 +82,16 @@ async function doProcess(
 
   // Load merchant rules for this user.
   // Build two maps: bank-specific rules take priority over wildcard ("") rules.
+  type RuleEntry = { categoryId: string; transactionType: string | null };
   const merchantRules = await merchantRuleRepo.findByUserId(userId);
-  const bankRuleMap = new Map<string, string>();   // "pattern|bank"  → categoryId
-  const wildcardRuleMap = new Map<string, string>(); // "pattern"       → categoryId
+  const bankRuleMap     = new Map<string, RuleEntry>(); // "pattern|bank" → entry
+  const wildcardRuleMap = new Map<string, RuleEntry>(); // "pattern"      → entry
   for (const rule of merchantRules) {
+    const entry: RuleEntry = { categoryId: rule.categoryId, transactionType: rule.transactionType };
     if (rule.bank) {
-      bankRuleMap.set(`${rule.merchantPattern}|${rule.bank}`, rule.categoryId);
+      bankRuleMap.set(`${rule.merchantPattern}|${rule.bank}`, entry);
     } else {
-      wildcardRuleMap.set(rule.merchantPattern, rule.categoryId);
+      wildcardRuleMap.set(rule.merchantPattern, entry);
     }
   }
 
@@ -104,25 +106,28 @@ async function doProcess(
     parsed.map((t) => {
       const pattern = normalizeMerchant(t.merchant);
       // Bank-specific rule takes priority; fall back to wildcard rule
-      const ruleCategory =
+      const ruleEntry =
         bankRuleMap.get(`${pattern}|${bank}`) ??
         wildcardRuleMap.get(pattern);
-      const categoryId = ruleCategory
+      const categoryId = ruleEntry?.categoryId
         ?? categoryMap.get(t.suggestedCategory)
         ?? defaultCategoryId
         ?? '';
       // 'auto' when a user-defined rule applied; 'pending' when AI suggested
-      const reviewStatus = ruleCategory ? 'auto' : 'pending';
+      const reviewStatus = ruleEntry ? 'auto' : 'pending';
+      // Rule transactionType overrides AI detection when explicitly set
+      const aiType = (
+        t.transactionType === 'income' ? 'income'
+        : t.transactionType === 'transfer' ? 'transfer'
+        : 'expense'
+      ) as 'expense' | 'income' | 'transfer';
+      const transactionType = (ruleEntry?.transactionType ?? aiType) as 'expense' | 'income' | 'transfer';
       return {
         userId,
         statementId,
         categoryId,
         reviewStatus,
-        transactionType: (
-          t.transactionType === 'income' ? 'income'
-          : t.transactionType === 'transfer' ? 'transfer'
-          : 'expense'
-        ) as 'expense' | 'income' | 'transfer',
+        transactionType,
         date: t.isInstallment ? billingDate : new Date(t.date),
         description: t.description,
         merchant: t.merchant,
