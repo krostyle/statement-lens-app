@@ -1,4 +1,4 @@
-import type { ITransactionRepository, TransactionFilters } from '@/src/domain/repositories/transaction.repository';
+import type { ITransactionRepository, TransactionFilters, TransactionSummary } from '@/src/domain/repositories/transaction.repository';
 import type { Transaction, CreateTransactionInput, UpdateTransactionInput } from '@/src/domain/entities/transaction';
 import { prisma } from '../prisma.client';
 import { Prisma } from '@prisma/client';
@@ -51,6 +51,29 @@ export class TransactionPrismaRepository implements ITransactionRepository {
 
   async countByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<number> {
     return prisma.transaction.count({ where: buildWhere(userId, filters) });
+  }
+
+  async aggregateByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<TransactionSummary> {
+    const byType = await prisma.transaction.groupBy({
+      by: ['transactionType'],
+      where: buildWhere(userId, filters),
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    let expenses = 0;
+    let income = 0;
+    let count = 0;
+
+    for (const row of byType) {
+      const sum = row._sum.amount ?? 0;
+      count += row._count.id;
+      if (row.transactionType === 'income') income += sum;
+      else if (row.transactionType === 'expense') expenses += sum; // negative value
+      // transfers excluded from financial totals
+    }
+
+    return { expenses, income, count };
   }
 
   async findByStatementId(statementId: string): Promise<Transaction[]> {

@@ -1,5 +1,14 @@
 import type { Transaction, CreateTransactionInput, UpdateTransactionInput } from '../entities/transaction';
 
+export interface TransactionSummary {
+  /** Sum of expense-type amounts (negative value, e.g. -500000) */
+  expenses: number;
+  /** Sum of income-type amounts (positive value) */
+  income: number;
+  /** Total number of matching transactions */
+  count: number;
+}
+
 export interface TransactionFilters {
   categoryId?: string;
   statementId?: string;
@@ -22,6 +31,7 @@ export interface ITransactionRepository {
   findById(id: string): Promise<Transaction | null>;
   findByUserId(userId: string, filters?: TransactionFilters): Promise<Transaction[]>;
   countByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<number>;
+  aggregateByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<TransactionSummary>;
   findByStatementId(statementId: string): Promise<Transaction[]>;
   findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]>;
   create(data: CreateTransactionInput): Promise<Transaction>;

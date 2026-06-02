@@ -1,12 +1,19 @@
 import type { ITransactionRepository } from '@/src/domain/repositories/transaction.repository';
 import type { TransactionFiltersDTO, TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 
+export interface TransactionSummaryDTO {
+  expenses: number;
+  income: number;
+  count: number;
+}
+
 export interface PaginatedTransactionsDTO {
   data: TransactionResponseDTO[];
   total: number;
   page: number;
   pageSize: number;
   totalPages: number;
+  summary: TransactionSummaryDTO;
 }
 
 export class ListTransactionsUseCase {
@@ -34,13 +41,14 @@ export class ListTransactionsUseCase {
       sortDir: filters?.sortDir,
     };
 
-    const [transactions, total] = await Promise.all([
+    const [transactions, total, summary] = await Promise.all([
       this.transactionRepo.findByUserId(userId, {
         ...baseFilters,
         skip: (page - 1) * pageSize,
         take: pageSize,
       }),
       this.transactionRepo.countByUserId(userId, baseFilters),
+      this.transactionRepo.aggregateByUserId(userId, baseFilters),
     ]);
 
     return {
@@ -65,6 +73,7 @@ export class ListTransactionsUseCase {
       page,
       pageSize,
       totalPages: Math.ceil(total / pageSize),
+      summary,
     };
   }
 }

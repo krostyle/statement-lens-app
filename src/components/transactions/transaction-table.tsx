@@ -27,7 +27,7 @@ import { TransactionForm } from './transaction-form';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
-import type { PaginatedTransactionsDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
+import type { PaginatedTransactionsDTO, TransactionSummaryDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 
 const BANK_LABELS: Record<string, string> = {
   santander:   'Santander',
@@ -242,6 +242,7 @@ export function TransactionsView() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
+  const [summary, setSummary] = useState<TransactionSummaryDTO | null>(null);
   const [loading, setLoading] = useState(true);
 
   // ── Bulk selection ──────────────────────────────────────
@@ -283,6 +284,7 @@ export function TransactionsView() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setSummary(null);
 
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
@@ -309,6 +311,7 @@ export function TransactionsView() {
         setTransactions(Array.isArray(data.data) ? data.data : []);
         setTotal(data.total ?? 0);
         setTotalPages(data.totalPages ?? 1);
+        setSummary(data.summary ?? null);
         setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
@@ -697,6 +700,55 @@ export function TransactionsView() {
           onCancel={() => setOpen(false)}
         />
       </Dialog>
+
+      {/* Summary bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Gastos */}
+        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+          <p className="text-xs text-zinc-400 mb-1">Gastos</p>
+          {loading || !summary
+            ? <Skeleton className="h-5 w-28" />
+            : <p className="text-base font-semibold text-red-600">
+                -{formatCurrency(Math.abs(summary.expenses))}
+              </p>
+          }
+        </div>
+        {/* Ingresos */}
+        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+          <p className="text-xs text-zinc-400 mb-1">Ingresos</p>
+          {loading || !summary
+            ? <Skeleton className="h-5 w-28" />
+            : <p className="text-base font-semibold text-emerald-600">
+                +{formatCurrency(summary.income)}
+              </p>
+          }
+        </div>
+        {/* Neto */}
+        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+          <p className="text-xs text-zinc-400 mb-1">Neto</p>
+          {loading || !summary
+            ? <Skeleton className="h-5 w-28" />
+            : (() => {
+                const net = summary.income + summary.expenses; // expenses is negative
+                return (
+                  <p className={`text-base font-semibold ${net >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                    {net >= 0 ? '+' : ''}{formatCurrency(net)}
+                  </p>
+                );
+              })()
+          }
+        </div>
+        {/* Transacciones */}
+        <div className="rounded-lg border border-zinc-200 bg-white px-4 py-3">
+          <p className="text-xs text-zinc-400 mb-1">Transacciones</p>
+          {loading || !summary
+            ? <Skeleton className="h-5 w-16" />
+            : <p className="text-base font-semibold text-zinc-700">
+                {summary.count.toLocaleString('es-CL')}
+              </p>
+          }
+        </div>
+      </div>
 
       {/* Table */}
       <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
