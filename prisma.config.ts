@@ -14,6 +14,9 @@ for (const file of ['.env.local', '.env']) {
 export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   datasource: {
+    // Runtime queries — use pooled URL (pgBouncer) when available
     url: process.env.DATABASE_URL ?? 'postgresql://placeholder',
+    // Migrations — must use direct (non-pooled) URL; falls back to DATABASE_URL locally
+    directUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? 'postgresql://placeholder',
   },
 });
