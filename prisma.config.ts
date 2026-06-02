@@ -14,9 +14,14 @@ for (const file of ['.env.local', '.env']) {
 export default defineConfig({
   schema: path.join('prisma', 'schema.prisma'),
   datasource: {
-    // Runtime queries — use pooled URL (pgBouncer) when available
+    // Runtime queries — pooled URL (pgBouncer)
     url: process.env.DATABASE_URL ?? 'postgresql://placeholder',
-    // Migrations — must use direct (non-pooled) URL; falls back to DATABASE_URL locally
-    directUrl: process.env.DIRECT_URL ?? process.env.DATABASE_URL ?? 'postgresql://placeholder',
+    // Migrations — Neon Vercel integration provides DATABASE_URL_UNPOOLED (direct, no pgBouncer)
+    // Falls back to DIRECT_URL (manual), then DATABASE_URL (local dev, no pooler involved)
+    directUrl:
+      process.env.DATABASE_URL_UNPOOLED ??
+      process.env.DIRECT_URL ??
+      process.env.DATABASE_URL ??
+      'postgresql://placeholder',
   },
 });
