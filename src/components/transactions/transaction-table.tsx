@@ -20,7 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu';
-import { MonthPicker } from '@/src/components/ui/month-picker';
+import { DateRangeFilter } from '@/src/components/ui/date-range-filter';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { TransactionForm } from './transaction-form';
@@ -228,7 +228,8 @@ export function TransactionsView() {
   const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [search, setSearch] = useState('');
   const [selectedBank, setSelectedBank] = useState('all');
-  const [selectedMonth, setSelectedMonth] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
   const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [selectedReview, setSelectedReview] = useState('all');
@@ -289,11 +290,8 @@ export function TransactionsView() {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
     if (selectedBank !== 'all') params.set('bank', selectedBank);
-    if (selectedMonth) {
-      const [y, m] = selectedMonth.split('-').map(Number);
-      params.set('from', new Date(Date.UTC(y, m - 1, 1)).toISOString());
-      params.set('to', new Date(Date.UTC(y, m, 1) - 1).toISOString());
-    }
+    if (dateFrom) params.set('from', `${dateFrom}T00:00:00.000Z`);
+    if (dateTo)   params.set('to',   `${dateTo}T23:59:59.999Z`);
     if (selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
     if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
@@ -317,15 +315,15 @@ export function TransactionsView() {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
+  }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
 
   // Reset page when non-page filters change
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [debouncedSearch, selectedBank, selectedMonth, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
+  }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   // Keep header checkbox in sync (checked / indeterminate)
   useEffect(() => {
@@ -428,13 +426,8 @@ export function TransactionsView() {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
     ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
-    ...(selectedMonth ? (() => {
-      const [y, m] = selectedMonth.split('-').map(Number);
-      return {
-        from: new Date(Date.UTC(y, m - 1, 1)).toISOString(),
-        to: new Date(Date.UTC(y, m, 1) - 1).toISOString(),
-      };
-    })() : {}),
+    ...(dateFrom ? { from: `${dateFrom}T00:00:00.000Z` } : {}),
+    ...(dateTo   ? { to:   `${dateTo}T23:59:59.999Z`   } : {}),
   });
 
   const hasSelection = selectedIds.size > 0;
@@ -471,11 +464,11 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        <MonthPicker
-          value={selectedMonth}
-          onChange={setSelectedMonth}
-          placeholder="Todos los meses"
-          className="w-full md:w-44"
+        <DateRangeFilter
+          from={dateFrom}
+          to={dateTo}
+          onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+          className="w-full md:w-52"
         />
 
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
