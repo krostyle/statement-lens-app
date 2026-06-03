@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Send, Loader2, MessageCircle, RotateCcw } from 'lucide-react';
+import { Send, Loader2, MessageCircle, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 
 interface Message {
@@ -16,7 +16,11 @@ const SUGGESTED_QUESTIONS = [
   '¿Cómo van mis presupuestos este mes?',
 ];
 
-export function FinancialChat() {
+interface Props {
+  onClose?: () => void;
+}
+
+export function FinancialChat({ onClose }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
@@ -84,9 +88,9 @@ export function FinancialChat() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-10rem)] max-h-[780px] bg-white rounded-xl border border-zinc-200 shadow-sm overflow-hidden">
+    <div className="flex flex-col h-full bg-white overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="h-7 w-7 rounded-full bg-blue-50 flex items-center justify-center">
             <MessageCircle className="h-4 w-4 text-blue-500" />
@@ -96,33 +100,45 @@ export function FinancialChat() {
             <p className="text-xs text-zinc-400">Analiza tus datos en tiempo real</p>
           </div>
         </div>
-        {messages.length > 0 && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setMessages([])}
-            className="h-8 text-xs text-zinc-400 hover:text-zinc-600"
-          >
-            <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
-            Limpiar
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {messages.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setMessages([])}
+              className="h-8 text-xs text-zinc-400 hover:text-zinc-600"
+            >
+              <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+              Limpiar
+            </Button>
+          )}
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              className="h-8 w-8 p-0 text-zinc-400 hover:text-zinc-600"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 min-h-0">
         {messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center space-y-5 pb-8">
-            <div className="h-14 w-14 rounded-2xl bg-blue-50 flex items-center justify-center">
-              <MessageCircle className="h-7 w-7 text-blue-400" />
+          <div className="flex flex-col items-center justify-center h-full text-center space-y-4 pb-4">
+            <div className="h-12 w-12 rounded-2xl bg-blue-50 flex items-center justify-center">
+              <MessageCircle className="h-6 w-6 text-blue-400" />
             </div>
             <div>
               <p className="text-sm font-medium text-zinc-700">Pregúntame sobre tus finanzas</p>
-              <p className="text-xs text-zinc-400 mt-1">
+              <p className="text-xs text-zinc-400 mt-0.5">
                 Tengo acceso a tus transacciones, categorías y presupuestos reales
               </p>
             </div>
-            <div className="flex flex-col gap-2 w-full max-w-xs">
+            <div className="flex flex-col gap-2 w-full">
               {SUGGESTED_QUESTIONS.map((q) => (
                 <button
                   key={q}
@@ -142,7 +158,7 @@ export function FinancialChat() {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[82%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white rounded-br-sm'
                       : 'bg-zinc-100 text-zinc-800 rounded-bl-sm'
@@ -162,7 +178,7 @@ export function FinancialChat() {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-100 px-4 py-3">
+      <div className="border-t border-zinc-100 px-4 py-3 shrink-0">
         <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             ref={inputRef}
