@@ -1,9 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { es } from 'date-fns/locale';
+import type { DateRange } from 'react-day-picker';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './popover';
 import { Button } from './button';
+import { Calendar } from './calendar';
 import { cn } from '@/src/lib/utils';
 
 const MONTHS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -17,24 +21,31 @@ interface Props {
   className?: string;
 }
 
-/** Last calendar day of a month as 'YYYY-MM-DD' */
-function lastDay(year: number, month: number): string {
-  return new Date(year, month + 1, 0).toISOString().split('T')[0];
-}
-
-/** Format 'YYYY-MM-DD' → 'D Mes' in Spanish */
-function fmtDate(iso: string): string {
+function parseLocal(iso: string): Date | undefined {
+  if (!iso) return undefined;
   const [y, m, d] = iso.split('-').map(Number);
-  return `${d} ${MONTHS[m - 1]} ${y}`;
+  return new Date(y, m - 1, d);
 }
 
-/** If from/to exactly covers a full calendar month, returns { year, month } (0-indexed), else null */
+function fmtShort(iso: string): string {
+  if (!iso) return '';
+  return format(parseLocal(iso)!, 'd MMM yyyy', { locale: es });
+}
+
+/** Detect if from/to exactly covers a full calendar month */
 function detectMonth(from: string, to: string): { year: number; month: number } | null {
   if (!from || !to) return null;
-  const [fy, fm, fd] = from.split('-').map(Number);
-  if (fd !== 1) return null;
-  if (to !== lastDay(fy, fm - 1)) return null;
-  return { year: fy, month: fm - 1 };
+  const f = parseLocal(from)!;
+  const t = parseLocal(to)!;
+  const first = startOfMonth(f);
+  const last  = endOfMonth(f);
+  if (
+    f.getTime() === first.getTime() &&
+    t.getTime() === last.getTime()
+  ) {
+    return { year: f.getFullYear(), month: f.getMonth() };
+  }
+  return null;
 }
 
 export function DateRangeFilter({ from, to, onChange, className }: Props) {
@@ -47,21 +58,31 @@ export function DateRangeFilter({ from, to, onChange, className }: Props) {
   const label = (() => {
     if (!from && !to) return 'Todas las fechas';
     if (selectedMonth) return `${MONTHS[selectedMonth.month]} ${selectedMonth.year}`;
-    if (from && to) return `${fmtDate(from)} – ${fmtDate(to)}`;
-    if (from) return `Desde ${fmtDate(from)}`;
-    return `Hasta ${fmtDate(to)}`;
+    if (from && to) return `${fmtShort(from)} – ${fmtShort(to)}`;
+    if (from) return `Desde ${fmtShort(from)}`;
+    return `Hasta ${fmtShort(to)}`;
   })();
 
   const handleMonthSelect = (monthIndex: number) => {
-    const f = `${year}-${String(monthIndex + 1).padStart(2, '0')}-01`;
-    const t = lastDay(year, monthIndex);
-    onChange(f, t);
+    const date = new Date(year, monthIndex, 1);
+    onChange(
+      format(startOfMonth(date), 'yyyy-MM-dd'),
+      format(endOfMonth(date),   'yyyy-MM-dd'),
+    );
     setOpen(false);
   };
 
-  // When the user edits the range inputs, clear the month selection first
-  const handleFromChange = (val: string) => onChange(val, selectedMonth ? '' : to);
-  const handleToChange   = (val: string) => onChange(selectedMonth ? '' : from, val);
+  const handleRangeSelect = (range: DateRange | undefined) => {
+    onChange(
+      range?.from ? format(range.from, 'yyyy-MM-dd') : '',
+      range?.to   ? format(range.to,   'yyyy-MM-dd') : '',
+    );
+  };
+
+  const calendarSelected: DateRange = {
+    from: parseLocal(from),
+    to:   parseLocal(to),
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -74,69 +95,59 @@ export function DateRangeFilter({ from, to, onChange, className }: Props) {
         </Button>
       </PopoverTrigger>
 
-      <PopoverContent className="w-64 p-3" align="start">
-        {/* ── Month selector ── */}
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Por mes</p>
-        <div className="flex items-center justify-between mb-2">
-          <button onClick={() => setYear((y) => y - 1)} className="rounded p-1 hover:bg-zinc-100">
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="text-sm font-semibold">{year}</span>
-          <button onClick={() => setYear((y) => y + 1)} className="rounded p-1 hover:bg-zinc-100">
-            <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="grid grid-cols-3 gap-1">
-          {MONTHS.map((name, i) => {
-            const isSelected = selectedMonth?.year === year && selectedMonth?.month === i;
-            return (
-              <button
-                key={i}
-                onClick={() => handleMonthSelect(i)}
-                className={cn(
-                  'rounded px-2 py-1.5 text-sm transition-colors hover:bg-zinc-100',
-                  isSelected && 'bg-primary text-primary-foreground hover:bg-primary/90',
-                )}
-              >
-                {name}
-              </button>
-            );
-          })}
+      <PopoverContent className="w-auto p-0" align="start">
+        {/* ── Quick month selector ── */}
+        <div className="px-3 pt-3 pb-2 border-b border-zinc-100">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Por mes</p>
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => setYear((y) => y - 1)} className="rounded p-1 hover:bg-zinc-100">
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <span className="text-sm font-semibold">{year}</span>
+            <button onClick={() => setYear((y) => y + 1)} className="rounded p-1 hover:bg-zinc-100">
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="grid grid-cols-6 gap-1">
+            {MONTHS.map((name, i) => {
+              const isSelected = selectedMonth?.year === year && selectedMonth?.month === i;
+              return (
+                <button
+                  key={i}
+                  onClick={() => handleMonthSelect(i)}
+                  className={cn(
+                    'rounded px-1.5 py-1 text-xs transition-colors hover:bg-zinc-100',
+                    isSelected && 'bg-primary text-primary-foreground hover:bg-primary/90',
+                  )}
+                >
+                  {name}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
-        {/* ── Divider ── */}
-        <div className="my-3 border-t border-zinc-100" />
-
-        {/* ── Custom range ── */}
-        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide mb-2">Rango personalizado</p>
-        <div className="space-y-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-400 w-10 shrink-0">Desde</span>
-            <input
-              type="date"
-              className="flex-1 h-7 rounded border border-zinc-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-              value={selectedMonth ? '' : from}
-              onChange={(e) => handleFromChange(e.target.value)}
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-zinc-400 w-10 shrink-0">Hasta</span>
-            <input
-              type="date"
-              className="flex-1 h-7 rounded border border-zinc-200 bg-white px-2 text-xs focus:outline-none focus:ring-1 focus:ring-brand-400"
-              value={selectedMonth ? '' : to}
-              onChange={(e) => handleToChange(e.target.value)}
-            />
-          </div>
+        {/* ── Calendar range picker ── */}
+        <div className="p-1">
+          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wide px-2 pt-2 pb-1">Rango personalizado</p>
+          <Calendar
+            mode="range"
+            selected={calendarSelected}
+            onSelect={handleRangeSelect}
+            locale={es}
+            numberOfMonths={1}
+          />
         </div>
 
         {(from || to) && (
-          <button
-            onClick={() => { onChange('', ''); setOpen(false); }}
-            className="mt-3 w-full rounded px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors"
-          >
-            Limpiar selección
-          </button>
+          <div className="px-3 pb-3">
+            <button
+              onClick={() => { onChange('', ''); setOpen(false); }}
+              className="w-full rounded px-2 py-1.5 text-xs text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors"
+            >
+              Limpiar selección
+            </button>
+          </div>
         )}
       </PopoverContent>
     </Popover>
