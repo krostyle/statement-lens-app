@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, Loader2, MessageCircle, RotateCcw, X } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import ReactMarkdown from 'react-markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -158,7 +159,7 @@ export function FinancialChat({ onClose }: Props) {
                 className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
               >
                 <div
-                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
+                  className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${
                     msg.role === 'user'
                       ? 'bg-blue-600 text-white rounded-br-sm'
                       : 'bg-zinc-100 text-zinc-800 rounded-bl-sm'
@@ -166,6 +167,22 @@ export function FinancialChat({ onClose }: Props) {
                 >
                   {msg.content === '' && isStreaming && i === messages.length - 1 ? (
                     <Loader2 className="h-4 w-4 animate-spin text-zinc-400" />
+                  ) : msg.role === 'assistant' ? (
+                    <ReactMarkdown
+                      components={{
+                        p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+                        strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                        ul: ({ children }) => <ul className="list-disc pl-4 mb-1.5 space-y-0.5">{children}</ul>,
+                        ol: ({ children }) => <ol className="list-decimal pl-4 mb-1.5 space-y-0.5">{children}</ol>,
+                        li: ({ children }) => <li>{children}</li>,
+                        h1: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                        h2: ({ children }) => <p className="font-semibold mb-1">{children}</p>,
+                        h3: ({ children }) => <p className="font-medium mb-0.5">{children}</p>,
+                        code: ({ children }) => <code className="bg-zinc-200 text-zinc-800 rounded px-1 text-xs font-mono">{children}</code>,
+                      }}
+                    >
+                      {msg.content}
+                    </ReactMarkdown>
                   ) : (
                     msg.content
                   )}
