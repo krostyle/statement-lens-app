@@ -1,9 +1,11 @@
 import type { ITransactionRepository } from '@/src/domain/repositories/transaction.repository';
 import type { IBudgetRepository } from '@/src/domain/repositories/budget.repository';
 import type { ICategoryRepository } from '@/src/domain/repositories/category.repository';
+import type { ISnapshotRepository } from '@/src/domain/repositories/snapshot.repository';
 import type { UserProfilePrismaRepository } from '@/src/infrastructure/database/repositories/user-profile.prisma.repository';
-import type { FinancialChatService, ChatMessage, FinancialContext } from '@/src/infrastructure/ai/financial-chat.service';
+import type { FinancialChatService, ChatMessage, FinancialContext, CurrentMonthSnapshot } from '@/src/infrastructure/ai/financial-chat.service';
 import { netSpendByCategory } from '@/src/domain/services/transaction.service';
+import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 
 export class FinancialChatUseCase {
   constructor(
@@ -11,6 +13,7 @@ export class FinancialChatUseCase {
     private readonly categoryRepo: ICategoryRepository,
     private readonly budgetRepo: IBudgetRepository,
     private readonly userProfileRepo: UserProfilePrismaRepository,
+    private readonly snapshotRepo: ISnapshotRepository,
     private readonly chatService: FinancialChatService
   ) {}
 
@@ -24,11 +27,12 @@ export class FinancialChatUseCase {
     const sixMonthsAgo = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 5, 1));
     const currentMonth = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, '0')}`;
 
-    const [transactions, categories, budgets, profile] = await Promise.all([
+    const [transactions, categories, budgets, profile, snapshot] = await Promise.all([
       this.transactionRepo.findByUserId(userId, { from: sixMonthsAgo }),
       this.categoryRepo.findByUserId(userId),
       this.budgetRepo.findByUserId(userId),
       this.userProfileRepo.findById(userId),
+      this.snapshotRepo.findByUserAndMonth(userId, currentMonth),
     ]);
 
     const categoryMap = new Map(categories.map((c) => [c.id, c.name]));
@@ -56,11 +60,48 @@ export class FinancialChatUseCase {
         category: t.categoryId ? (categoryMap.get(t.categoryId) ?? 'Sin categoría') : 'Sin categoría',
       }));
 
+    let currentMonthSnapshot: CurrentMonthSnapshot | undefined;
+    if (snapshot) {
+      const allTxs = [
+        ...(snapshot.checkingTxs ?? []),
+        ...(snapshot.ccTxs ?? []),
+      ];
+      const metrics = computeSnapshotMetrics(allTxs, budgetMap, currentMonth);
+
+      const snapRecentTxs = allTxs
+        .filter((t) => t.transactionType === 'expense' && t.amount < 0)
+        .sort((a, b) => b.date.localeCompare(a.date))
+        .slice(0, 50)
+        .map((t) => ({
+          date: t.date,
+          merchant: t.merchant,
+          amount: Math.abs(t.amount),
+          category: t.categoryName || 'Sin categoría',
+        }));
+
+      currentMonthSnapshot = {
+        totalExpenses: metrics.totalExpenses,
+        totalIncome: metrics.totalIncome,
+        daysElapsed: metrics.daysElapsed,
+        daysInMonth: metrics.daysInMonth,
+        projectedMonthTotal: metrics.projectedMonthTotal,
+        byCategory: metrics.byCategory.map((cat) => ({
+          categoryName: cat.categoryName,
+          spent: cat.total,
+          budget: cat.budget,
+          remaining: cat.budget !== null ? cat.budget - cat.total : null,
+          pctOfBudget: cat.pctOfBudget,
+        })),
+        recentTransactions: snapRecentTxs,
+      };
+    }
+
     return {
       monthlyIncome: profile?.monthlyIncome ?? undefined,
       currentMonth,
       spendByCategory,
       recentTransactions,
+      currentMonthSnapshot,
     };
   }
 }

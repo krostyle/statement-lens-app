@@ -74,7 +74,7 @@ export const upsertMerchantRuleUseCase = new UpsertMerchantRuleUseCase(merchantR
 export const deleteMerchantRuleUseCase = new DeleteMerchantRuleUseCase(merchantRuleRepo);
 
 export const financialChatUseCase = new FinancialChatUseCase(
-  transactionRepo, categoryRepo, budgetRepo, userProfileRepo, financialChatService
+  transactionRepo, categoryRepo, budgetRepo, userProfileRepo, snapshotRepo, financialChatService
 );
 
 // Raw repos (needed in some API routes)
