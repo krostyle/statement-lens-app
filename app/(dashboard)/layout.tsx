@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/src/components/ui/sidebar';
 import { AppSidebar } from '@/src/components/layout/sidebar';
+import { FloatingChat } from '@/src/components/chat/floating-chat';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const cookieStore = await cookies();
@@ -21,6 +22,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {children}
         </div>
       </SidebarInset>
+      <FloatingChat />
     </SidebarProvider>
   );
 }
