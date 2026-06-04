@@ -38,7 +38,7 @@ const statusVariant = (s: string) => {
 /** Indeterminate progress for pending/processing */
 function ProcessingStatus({ status }: { status: string }) {
   return (
-    <div className="flex flex-col gap-1.5 w-40">
+    <div className="flex flex-col gap-1.5 w-full max-w-40">
       <Badge variant={statusVariant(status)} className="flex items-center gap-1 w-fit">
         <Loader2 className="h-3 w-3 animate-spin" />
         {statusLabel[status]}
@@ -187,15 +187,15 @@ export function StatementsView() {
       </Dialog>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full min-w-[640px] text-sm">
+        <table className="w-full text-sm">
           <thead className="border-b border-zinc-100 bg-zinc-50">
             <tr>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Archivo</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Banco</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Mes</th>
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">Tipo</th>
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">Mes</th>
               <th className="px-4 py-3 text-left font-medium text-zinc-500">Estado</th>
-              <th className="px-4 py-3 text-left font-medium text-zinc-500">Subido</th>
+              <th className="hidden sm:table-cell px-4 py-3 text-left font-medium text-zinc-500">Subido</th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
@@ -204,29 +204,40 @@ export function StatementsView() {
               <tr key={`skeleton-${i}`} className="border-b border-zinc-50">
                 <td className="px-4 py-3"><Skeleton className="h-4 w-40" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-5 w-16 rounded-full" /></td>
+                <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-4 w-16" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
-                <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                <td className="hidden sm:table-cell px-4 py-3"><Skeleton className="h-4 w-20" /></td>
                 <td className="px-4 py-3"><Skeleton className="h-4 w-8 ml-auto" /></td>
               </tr>
             ))}
             {!loading && statements.map((s) => (
               <tr key={s.id} className="border-b border-zinc-50 hover:bg-zinc-50">
                 <td
-                  className={`px-4 py-3 font-medium text-zinc-900 ${s.status === 'done' ? 'cursor-pointer hover:text-primary' : ''}`}
+                  className={`px-4 py-3 font-medium text-zinc-900 min-w-0 max-w-45 sm:max-w-none ${s.status === 'done' ? 'cursor-pointer hover:text-primary' : ''}`}
                   onClick={() => s.status === 'done' && setSelected(s)}
                 >
-                  {s.fileName}
+                  <p className="truncate">{s.fileName}</p>
+                  {/* Sub-info visible only when Tipo / Mes / Subido columns are hidden (< sm) */}
+                  <div className="sm:hidden mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    {(s.statementType ?? 'credit_card') === 'checking'
+                      ? <span className="inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Cartola</span>
+                      : <span className="inline-block px-1.5 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">Tarjeta</span>
+                    }
+                    <span className="text-xs text-zinc-400">
+                      {s.month.includes('-') ? s.month.split('-').reverse().join('-') : s.month}
+                    </span>
+                    <span className="text-xs text-zinc-400">{formatDate(s.createdAt)}</span>
+                  </div>
                 </td>
-                <td className="px-4 py-3 capitalize text-zinc-600">{s.bank}</td>
-                <td className="px-4 py-3">
+                <td className="px-4 py-3 capitalize text-zinc-600 whitespace-nowrap">{s.bank}</td>
+                <td className="hidden sm:table-cell px-4 py-3">
                   {(s.statementType ?? 'credit_card') === 'checking'
                     ? <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">Cartola</span>
                     : <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-zinc-100 text-zinc-600">Tarjeta</span>
                   }
                 </td>
-                <td className="px-4 py-3 text-zinc-600">
+                <td className="hidden sm:table-cell px-4 py-3 text-zinc-600">
                   {s.month.includes('-') ? s.month.split('-').reverse().join('-') : s.month}
                 </td>
                 <td className="px-4 py-3">
@@ -245,7 +256,7 @@ export function StatementsView() {
                     </div>
                   )}
                 </td>
-                <td className="px-4 py-3 text-zinc-500">{formatDate(s.createdAt)}</td>
+                <td className="hidden sm:table-cell px-4 py-3 text-zinc-500">{formatDate(s.createdAt)}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-1">
                     {/* Cancel button for stuck processing/pending statements */}

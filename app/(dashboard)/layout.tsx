@@ -15,7 +15,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4">
           <SidebarTrigger className="text-zinc-600" />
           {/* App name only on mobile (sidebar shows it on desktop) */}
-          <span className="text-sm font-semibold text-zinc-800 md:hidden">Statement Lens</span>
+          <span className="text-sm font-semibold text-zinc-800 lg:hidden">Statement Lens</span>
         </header>
         <div className="flex-1 overflow-y-auto p-6 md:p-8">
           {children}

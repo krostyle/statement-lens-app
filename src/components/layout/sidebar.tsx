@@ -54,7 +54,7 @@ export function AppSidebar() {
             <p className="text-xs text-blue-300/70">Finanzas personales</p>
           </div>
           <button
-            className="ml-auto flex md:hidden items-center justify-center rounded p-1 hover:bg-white/10"
+            className="ml-auto flex lg:hidden items-center justify-center rounded p-1 hover:bg-white/10"
             onClick={() => setOpenMobile(false)}
           >
             <X className="h-4 w-4 text-white" />
