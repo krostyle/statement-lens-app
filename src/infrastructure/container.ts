@@ -10,6 +10,7 @@ import { SnapshotPrismaRepository } from './database/repositories/snapshot.prism
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
+import { FinancialChatService } from './ai/financial-chat.service';
 
 import { CreateCategoryUseCase } from '@/src/application/use-cases/categories/create-category.use-case';
 import { UpdateCategoryUseCase } from '@/src/application/use-cases/categories/update-category.use-case';
@@ -29,6 +30,7 @@ import { RecommendBudgetsUseCase } from '@/src/application/use-cases/budgets/rec
 import { ListMerchantRulesUseCase } from '@/src/application/use-cases/merchant-rules/list-merchant-rules.use-case';
 import { UpsertMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/upsert-merchant-rule.use-case';
 import { DeleteMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/delete-merchant-rule.use-case';
+import { FinancialChatUseCase } from '@/src/application/use-cases/chat/financial-chat.use-case';
 
 // Repositories
 export const userProfileRepo = new UserProfilePrismaRepository();
@@ -43,6 +45,7 @@ export const snapshotRepo = new SnapshotPrismaRepository();
 export const s3Service = new S3StorageService();
 export const pdfParser = new PdfParserService();
 export const financialAnalysisService = new FinancialAnalysisService();
+export const financialChatService = new FinancialChatService();
 
 // Use cases
 export const createCategoryUseCase = new CreateCategoryUseCase(categoryRepo);
@@ -69,6 +72,10 @@ export const recommendBudgetsUseCase = new RecommendBudgetsUseCase(
 export const listMerchantRulesUseCase = new ListMerchantRulesUseCase(merchantRuleRepo);
 export const upsertMerchantRuleUseCase = new UpsertMerchantRuleUseCase(merchantRuleRepo, categoryRepo);
 export const deleteMerchantRuleUseCase = new DeleteMerchantRuleUseCase(merchantRuleRepo);
+
+export const financialChatUseCase = new FinancialChatUseCase(
+  transactionRepo, categoryRepo, budgetRepo, userProfileRepo, financialChatService
+);
 
 // Raw repos (needed in some API routes)
 export { categoryRepo, statementRepo, transactionRepo };
