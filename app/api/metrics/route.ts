@@ -14,7 +14,10 @@ function prevMonthOf(monthStr: string) {
 }
 
 function filterByMonth(txs: Transaction[], month: string) {
-  return txs.filter((t) => toMonthStr(t.date) === month);
+  return txs.filter((t) => {
+    const effective = (t.accountingMonth && t.accountingMonth !== '') ? t.accountingMonth : toMonthStr(t.date);
+    return effective === month;
+  });
 }
 
 export async function GET(request: Request) {
