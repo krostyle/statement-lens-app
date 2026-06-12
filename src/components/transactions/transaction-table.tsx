@@ -26,7 +26,6 @@ import { Skeleton } from '@/src/components/ui/skeleton';
 import { TransactionForm } from './transaction-form';
 import type { TransactionResponseDTO } from '@/src/application/dtos/transaction.dto';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
-import type { StatementResponseDTO } from '@/src/application/dtos/statement.dto';
 import type { PaginatedTransactionsDTO, TransactionSummaryDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 
 const BANK_LABELS: Record<string, string> = {
@@ -225,7 +224,6 @@ function BulkTypeDialog({
 export function TransactionsView() {
   const [transactions, setTransactions] = useState<TransactionResponseDTO[]>([]);
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
-  const [statements, setStatements] = useState<StatementResponseDTO[]>([]);
   const [search, setSearch] = useState('');
   const [selectedBank, setSelectedBank] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
@@ -256,9 +254,6 @@ export function TransactionsView() {
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [confirmAllLoading, setConfirmAllLoading] = useState(false);
 
-  // Map statementId → bank for display in table rows
-  const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
-
   // Debounce search — avoids firing a request on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -269,16 +264,11 @@ export function TransactionsView() {
   // Refresh counter — incremented after mutations to force a reload
   const [refreshKey, setRefreshKey] = useState(0);
 
-  // Fetch categories and statements once on mount
+  // Fetch categories once on mount
   useEffect(() => {
     fetch('/api/categories')
       .then((r) => r.json())
       .then((data) => setCategories(Array.isArray(data) ? data : []));
-  }, []);
-  useEffect(() => {
-    fetch('/api/statements')
-      .then((r) => r.json())
-      .then((data) => setStatements(Array.isArray(data) ? data : []));
   }, []);
 
   // Load transactions — cancels stale in-flight request when deps change
@@ -338,10 +328,9 @@ export function TransactionsView() {
   const getCategoryName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? id;
 
-  const getBankLabel = (statementId?: string | null) => {
-    if (!statementId) return null;
-    const bank = statementBankMap.get(statementId);
-    return bank ? (BANK_LABELS[bank] ?? bank) : null;
+  const getBankLabel = (bank?: string | null) => {
+    if (!bank) return null;
+    return BANK_LABELS[bank] ?? bank;
   };
 
   const handleDelete = async (id: string) => {
@@ -681,7 +670,7 @@ export function TransactionsView() {
           key={editing?.id ?? 'create'}
           categories={categories}
           transaction={editing}
-          bank={editing?.statementId ? statementBankMap.get(editing.statementId) : undefined}
+          bank={editing?.bank || undefined}
           onSuccess={(updated) => {
             setOpen(false);
             if (updated) {
@@ -811,7 +800,7 @@ export function TransactionsView() {
               </tr>
             ))}
             {!loading && transactions.map((t) => {
-              const bankLabel = getBankLabel(t.statementId);
+              const bankLabel = getBankLabel(t.bank);
               const isSelected = selectedIds.has(t.id);
               return (
                 <tr

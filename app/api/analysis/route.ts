@@ -7,10 +7,10 @@ export async function POST(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const body = await request.json().catch(() => ({}));
-  const { statementId, month } = body as { statementId?: string; month?: string };
+  const { month } = body as { month?: string };
 
   try {
-    const result = await analyzeFinancesUseCase.execute(userId, { statementId, month });
+    const result = await analyzeFinancesUseCase.execute(userId, { month });
     return NextResponse.json(result);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Internal server error';

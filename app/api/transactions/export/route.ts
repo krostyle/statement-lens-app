@@ -24,8 +24,8 @@ export async function GET(request: Request) {
   const categoryId = searchParams.get('categoryId');
   if (categoryId) where.categoryId = categoryId;
 
-  const statementId = searchParams.get('statementId');
-  if (statementId) where.statementId = statementId;
+  const bank = searchParams.get('bank');
+  if (bank) where.bank = bank;
 
   const from = searchParams.get('from');
   const to = searchParams.get('to');

@@ -8,7 +8,7 @@ export interface CreateTransactionDTO {
   isInstallment?: boolean;
   installmentNum?: number | null;
   installmentTotal?: number | null;
-  statementId?: string | null;
+  bank?: string;
 }
 
 export interface UpdateTransactionDTO {
@@ -26,7 +26,6 @@ export interface UpdateTransactionDTO {
 
 export interface TransactionFiltersDTO {
   categoryId?: string;
-  statementId?: string;
   bank?: string;
   from?: string;
   to?: string;
@@ -43,7 +42,8 @@ export interface TransactionFiltersDTO {
 export interface TransactionResponseDTO {
   id: string;
   userId: string;
-  statementId?: string | null;
+  /** Source bank ('santander' | ...); '' = unknown/manual entry */
+  bank: string;
   categoryId: string;
   date: string;
   description: string;

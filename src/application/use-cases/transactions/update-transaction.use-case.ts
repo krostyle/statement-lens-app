@@ -33,7 +33,7 @@ export class UpdateTransactionUseCase {
     return {
       id: updated.id,
       userId: updated.userId,
-      statementId: updated.statementId,
+      bank: updated.bank ?? '',
       categoryId: updated.categoryId,
       date: updated.date.toISOString(),
       description: updated.description,

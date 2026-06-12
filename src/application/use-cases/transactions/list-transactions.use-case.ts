@@ -27,7 +27,6 @@ export class ListTransactionsUseCase {
   ): Promise<PaginatedTransactionsDTO> {
     const baseFilters = {
       categoryId: filters?.categoryId,
-      statementId: filters?.statementId,
       bank: filters?.bank,
       from: filters?.from ? new Date(filters.from) : undefined,
       to: filters?.to ? new Date(filters.to) : undefined,
@@ -55,7 +54,7 @@ export class ListTransactionsUseCase {
       data: transactions.map((t) => ({
         id: t.id,
         userId: t.userId,
-        statementId: t.statementId,
+        bank: t.bank ?? '',
         categoryId: t.categoryId,
         date: t.date.toISOString(),
         description: t.description,

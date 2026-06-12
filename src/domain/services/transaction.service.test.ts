@@ -20,7 +20,9 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     isInstallment: false,
     installmentNum: null,
     installmentTotal: null,
-    statementId: null,
+    bank: '',
+    reviewStatus: 'pending',
+    transactionType: 'expense',
     notes: null,
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -34,9 +36,13 @@ describe('calculateTotalExpenses', () => {
     expect(calculateTotalExpenses(txs)).toBe(800);
   });
 
-  it('ignores credits (positive amounts)', () => {
-    const txs = [makeTransaction({ amount: -500 }), makeTransaction({ amount: 200 })];
-    expect(calculateTotalExpenses(txs)).toBe(500);
+  it('nets returns against purchases and excludes income', () => {
+    const txs = [
+      makeTransaction({ amount: -500 }),
+      makeTransaction({ amount: 200 }), // credit-card return → offsets the same category
+      makeTransaction({ amount: 300000, transactionType: 'income' }), // salary → excluded
+    ];
+    expect(calculateTotalExpenses(txs)).toBe(300);
   });
 
   it('returns 0 for empty array', () => {
@@ -57,10 +63,13 @@ describe('groupByMonth', () => {
     expect(result[1]).toEqual({ month: '2024-02', total: 300 });
   });
 
-  it('excludes credits from grouping', () => {
-    const txs = [makeTransaction({ amount: 500 }), makeTransaction({ amount: -100, date: new Date('2024-03-01') })];
+  it('drops months whose net spend is not positive', () => {
+    const txs = [
+      makeTransaction({ amount: 500, date: new Date('2024-03-15') }), // net credit month → dropped
+      makeTransaction({ amount: -100, date: new Date('2024-02-01') }),
+    ];
     const result = groupByMonth(txs);
-    expect(result).toHaveLength(1);
+    expect(result).toEqual([{ month: '2024-02', total: 100 }]);
   });
 });
 

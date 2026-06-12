@@ -12,30 +12,11 @@ datasource db {
 model UserProfile {
   clerkId        String         @id
   monthlyIncome  Int?
-  statements     Statement[]
   categories     Category[]
   transactions   Transaction[]
   budgets        Budget[]
   merchantRules  MerchantRule[]
   snapshots      Snapshot[]
-}
-
-model Statement {
-  id            String        @id @default(uuid())
-  userId        String
-  bank          String
-  month         String
-  statementType String        @default("credit_card") // 'credit_card' | 'checking'
-  fileName      String
-  s3Key         String
-  s3Url         String
-  status        String        @default("pending")
-  errorMessage  String?
-  duplicatesSkipped Int       @default(0) // charges omitted because they already existed (date+merchant+amount)
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
-  user          UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  transactions  Transaction[]
 }
 
 model Category {
@@ -73,13 +54,13 @@ model Budget {
 model Transaction {
   id               String      @id @default(uuid())
   userId           String
-  statementId      String?
   categoryId       String
   date             DateTime
   description      String
   merchant         String
   amount           Float
   currency         String      @default("CLP")
+  bank             String      @default("") // 'santander' | 'falabella' | ... — '' = unknown/manual
   isInstallment    Boolean     @default(false)
   installmentNum   Int?
   installmentTotal Int?
@@ -90,7 +71,6 @@ model Transaction {
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  statement        Statement?  @relation(fields: [statementId], references: [id], onDelete: Cascade)
   category         Category    @relation(fields: [categoryId], references: [id])
 
   @@index([userId, date])

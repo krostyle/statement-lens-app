@@ -11,7 +11,6 @@ export interface TransactionSummary {
 
 export interface TransactionFilters {
   categoryId?: string;
-  statementId?: string;
   bank?: string;
   from?: Date;
   to?: Date;
@@ -32,7 +31,6 @@ export interface ITransactionRepository {
   findByUserId(userId: string, filters?: TransactionFilters): Promise<Transaction[]>;
   countByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<number>;
   aggregateByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<TransactionSummary>;
-  findByStatementId(statementId: string): Promise<Transaction[]>;
   findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]>;
   create(data: CreateTransactionInput): Promise<Transaction>;
   createMany(data: CreateTransactionInput[]): Promise<void>;

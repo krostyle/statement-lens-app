@@ -10,7 +10,7 @@ export const createTransactionSchema = z.object({
   isInstallment: z.boolean().default(false),
   installmentNum: z.number().int().positive().optional().nullable(),
   installmentTotal: z.number().int().positive().optional().nullable(),
-  statementId: z.string().uuid().optional().nullable(),
+  bank: z.string().optional(),
 });
 
 export const updateTransactionSchema = z.object({

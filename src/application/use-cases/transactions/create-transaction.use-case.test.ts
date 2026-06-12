@@ -34,11 +34,18 @@ function createMockTransactionRepo(): ITransactionRepository {
   return {
     findById: async (id) => store.find((t) => t.id === id) ?? null,
     findByUserId: async (userId) => store.filter((t) => t.userId === userId),
-    findByStatementId: async (statementId) => store.filter((t) => t.statementId === statementId),
+    countByUserId: async (userId) => store.filter((t) => t.userId === userId).length,
+    aggregateByUserId: async () => ({ expenses: 0, income: 0, count: 0 }),
+    findInstallmentGroup: async () => [],
+    updateMany: async () => 0,
+    confirmAllPending: async () => 0,
     create: async (data: CreateTransactionInput) => {
       const tx: Transaction = {
         id: `tx-${++idCounter}`,
         notes: null,
+        bank: '',
+        reviewStatus: 'pending',
+        transactionType: 'expense',
         createdAt: new Date(),
         updatedAt: new Date(),
         ...data,

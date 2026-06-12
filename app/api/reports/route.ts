@@ -295,7 +295,6 @@ function generateReportHtml(
   summary: CategorySummary[],
   transactions: Transaction[],
   prevSnapshot: PrevSnapshot | null,
-  statementBankMap: Map<string, string>,
   activeInstallments: ActiveInstallment[],
   totalMonthlyInstallments: number,
   totalDebtInstallments: number,
@@ -378,7 +377,7 @@ function generateReportHtml(
       const amountCell = isReturn
         ? `<span class="text-green">-${clp(t.amount)}</span>`
         : clp(Math.abs(t.amount));
-      const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+      const bank = t.bank || null;
       const installmentLabel = t.isInstallment && t.installmentNum && t.installmentTotal
         ? `Cuota ${t.installmentNum}/${t.installmentTotal}` : null;
       const metaParts = [bank, installmentLabel].filter((x): x is string => !!x);
@@ -441,7 +440,7 @@ function generateReportHtml(
 
   const incomeHtml = totalIncome > 0 ? (() => {
     const incomeRowsHtml = incomeTxs.map((t) => {
-      const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+      const bank = t.bank || null;
       const metaHtml = bank ? `<span class="tx-meta">${esc(bank)}</span>` : '';
       return `
         <tr class="tx-row">
@@ -492,7 +491,7 @@ function generateReportHtml(
   const internalTransfersHtml = transferTxs.length > 0 ? (() => {
     const totalTransfers = transferTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
     const rowsHtml = transferTxs.map((t) => {
-      const bank = t.statementId ? (statementBankMap.get(t.statementId) ?? null) : null;
+      const bank = t.bank || null;
       const metaHtml = bank ? `<span class="tx-meta">${esc(bank)}</span>` : '';
       return `
         <tr class="tx-row">
@@ -772,35 +771,22 @@ export async function GET(req: Request) {
     };
   }
 
-  // Bank label map
-  const statementIds = [...new Set(
-    transactions.map((t) => t.statementId).filter((sid): sid is string => !!sid),
-  )];
-  const statements = statementIds.length > 0
-    ? await prisma.statement.findMany({
-        where: { id: { in: statementIds }, userId },
-        select: { id: true, bank: true },
-      })
-    : [];
-  const statementBankMap = new Map(statements.map((s) => [s.id, s.bank]));
-
   // Active installments
   const installmentTxs = await prisma.transaction.findMany({
     where: { userId, isInstallment: true },
-    include: { statement: true },
     orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
   });
   const instMap = new Map<string, typeof installmentTxs[number]>();
   for (const tx of installmentTxs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.statement?.bank ?? ''}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    const key = `${tx.bank}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!instMap.has(key)) instMap.set(key, tx);
   }
   const activeInstallments: ActiveInstallment[] = Array.from(instMap.values())
     .filter((tx) => tx.installmentNum! < tx.installmentTotal!)
     .map((tx) => ({
       merchant:        tx.merchant,
-      bank:            tx.statement?.bank ?? null,
+      bank:            tx.bank || null,
       amount:          Math.abs(tx.amount),
       installmentNum:  tx.installmentNum!,
       installmentTotal: tx.installmentTotal!,
@@ -823,7 +809,7 @@ export async function GET(req: Request) {
 
   const html = generateReportHtml(
     month, totalSpent, totalBudget, summary,
-    transactions, prevSnapshot, statementBankMap,
+    transactions, prevSnapshot,
     activeInstallments, totalMonthlyInstallments, totalDebtInstallments,
     trend, savingsRate6m, rolling6mMonths,
   );

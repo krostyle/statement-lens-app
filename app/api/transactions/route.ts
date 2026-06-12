@@ -17,7 +17,6 @@ export async function GET(request: Request) {
     userId,
     {
       categoryId: searchParams.get('categoryId') ?? undefined,
-      statementId: searchParams.get('statementId') ?? undefined,
       bank: searchParams.get('bank') ?? undefined,
       from: searchParams.get('from') ?? undefined,
       to: searchParams.get('to') ?? undefined,

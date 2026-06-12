@@ -23,13 +23,13 @@ export class CreateTransactionUseCase {
       isInstallment: dto.isInstallment ?? false,
       installmentNum: dto.installmentNum ?? null,
       installmentTotal: dto.installmentTotal ?? null,
-      statementId: dto.statementId ?? null,
+      bank: dto.bank ?? '',
     });
 
     return {
       id: transaction.id,
       userId: transaction.userId,
-      statementId: transaction.statementId,
+      bank: transaction.bank ?? '',
       categoryId: transaction.categoryId,
       date: transaction.date.toISOString(),
       description: transaction.description,

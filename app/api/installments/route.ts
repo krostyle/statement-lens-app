@@ -8,15 +8,12 @@ export async function GET(request: Request) {
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const statementId = searchParams.get('statementId');
   const month = searchParams.get('month');
 
   const bank = searchParams.get('bank');
   const where: Prisma.TransactionWhereInput = { userId, isInstallment: true };
 
-  if (statementId) {
-    where.statementId = statementId;
-  } else if (month) {
+  if (month) {
     const [y, m] = month.split('-').map(Number);
     where.date = {
       gte: new Date(Date.UTC(y, m - 1, 1)),
@@ -24,21 +21,20 @@ export async function GET(request: Request) {
     };
   }
 
-  if (bank && ['santander', 'falabella', 'liderbci'].includes(bank)) {
-    where.statement = { bank: bank as 'santander' | 'falabella' | 'liderbci' };
+  if (bank) {
+    where.bank = bank;
   }
 
   // Fetch all installment transactions for the user.
-  // Sort by date DESC so the row from the most recent statement always wins
-  // the dedup map. Since the date fix ensures every installment row carries
-  // the billing-month date (1st of the statement month) rather than the
-  // original purchase date, "most recent date" == "most recent statement".
-  // This correctly handles the case where a paid plan (last billed in e.g.
-  // Dec 2025) and a new active plan share the same key: the active plan's
-  // more recent billing date wins, so the paid plan never shadows it.
+  // Sort by date DESC so the most recently billed row always wins the dedup
+  // map. Since every installment row carries the billing-month date (1st of
+  // the tracked month) rather than the original purchase date, "most recent
+  // date" == "most recently billed". This correctly handles the case where a
+  // paid plan (last billed in e.g. Dec 2025) and a new active plan share the
+  // same key: the active plan's more recent billing date wins, so the paid
+  // plan never shadows it.
   const txs = await prisma.transaction.findMany({
     where,
-    include: { statement: true },
     orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
   });
 
@@ -52,7 +48,7 @@ export async function GET(request: Request) {
   const map = new Map<string, typeof txs[number]>();
   for (const tx of txs) {
     if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.statement?.bank ?? ''}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
+    const key = `${tx.bank}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
     if (!map.has(key)) {
       map.set(key, tx);
     }
@@ -65,7 +61,7 @@ export async function GET(request: Request) {
       id: tx.id,
       merchant: tx.merchant,
       description: tx.description,
-      bank: tx.statement?.bank ?? null,
+      bank: tx.bank || null,
       amount: Math.abs(tx.amount),
       installmentNum: tx.installmentNum!,
       installmentTotal: tx.installmentTotal!,

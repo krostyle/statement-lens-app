@@ -2,10 +2,6 @@ import type { ITransactionRepository } from '@/src/domain/repositories/transacti
 import type { FinancialAnalysisService, FinancialAnalysisResult } from '@/src/infrastructure/ai/financial-analysis.service';
 import { netSpendByCategory } from '@/src/domain/services/transaction.service';
 
-function toMonthStr(t: { date: Date }) {
-  return `${t.date.getUTCFullYear()}-${String(t.date.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
 export class AnalyzeFinancesUseCase {
   constructor(
     private readonly transactionRepo: ITransactionRepository,
@@ -14,17 +10,13 @@ export class AnalyzeFinancesUseCase {
 
   async execute(
     userId: string,
-    filters: { statementId?: string; month?: string }
+    filters: { month?: string }
   ): Promise<FinancialAnalysisResult> {
     const now = new Date();
     let transactions;
     let period: string;
 
-    if (filters.statementId) {
-      transactions = await this.transactionRepo.findByUserId(userId, { statementId: filters.statementId });
-      const months = transactions.map(toMonthStr).sort();
-      period = months.length > 0 ? `${months[0]} al ${months[months.length - 1]}` : 'período desconocido';
-    } else if (filters.month) {
+    if (filters.month) {
       const [y, m] = filters.month.split('-').map(Number);
       const from = new Date(Date.UTC(y, m - 1, 1));
       const to = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));

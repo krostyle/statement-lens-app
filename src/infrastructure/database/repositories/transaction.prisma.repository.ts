@@ -6,8 +6,7 @@ import { Prisma } from '@prisma/client';
 function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Prisma.TransactionWhereInput {
   const where: Prisma.TransactionWhereInput = { userId };
   if (filters?.categoryId) where.categoryId = filters.categoryId;
-  if (filters?.statementId) where.statementId = filters.statementId;
-  if (filters?.bank) where.statement = { bank: filters.bank as never };
+  if (filters?.bank) where.bank = filters.bank;
   if (filters?.from || filters?.to) {
     where.date = {
       ...(filters.from ? { gte: filters.from } : {}),
@@ -74,10 +73,6 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     }
 
     return { expenses, income, count };
-  }
-
-  async findByStatementId(statementId: string): Promise<Transaction[]> {
-    return prisma.transaction.findMany({ where: { statementId } }) as Promise<Transaction[]>;
   }
 
   async findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]> {

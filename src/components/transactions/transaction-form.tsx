@@ -73,7 +73,7 @@ type EditInput = z.infer<typeof editSchema>;
 interface Props {
   categories: CategoryResponseDTO[];
   transaction?: TransactionResponseDTO | null;
-  /** Raw bank key of the statement this transaction came from, e.g. "santander". Undefined if manual. */
+  /** Raw bank key of this transaction's source, e.g. "santander". Undefined if manual. */
   bank?: string;
   onSuccess: (updated?: TransactionResponseDTO) => void;
   onCancel: () => void;

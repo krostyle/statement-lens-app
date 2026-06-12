@@ -2,13 +2,10 @@
 
 import { UserProfilePrismaRepository } from './database/repositories/user-profile.prisma.repository';
 import { CategoryPrismaRepository } from './database/repositories/category.prisma.repository';
-import { StatementPrismaRepository } from './database/repositories/statement.prisma.repository';
 import { TransactionPrismaRepository } from './database/repositories/transaction.prisma.repository';
 import { BudgetPrismaRepository } from './database/repositories/budget.prisma.repository';
 import { MerchantRulePrismaRepository } from './database/repositories/merchant-rule.prisma.repository';
 import { SnapshotPrismaRepository } from './database/repositories/snapshot.prisma.repository';
-import { S3StorageService } from './storage/s3.storage.service';
-import { PdfParserService } from './ai/pdf-parser.service';
 import { RawSnapshotParserService } from './ai/raw-snapshot-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
 import { FinancialChatService } from './ai/financial-chat.service';
@@ -22,8 +19,6 @@ import { UpdateTransactionUseCase } from '@/src/application/use-cases/transactio
 import { DeleteTransactionUseCase } from '@/src/application/use-cases/transactions/delete-transaction.use-case';
 import { BulkUpdateTransactionsUseCase } from '@/src/application/use-cases/transactions/bulk-update-transactions.use-case';
 import { ListTransactionsUseCase } from '@/src/application/use-cases/transactions/list-transactions.use-case';
-import { ListStatementsUseCase } from '@/src/application/use-cases/statements/list-statements.use-case';
-import { UpdateStatementUseCase } from '@/src/application/use-cases/statements/update-statement.use-case';
 import { AnalyzeFinancesUseCase } from '@/src/application/use-cases/analysis/analyze-finances.use-case';
 import { ListBudgetsUseCase } from '@/src/application/use-cases/budgets/list-budgets.use-case';
 import { UpsertBudgetUseCase } from '@/src/application/use-cases/budgets/upsert-budget.use-case';
@@ -36,15 +31,12 @@ import { FinancialChatUseCase } from '@/src/application/use-cases/chat/financial
 // Repositories
 export const userProfileRepo = new UserProfilePrismaRepository();
 const categoryRepo = new CategoryPrismaRepository();
-const statementRepo = new StatementPrismaRepository();
 const transactionRepo = new TransactionPrismaRepository();
 export const budgetRepo = new BudgetPrismaRepository();
 export const merchantRuleRepo = new MerchantRulePrismaRepository();
 export const snapshotRepo = new SnapshotPrismaRepository();
 
 // Services
-export const s3Service = new S3StorageService();
-export const pdfParser = new PdfParserService();
 export const rawSnapshotParser = new RawSnapshotParserService();
 export const financialAnalysisService = new FinancialAnalysisService();
 export const financialChatService = new FinancialChatService();
@@ -61,8 +53,6 @@ export const deleteTransactionUseCase = new DeleteTransactionUseCase(transaction
 export const bulkUpdateTransactionsUseCase = new BulkUpdateTransactionsUseCase(transactionRepo, categoryRepo);
 export const listTransactionsUseCase = new ListTransactionsUseCase(transactionRepo);
 
-export const listStatementsUseCase = new ListStatementsUseCase(statementRepo);
-export const updateStatementUseCase = new UpdateStatementUseCase(statementRepo);
 export const analyzeFinancesUseCase = new AnalyzeFinancesUseCase(transactionRepo, financialAnalysisService);
 
 export const listBudgetsUseCase = new ListBudgetsUseCase(budgetRepo);
@@ -80,4 +70,4 @@ export const financialChatUseCase = new FinancialChatUseCase(
 );
 
 // Raw repos (needed in some API routes)
-export { categoryRepo, statementRepo, transactionRepo };
+export { categoryRepo, transactionRepo };

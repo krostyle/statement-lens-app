@@ -4,13 +4,14 @@ export type TransactionType = 'expense' | 'income' | 'transfer';
 export interface Transaction {
   id: string;
   userId: string;
-  statementId?: string | null;
   categoryId: string;
   date: Date;
   description: string;
   merchant: string;
   amount: number;
   currency: string;
+  /** Source bank ('santander' | 'falabella' | ...); '' = unknown/manual entry */
+  bank: string;
   isInstallment: boolean;
   installmentNum?: number | null;
   installmentTotal?: number | null;
@@ -33,8 +34,7 @@ export type CreateTransactionInput = Pick<
   | 'isInstallment'
   | 'installmentNum'
   | 'installmentTotal'
-  | 'statementId'
-> & { reviewStatus?: ReviewStatus; transactionType?: TransactionType };
+> & { bank?: string; reviewStatus?: ReviewStatus; transactionType?: TransactionType };
 
 export type UpdateTransactionInput = Partial<
   Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description' | 'reviewStatus' | 'transactionType' | 'installmentNum' | 'installmentTotal'>
