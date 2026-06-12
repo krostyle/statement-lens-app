@@ -46,6 +46,10 @@ export interface ITransactionRepository {
   updateMany(ids: string[], userId: string, data: UpdateTransactionInput): Promise<number>;
   confirmAllPending(userId: string): Promise<number>;
   delete(id: string): Promise<void>;
-  /** Deletes origin='tracking' transactions for a month; optionally filtered by bank and accountType. */
-  deleteManyTracking(userId: string, month: string, bank?: string, accountType?: string): Promise<void>;
+  /**
+   * Deletes origin='tracking' transactions.
+   * - If month is provided, scoped to that YYYY-MM date range.
+   * - If month is omitted, deletes all for userId+bank+accountType (used when re-uploading a full source).
+   */
+  deleteManyTracking(userId: string, month?: string, bank?: string, accountType?: string): Promise<void>;
 }

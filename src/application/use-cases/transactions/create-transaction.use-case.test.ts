@@ -42,7 +42,7 @@ function createMockTransactionRepo(): ITransactionRepository {
     updateMany: async () => 0,
     confirmAllPending: async () => 0,
     createManyAndReturn: async () => [],
-    deleteManyTracking: async () => {},
+    deleteManyTracking: async (_userId, _month?, _bank?, _accountType?) => {},
     create: async (data: CreateTransactionInput) => {
       const tx: Transaction = {
         id: `tx-${++idCounter}`,

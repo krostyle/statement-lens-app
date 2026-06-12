@@ -97,11 +97,24 @@ export async function POST(request: Request) {
 
     const categorized = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
 
-    // Replace existing transactions for this bank+sourceType+month
-    await transactionRepo.deleteManyTracking(userId, month, bank, sourceType);
+    // Deduplicate within the uploaded batch by (date + amount + description).
+    // Handles copy-paste noise where the same row appears twice in the pasted text.
+    const seen = new Set<string>();
+    const unique = categorized.filter((tx) => {
+      const key = `${tx.date}|${tx.amount}|${tx.description}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    // Replace ALL previous tracking data for this bank+sourceType (no month filter).
+    // This avoids cross-month duplicates: portal data often spans billing cycles
+    // (e.g. May 25 – Jun 11 uploaded as "June"), and re-uploading must replace
+    // the full prior copy regardless of which months its rows fall in.
+    await transactionRepo.deleteManyTracking(userId, undefined, bank, sourceType);
 
     // Persist as real Transaction records
-    const inputs: CreateTransactionInput[] = categorized.map((tx) => ({
+    const inputs: CreateTransactionInput[] = unique.map((tx) => ({
       userId,
       categoryId:      tx.categoryId,
       date:            new Date(`${tx.date}T12:00:00.000Z`),
@@ -119,9 +132,9 @@ export async function POST(request: Request) {
       installmentTotal: null,
     }));
 
-    const saved = await transactionRepo.createManyAndReturn(inputs);
+    await transactionRepo.createManyAndReturn(inputs);
 
-    // Build response in the shape the tracking UI expects
+    // Build response — show all tracking for the selected month
     const allTracking = await transactionRepo.findTrackingByMonth(userId, month);
     const allSnapshot = allTracking.map((tx) => txToSnapshot(tx, categoryNameMap));
     const checkingTxs = allSnapshot.filter((t) => t.source === 'checking');
@@ -130,10 +143,8 @@ export async function POST(request: Request) {
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
     const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
-    // Suppress unused var warning — saved is used to confirm createManyAndReturn worked
-    void saved;
-
-    return NextResponse.json({ month, checkingTxs, ccTxs, metrics });
+    const skipped = categorized.length - unique.length;
+    return NextResponse.json({ month, checkingTxs, ccTxs, metrics, ...(skipped > 0 ? { duplicatesSkipped: skipped } : {}) });
   } catch (err) {
     console.error('[POST /api/snapshot]', err);
     const msg = err instanceof Error ? err.message : 'Error interno';

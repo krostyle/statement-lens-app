@@ -186,17 +186,22 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     return results as Transaction[];
   }
 
-  async deleteManyTracking(userId: string, month: string, bank?: string, accountType?: string): Promise<void> {
-    const from = new Date(`${month}-01T00:00:00.000Z`);
-    const to   = new Date(from);
-    to.setUTCMonth(to.getUTCMonth() + 1);
+  async deleteManyTracking(userId: string, month?: string, bank?: string, accountType?: string): Promise<void> {
+    const dateFilter = month
+      ? (() => {
+          const from = new Date(`${month}-01T00:00:00.000Z`);
+          const to   = new Date(from);
+          to.setUTCMonth(to.getUTCMonth() + 1);
+          return { gte: from, lt: to };
+        })()
+      : undefined;
     await prisma.transaction.deleteMany({
       where: {
         userId,
         origin: 'tracking',
-        date: { gte: from, lt: to },
-        ...(bank        ? { bank }        : {}),
-        ...(accountType ? { accountType } : {}),
+        ...(dateFilter   ? { date: dateFilter } : {}),
+        ...(bank         ? { bank }             : {}),
+        ...(accountType  ? { accountType }      : {}),
       },
     });
   }
