@@ -157,6 +157,211 @@ describe('parseRawStatementText — billed statement (Santander)', () => {
   });
 });
 
+// Full Santander statement extras: totals header, CUOTA COMERCIO installments
+// (2-digit years from past purchases) and the payment-stub section.
+const SANTANDER_FULL_SAMPLE = [
+  '2.PERÍODO ACTUAL',
+  'DESCRIPCIÓN OPERACIÓN O COBRO',
+  '1. TOTAL OPERACIONES $ 2.332.942',
+  'MOVIMIENTOS TARJETA XXXX-1125 $ 2.332.942',
+  '10/12/24 MACONLINE TOBALABA CUOTA COMERCIO 0,00 % $ 1.452.960 $ 1.452.960 17/36 $40.360',
+  '10/12/24 MACONLINE TOBALABA CUOTA COMERCIO 0,00 % $ 1.342.960 $ 1.342.960 17/36 $37.304',
+  '28/05/25 SIGLO XXI CUOTA FIJA 2,55 % $ 762.395 $ 926.765 11/12 $77.231',
+  '04/02/26 PARIS PUENTE ALTO CUOTA COMERCIO 0,00 % $ 58.966 $ 58.966 03/03 $19.656',
+  '04/02/26 RIPLEY PLAZA VESPUCIO CUOTA FIJA 2,54 % $ 182.970 $ 205.205 03/06 $34.201',
+  'COMPROBANTE DE PAGO',
+  'MONTO MÍNIMO A PAGAR',
+  'Cheque',
+  'DIEGO BUSTAMANTE ALBARRAN',
+  'MONTO TOTAL FACTURADO A PAGAR',
+  'NÚMERO DE TARJETA',
+  '$ 15.800',
+  '09/06/2026',
+  'MONTO CANCELADO',
+  '$ 2.332.942',
+  'XXXX XXXX XXXX 1125',
+  'SANTIAGO 30/04/26 PAYU *UBER TRIP $1.863',
+].join('\n');
+
+describe('parseRawStatementText — full Santander statement', () => {
+  it('parses CUOTA COMERCIO / CUOTA FIJA installments with 2-digit years', () => {
+    const rows = parseRawStatementText(SANTANDER_FULL_SAMPLE, '2026-06');
+
+    const maconline = rows.filter((r) => r.merchant === 'MACONLINE TOBALABA');
+    expect(maconline.map((r) => r.amount).sort()).toEqual([37304, 40360]);
+    expect(maconline[0]).toMatchObject({ installmentNum: 17, installmentTotal: 36, date: '2026-06-01' });
+    expect(maconline[0].description).toContain('compra 10/12/24');
+
+    expect(rows.find((r) => r.merchant === 'SIGLO XXI')).toMatchObject({ amount: 77231, installmentNum: 11, installmentTotal: 12 });
+    expect(rows.find((r) => r.merchant === 'PARIS PUENTE ALTO')).toMatchObject({ amount: 19656, installmentTotal: 3 });
+    expect(rows.find((r) => r.merchant === 'RIPLEY PLAZA VESPUCIO')).toMatchObject({ amount: 34201, installmentTotal: 6 });
+  });
+
+  it('ignores the totals header and the payment-stub section', () => {
+    const rows = parseRawStatementText(SANTANDER_FULL_SAMPLE, '2026-06');
+
+    expect(rows.some((r) => /total operaciones|movimientos tarjeta|monto/i.test(r.description))).toBe(false);
+    // standalone "$ 15.800" / "$ 2.332.942" stub amounts must not become rows
+    expect(rows.some((r) => r.amount === 15800 || r.amount === 2332942)).toBe(false);
+    expect(rows).toHaveLength(6); // 5 cuotas + 1 regular purchase
+  });
+});
+
+// Real-world sample: billed Falabella CMR statement. No $ symbols, " T "
+// separator, every row carries a cuota marker (01/01 = simple purchase) and
+// usually a month-year token. Credits (refunds, payments) are negative.
+const FALABELLA_SAMPLE = [
+  '2. PERÍODO ACTUAL',
+  '2.1 Total Operaciones',
+  'FALABELLA',
+  'S/I 18/02/2026 Falabella.com T 304.990 330.497 03/03 abr-2026 110.167',
+  'HOMECENTER - SODIMAC',
+  'Sin Movimientos',
+  'ESTADO DE CUENTA',
+  'Nombre del Titular: DIEGO BUSTAMANTE ALBARRAN',
+  'Cupon de Pago N°: 18.762.089.09',
+  'N° de Contrato: 999920******8863',
+  'Fecha Facturación Estado de',
+  'Cuenta:',
+  '19/05/2026',
+  'COMPRAS NACIONALES',
+  'Santiago 26/12/2025 Universidad mayor T 365.240 365.240 05/12 feb-2026 30.436',
+  'Santiago 20/04/2026 Uber eats T 7.258 7.258 01/01 jun-2026 7.258',
+  'Las Condes 28/04/2026 Mercadopago *mercadol T -44.990 -44.990 01/01 -44.990',
+  'Santiago 23/04/2026 Salcobrand huerfanos 9 T 24.845 24.845 01/01 jun-2026 24.845',
+  'COMPRAS INTERNACIONALES',
+  'San Francisco 19/04/2026 Claude.ai su CL USD 23,8 T 21.443 21.443 01/01 jun-2026 21.443',
+  'OTROS',
+  'Sin Movimientos',
+  '2.3 Cargos, Comisiones, Impuestos y Abonos',
+  'S/I 28/04/2026 Pago tarjeta cmr T -849.300 0 01/01',
+  '19/05/2026 Servicio administracion 14.142 14.142 01/01 14.142',
+].join('\n');
+
+describe('parseRawStatementText — billed statement (Falabella)', () => {
+  it('parses installment rows: bare amounts, month-year token, valor cuota', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+
+    const falabella = rows.find((r) => r.merchant === 'Falabella.com')!;
+    expect(falabella.amount).toBe(110167); // valor cuota, NOT 304.990 nor 330.497
+    expect(falabella.installmentNum).toBe(3);
+    expect(falabella.installmentTotal).toBe(3);
+    expect(falabella.date).toBe('2026-06-01');
+
+    const uni = rows.find((r) => r.merchant === 'Universidad mayor')!;
+    expect(uni.amount).toBe(30436);
+    expect(uni.description).toBe('Universidad mayor (cuota 05/12 · compra 26/12/2025)');
+  });
+
+  it('treats 01/01 rows as simple purchases with their real date', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+    const uber = rows.find((r) => r.description === 'Uber eats')!;
+
+    expect(uber.amount).toBe(7258);
+    expect(uber.date).toBe('2026-04-20');
+    expect(uber.installmentNum).toBeUndefined();
+  });
+
+  it('flips negative amounts to positive credits (refunds) in billed docs', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+    const refund = rows.find((r) => r.description === 'Mercadopago *mercadol')!;
+
+    expect(refund.amount).toBe(44990);
+    expect(refund.explicitSign).toBe(true); // survives the credit-card negation downstream
+  });
+
+  it('drops card payment rows (Pago tarjeta cmr)', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+    expect(rows.some((r) => /pago tarjeta/i.test(r.description))).toBe(false);
+  });
+
+  it('keeps decimals and digits inside descriptions (USD rows, store numbers)', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+
+    expect(rows.find((r) => r.description === 'Claude.ai su CL USD 23,8')).toMatchObject({
+      date: '2026-04-19',
+      amount: 21443,
+    });
+    expect(rows.find((r) => r.description === 'Salcobrand huerfanos 9')).toMatchObject({ amount: 24845 });
+  });
+
+  it('parses fee rows without the T separator and ignores header noise with numbers', () => {
+    const rows = parseRawStatementText(FALABELLA_SAMPLE, '2026-06');
+
+    expect(rows.find((r) => r.description === 'Servicio administracion')).toMatchObject({ amount: 14142 });
+    // "Cupon de Pago N°: 18.762.089.09" and "N° de Contrato" must not become rows
+    expect(rows.some((r) => /cupon|contrato|titular/i.test(r.description))).toBe(false);
+    expect(rows).toHaveLength(7);
+  });
+
+  it('produces all-negative expenses except the refund via toSnapshotRows', () => {
+    const txs = toSnapshotRows(parseRawStatementText(FALABELLA_SAMPLE, '2026-06'), 'credit_card', 'falabella');
+
+    const refund = txs.find((t) => t.description === 'Mercadopago *mercadol')!;
+    expect(refund.amount).toBe(44990);
+    expect(refund.transactionType).toBe('expense'); // positive expense = refund convention
+
+    expect(txs.filter((t) => t.amount < 0)).toHaveLength(6);
+  });
+});
+
+// Real-world sample: billed LiderBCI statement. " (T) " separator, $ amounts,
+// Santander-style installment rows, subtotal lines and filler noise.
+const LIDERBCI_SAMPLE = [
+  '2. Período Actual',
+  'Lugar',
+  'Operación',
+  'Descripción',
+  'Operación',
+  '1. Total Operaciones',
+  'LIDER',
+  'PUENTE ALTO 28/03/2026 HIPER PUENTE ALTO., PUENTE ALTO (T) $ 81.131',
+  'SANTIAGO SCLCHL 29/03/2026 LIDER DOMICILIO VENTAS Y DISTRIBUCION L (T) $ 117.571',
+  '$ 432.278',
+  'OTROS COMERCIOS',
+  'SANTIAGO SCLCHL 07/01/2026 LIDER DOMICILIO VENTAS 3,14% (T) $ 399.990 $ 486.480 03/12 $ 40.540',
+  '$ 40.540',
+  '3. Cargos / Comisiones, Impuestos / Abonos',
+  '25/03/2026 PAGO $ -1.109.173',
+  '$ -1.109.173',
+  'Brelleno',
+].join('\n');
+
+describe('parseRawStatementText — billed statement (LiderBCI)', () => {
+  it('parses regular rows, stripping the (T) marker from descriptions', () => {
+    const rows = parseRawStatementText(LIDERBCI_SAMPLE, '2026-06');
+    const hiper = rows.find((r) => r.description.startsWith('HIPER'))!;
+
+    expect(hiper.description).toBe('HIPER PUENTE ALTO., PUENTE ALTO');
+    expect(hiper.amount).toBe(81131);
+    expect(hiper.date).toBe('2026-03-28');
+  });
+
+  it('extracts the valor cuota mensual from installment rows', () => {
+    const rows = parseRawStatementText(LIDERBCI_SAMPLE, '2026-06');
+    const cuota = rows.find((r) => r.installmentTotal === 12)!;
+
+    expect(cuota.amount).toBe(40540); // NOT 399.990 nor 486.480
+    expect(cuota.merchant).toBe('LIDER DOMICILIO VENTAS');
+    expect(cuota.installmentNum).toBe(3);
+    expect(cuota.date).toBe('2026-06-01');
+  });
+
+  it('drops the PAGO row and subtotal/filler lines', () => {
+    const rows = parseRawStatementText(LIDERBCI_SAMPLE, '2026-06');
+
+    expect(rows.some((r) => /^pago/i.test(r.description))).toBe(false);
+    expect(rows.some((r) => /brelleno|lider$|otros comercios/i.test(r.description))).toBe(false);
+    expect(rows).toHaveLength(3); // 2 regular + 1 cuota
+  });
+
+  it('produces negative expenses via toSnapshotRows', () => {
+    const txs = toSnapshotRows(parseRawStatementText(LIDERBCI_SAMPLE, '2026-06'), 'credit_card', 'liderbci');
+    expect(txs.every((t) => t.amount < 0 && t.transactionType === 'expense')).toBe(true);
+    expect(txs.find((t) => t.merchant === 'LIDER DOMICILIO VENTAS')!.amount).toBe(-40540);
+  });
+});
+
 describe('toSnapshotRows', () => {
   it('marks credit-card PAGO as transfer and charges as expenses', () => {
     const rows = toSnapshotRows(parseRawStatementText(SAMPLE, '2026-06'), 'credit_card', 'santander');
