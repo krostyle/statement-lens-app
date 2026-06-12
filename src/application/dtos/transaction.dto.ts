@@ -44,6 +44,8 @@ export interface TransactionResponseDTO {
   userId: string;
   /** Source bank ('santander' | ...); '' = unknown/manual entry */
   bank: string;
+  /** 'checking' | 'credit_card' | '' */
+  accountType: string;
   categoryId: string;
   date: string;
   description: string;

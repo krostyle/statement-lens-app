@@ -30,6 +30,7 @@ export class CreateTransactionUseCase {
       id: transaction.id,
       userId: transaction.userId,
       bank: transaction.bank ?? '',
+      accountType: transaction.accountType ?? '',
       categoryId: transaction.categoryId,
       date: transaction.date.toISOString(),
       description: transaction.description,

@@ -6,6 +6,7 @@ export function toTransactionDTO(t: Transaction): TransactionResponseDTO {
     id: t.id,
     userId: t.userId,
     bank: t.bank ?? '',
+    accountType: t.accountType ?? '',
     categoryId: t.categoryId,
     date: t.date.toISOString(),
     description: t.description,

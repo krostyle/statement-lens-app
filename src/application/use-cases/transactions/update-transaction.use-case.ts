@@ -34,6 +34,7 @@ export class UpdateTransactionUseCase {
       id: updated.id,
       userId: updated.userId,
       bank: updated.bank ?? '',
+      accountType: updated.accountType ?? '',
       categoryId: updated.categoryId,
       date: updated.date.toISOString(),
       description: updated.description,

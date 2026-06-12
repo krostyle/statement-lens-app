@@ -915,7 +915,15 @@ export function TransactionsView() {
                           </Badge>
                         )}
                         {bankLabel && (
-                          <span className="text-xs text-zinc-400">{bankLabel}</span>
+                          <span className="text-xs text-zinc-400 inline-flex items-center gap-1">
+                            {bankLabel}
+                            {t.accountType === 'credit_card' && (
+                              <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-violet-100 text-violet-700">TC</span>
+                            )}
+                            {t.accountType === 'checking' && (
+                              <span className="text-[10px] font-semibold px-1 py-0.5 rounded bg-sky-100 text-sky-700">CC</span>
+                            )}
+                          </span>
                         )}
                       </div>
                     </div>
@@ -925,8 +933,19 @@ export function TransactionsView() {
                     <Badge variant="secondary">{getCategoryName(t.categoryId)}</Badge>
                   </td>
                   {/* Cuenta — hidden below md */}
-                  <td className="hidden md:table-cell px-4 py-3 text-sm text-zinc-500 whitespace-nowrap">
-                    {bankLabel ?? <span className="text-zinc-300">—</span>}
+                  <td className="hidden md:table-cell px-4 py-3 whitespace-nowrap">
+                    {bankLabel
+                      ? <div className="flex items-center gap-1.5">
+                          <span className="text-sm text-zinc-500">{bankLabel}</span>
+                          {t.accountType === 'credit_card' && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-violet-100 text-violet-700">TC</span>
+                          )}
+                          {t.accountType === 'checking' && (
+                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">CC</span>
+                          )}
+                        </div>
+                      : <span className="text-zinc-300">—</span>
+                    }
                   </td>
                   {/* Cuotas — hidden below md */}
                   <td className="hidden md:table-cell px-4 py-3">
