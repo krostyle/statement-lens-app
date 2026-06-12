@@ -480,10 +480,18 @@ export function TransactionsView() {
       .then((r) => r.json())
       .then((data: PaginatedTransactionsDTO) => {
         if (cancelled) return;
-        setTransactions(Array.isArray(data.data) ? data.data : []);
+        const newTxs = Array.isArray(data.data) ? data.data : [];
+        const validIds = new Set(newTxs.map((t) => t.id));
+        setTransactions(newTxs);
         setTotal(data.total ?? 0);
         setTotalPages(data.totalPages ?? 1);
         setSummary(data.summary ?? null);
+        // Elimina IDs que ya no existen en la página cargada (evita "fantasmas")
+        setSelectedIds((prev) => {
+          if (prev.size === 0) return prev;
+          const next = new Set([...prev].filter((id) => validIds.has(id)));
+          return next.size === prev.size ? prev : next;
+        });
         setLoading(false);
       })
       .catch(() => { if (!cancelled) setLoading(false); });
