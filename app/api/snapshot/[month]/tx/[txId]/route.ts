@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
+import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
-import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
+import { txToSnapshot } from '@/src/lib/snapshot-utils';
 
 export async function PATCH(
   request: Request,
@@ -22,27 +22,27 @@ export async function PATCH(
     return NextResponse.json({ error: 'categoryId, categoryName and transactionType are required' }, { status: 400 });
   }
 
-  const snapshot = await snapshotRepo.findByUserAndMonth(userId, month);
-  if (!snapshot) return NextResponse.json({ error: 'Snapshot not found' }, { status: 404 });
+  // Verify the transaction belongs to this user and is a tracking transaction
+  const tx = await transactionRepo.findById(txId);
+  if (!tx || tx.userId !== userId || tx.origin !== 'tracking') {
+    return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+  }
 
-  const updateTx = (txs: SnapshotTransaction[] | null): SnapshotTransaction[] | null => {
-    if (!txs) return null;
-    return txs.map((t) =>
-      t.id === txId
-        ? { ...t, categoryId, categoryName, transactionType: transactionType as SnapshotTransaction['transactionType'] }
-        : t,
-    );
-  };
+  await transactionRepo.update(txId, {
+    categoryId,
+    transactionType: transactionType as 'expense' | 'income' | 'transfer',
+  });
 
-  const updatedChecking = updateTx(snapshot.checkingTxs);
-  const updatedCC       = updateTx(snapshot.ccTxs);
+  const [allTracking, categories, budgets] = await Promise.all([
+    transactionRepo.findTrackingByMonth(userId, month),
+    categoryRepo.findByUserId(userId),
+    budgetRepo.findByUserId(userId, month),
+  ]);
 
-  await snapshotRepo.upsert(userId, month, updatedChecking, updatedCC);
-
-  const budgets   = await budgetRepo.findByUserId(userId, month);
-  const allTxs    = [...(updatedChecking ?? []), ...(updatedCC ?? [])];
-  const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-  const metrics   = computeSnapshotMetrics(allTxs, budgetMap, month);
+  const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
+  const allSnapshot     = allTracking.map((t) => txToSnapshot(t, categoryNameMap));
+  const budgetMap       = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
+  const metrics         = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
   return NextResponse.json({ metrics });
 }

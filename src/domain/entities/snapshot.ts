@@ -1,5 +1,6 @@
+/** Shape returned by all /api/snapshot/* endpoints and consumed by the tracking UI. */
 export interface SnapshotTransaction {
-  id: string;                                          // UUID assigned at parse time
+  id: string;                                          // Transaction.id (real DB UUID)
   date: string;                                        // "YYYY-MM-DD"
   description: string;
   merchant: string;
@@ -7,16 +8,6 @@ export interface SnapshotTransaction {
   transactionType: 'expense' | 'income' | 'transfer';
   categoryId: string;
   categoryName: string;
-  source: 'checking' | 'credit_card';
-  bank: string;                                        // 'santander' | 'falabella' | 'bci' | 'bancoestado' | 'liderbci'
-}
-
-export interface Snapshot {
-  id: string;
-  userId: string;
-  month: string;
-  checkingTxs: SnapshotTransaction[] | null;
-  ccTxs: SnapshotTransaction[] | null;
-  createdAt: Date;
-  updatedAt: Date;
+  source: 'checking' | 'credit_card';                 // maps to Transaction.accountType
+  bank: string;
 }

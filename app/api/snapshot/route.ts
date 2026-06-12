@@ -1,11 +1,14 @@
+'use server';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { categoryRepo, merchantRuleRepo, snapshotRepo, budgetRepo, rawSnapshotParser } from '@/src/infrastructure/container';
+import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
 import { parseRawStatementText, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
+import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
+import { txToSnapshot } from '@/src/lib/snapshot-utils';
 
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
@@ -20,8 +23,8 @@ function categorizeTxs(
   bank: string,
 ): SnapshotTransaction[] {
   return rows.map((row) => {
-    const pattern = normalizeMerchant(row.description);
-    const ruleEntry = bankRuleMap.get(`${pattern}|${bank}`) ?? wildcardRuleMap.get(pattern);
+    const pattern    = normalizeMerchant(row.description);
+    const ruleEntry  = bankRuleMap.get(`${pattern}|${bank}`) ?? wildcardRuleMap.get(pattern);
     const categoryId = ruleEntry?.categoryId ?? defaultCategoryId;
     const categoryName = categoryNameMap.get(categoryId) ?? 'Otros';
     const transactionType = (ruleEntry?.transactionType as SnapshotTransaction['transactionType'] | undefined | null) ?? row.transactionType;
@@ -29,7 +32,7 @@ function categorizeTxs(
   });
 }
 
-// ─── POST — upload + parse + upsert ───────────────────────────────────────────
+// ─── POST — upload + parse + persist as Transaction records ───────────────────
 
 export async function POST(request: Request) {
   const { userId } = await auth();
@@ -73,13 +76,11 @@ export async function POST(request: Request) {
         : wildcardRuleMap.set(rule.merchantPattern, entry);
     }
 
-    // Resolve CSV text
+    // Resolve text
     let text = csvText ?? '';
-    if (!text && csvFile && csvFile.size > 0) {
-      text = await csvFile.text();
-    }
+    if (!text && csvFile && csvFile.size > 0) text = await csvFile.text();
 
-    // Parse: CSV with header → raw bank-portal text → AI fallback
+    // Parse: CSV → raw bank text → AI fallback
     let rawRows = parseCsvSnapshot(text, sourceType, bank);
     if (rawRows.length === 0) {
       rawRows = toSnapshotRows(parseRawStatementText(text, month), sourceType, bank);
@@ -93,41 +94,46 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    const newTxs = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
 
-    // Merge: replace existing rows of same bank+source, keep others
-    const existing = await snapshotRepo.findByUserAndMonth(userId, month);
+    const categorized = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
 
-    const mergeArray = (
-      existing: SnapshotTransaction[] | null,
-      incoming: SnapshotTransaction[],
-    ): SnapshotTransaction[] => {
-      const kept = (existing ?? []).filter(
-        (t) => !((t.bank || 'santander') === bank && t.source === sourceType),
-      );
-      return [...kept, ...incoming];
-    };
+    // Replace existing transactions for this bank+sourceType+month
+    await transactionRepo.deleteManyTracking(userId, month, bank, sourceType);
 
-    const finalCheckingTxs = sourceType === 'checking'
-      ? mergeArray(existing?.checkingTxs ?? null, newTxs)
-      : (existing?.checkingTxs ?? null);
+    // Persist as real Transaction records
+    const inputs: CreateTransactionInput[] = categorized.map((tx) => ({
+      userId,
+      categoryId:      tx.categoryId,
+      date:            new Date(`${tx.date}T12:00:00.000Z`),
+      description:     tx.description,
+      merchant:        tx.merchant,
+      amount:          tx.amount,
+      currency:        'CLP',
+      bank,
+      accountType:     sourceType,
+      origin:          'tracking',
+      reviewStatus:    'confirmed',
+      transactionType: tx.transactionType,
+      isInstallment:   false,
+      installmentNum:  null,
+      installmentTotal: null,
+    }));
 
-    const finalCCTxs = sourceType === 'credit_card'
-      ? mergeArray(existing?.ccTxs ?? null, newTxs)
-      : (existing?.ccTxs ?? null);
+    const saved = await transactionRepo.createManyAndReturn(inputs);
 
-    await snapshotRepo.upsert(userId, month, finalCheckingTxs, finalCCTxs);
+    // Build response in the shape the tracking UI expects
+    const allTracking = await transactionRepo.findTrackingByMonth(userId, month);
+    const allSnapshot = allTracking.map((tx) => txToSnapshot(tx, categoryNameMap));
+    const checkingTxs = allSnapshot.filter((t) => t.source === 'checking');
+    const ccTxs       = allSnapshot.filter((t) => t.source === 'credit_card');
 
-    const allTxs    = [...(finalCheckingTxs ?? []), ...(finalCCTxs ?? [])];
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-    const metrics   = computeSnapshotMetrics(allTxs, budgetMap, month);
+    const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
-    return NextResponse.json({
-      month,
-      checkingTxs: finalCheckingTxs ?? [],
-      ccTxs:       finalCCTxs       ?? [],
-      metrics,
-    });
+    // Suppress unused var warning — saved is used to confirm createManyAndReturn worked
+    void saved;
+
+    return NextResponse.json({ month, checkingTxs, ccTxs, metrics });
   } catch (err) {
     console.error('[POST /api/snapshot]', err);
     const msg = err instanceof Error ? err.message : 'Error interno';
@@ -135,7 +141,7 @@ export async function POST(request: Request) {
   }
 }
 
-// ─── GET — fetch existing snapshot + metrics ──────────────────────────────────
+// ─── GET — fetch tracking transactions for a month ────────────────────────────
 
 export async function GET(request: Request) {
   const { userId } = await auth();
@@ -144,21 +150,21 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get('month') ?? new Date().toISOString().slice(0, 7);
 
-  const [snapshot, budgets] = await Promise.all([
-    snapshotRepo.findByUserAndMonth(userId, month),
+  const [txs, categories, budgets] = await Promise.all([
+    transactionRepo.findTrackingByMonth(userId, month),
+    categoryRepo.findByUserId(userId),
     budgetRepo.findByUserId(userId, month),
   ]);
 
-  if (!snapshot) return NextResponse.json(null);
+  if (txs.length === 0) return NextResponse.json(null);
 
-  const allTxs    = [...(snapshot.checkingTxs ?? []), ...(snapshot.ccTxs ?? [])];
+  const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
+  const allSnapshot     = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
+  const checkingTxs     = allSnapshot.filter((t) => t.source === 'checking');
+  const ccTxs           = allSnapshot.filter((t) => t.source === 'credit_card');
+
   const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-  const metrics   = computeSnapshotMetrics(allTxs, budgetMap, month);
+  const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
-  return NextResponse.json({
-    month,
-    checkingTxs: snapshot.checkingTxs ?? [],
-    ccTxs:       snapshot.ccTxs       ?? [],
-    metrics,
-  });
+  return NextResponse.json({ month, checkingTxs, ccTxs, metrics });
 }

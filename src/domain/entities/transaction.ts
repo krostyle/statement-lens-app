@@ -12,12 +12,16 @@ export interface Transaction {
   currency: string;
   /** Source bank ('santander' | 'falabella' | ...); '' = unknown/manual entry */
   bank: string;
+  /** Account type for tracking-origin rows: 'checking' | 'credit_card' | '' */
+  accountType: string;
   isInstallment: boolean;
   installmentNum?: number | null;
   installmentTotal?: number | null;
   notes?: string | null;
   reviewStatus: ReviewStatus;
   transactionType: TransactionType;
+  /** Ingestion origin: 'tracking' | 'manual' */
+  origin: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,7 +38,13 @@ export type CreateTransactionInput = Pick<
   | 'isInstallment'
   | 'installmentNum'
   | 'installmentTotal'
-> & { bank?: string; reviewStatus?: ReviewStatus; transactionType?: TransactionType };
+> & {
+  bank?: string;
+  accountType?: string;
+  reviewStatus?: ReviewStatus;
+  transactionType?: TransactionType;
+  origin?: string;
+};
 
 export type UpdateTransactionInput = Partial<
   Pick<Transaction, 'categoryId' | 'merchant' | 'amount' | 'notes' | 'date' | 'description' | 'reviewStatus' | 'transactionType' | 'installmentNum' | 'installmentTotal'>

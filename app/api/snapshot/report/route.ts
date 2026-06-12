@@ -1,6 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
-import { snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
+import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
+import { txToSnapshot } from '@/src/lib/snapshot-utils';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -151,15 +152,16 @@ export async function GET(req: Request) {
     return new Response('Missing or invalid month parameter', { status: 400 });
   }
 
-  const snapshot = await snapshotRepo.findByUserAndMonth(userId, month);
-  if (!snapshot) return new Response('No snapshot data for this month', { status: 404 });
+  const [txs, categories, budgets] = await Promise.all([
+    transactionRepo.findTrackingByMonth(userId, month),
+    categoryRepo.findByUserId(userId),
+    budgetRepo.findByUserId(userId, month),
+  ]);
 
-  const allTxs: SnapshotTransaction[] = [
-    ...(snapshot.checkingTxs ?? []),
-    ...(snapshot.ccTxs ?? []),
-  ];
+  if (txs.length === 0) return new Response('No tracking data for this month', { status: 404 });
 
-  const budgets = await budgetRepo.findByUserId(userId, month);
+  const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
+  const allTxs: SnapshotTransaction[] = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
   const budgetsByCategory = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
 
   const metrics = computeSnapshotMetrics(allTxs, budgetsByCategory, month);

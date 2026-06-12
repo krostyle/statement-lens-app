@@ -7,6 +7,8 @@ function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 
   const where: Prisma.TransactionWhereInput = { userId };
   if (filters?.categoryId) where.categoryId = filters.categoryId;
   if (filters?.bank) where.bank = filters.bank;
+  if (filters?.accountType !== undefined) where.accountType = filters.accountType;
+  if (filters?.origin !== undefined) where.origin = filters.origin;
   if (filters?.from || filters?.to) {
     where.date = {
       ...(filters.from ? { gte: filters.from } : {}),
@@ -156,5 +158,46 @@ export class TransactionPrismaRepository implements ITransactionRepository {
 
   async delete(id: string): Promise<void> {
     await prisma.transaction.delete({ where: { id } });
+  }
+
+  async findTrackingByMonth(userId: string, month: string): Promise<Transaction[]> {
+    const from = new Date(`${month}-01T00:00:00.000Z`);
+    const to   = new Date(from);
+    to.setUTCMonth(to.getUTCMonth() + 1);
+    const results = await prisma.transaction.findMany({
+      where: { userId, origin: 'tracking', date: { gte: from, lt: to } },
+      orderBy: { date: 'asc' },
+    });
+    return results as Transaction[];
+  }
+
+  async findTrackingMonths(userId: string): Promise<string[]> {
+    const rows = await prisma.transaction.findMany({
+      where: { userId, origin: 'tracking' },
+      select: { date: true },
+      orderBy: { date: 'desc' },
+    });
+    const months = [...new Set(rows.map((r) => r.date.toISOString().slice(0, 7)))];
+    return months;
+  }
+
+  async createManyAndReturn(data: CreateTransactionInput[]): Promise<Transaction[]> {
+    const results = await prisma.transaction.createManyAndReturn({ data });
+    return results as Transaction[];
+  }
+
+  async deleteManyTracking(userId: string, month: string, bank?: string, accountType?: string): Promise<void> {
+    const from = new Date(`${month}-01T00:00:00.000Z`);
+    const to   = new Date(from);
+    to.setUTCMonth(to.getUTCMonth() + 1);
+    await prisma.transaction.deleteMany({
+      where: {
+        userId,
+        origin: 'tracking',
+        date: { gte: from, lt: to },
+        ...(bank        ? { bank }        : {}),
+        ...(accountType ? { accountType } : {}),
+      },
+    });
   }
 }

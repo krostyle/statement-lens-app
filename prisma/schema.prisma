@@ -16,7 +16,6 @@ model UserProfile {
   transactions   Transaction[]
   budgets        Budget[]
   merchantRules  MerchantRule[]
-  snapshots      Snapshot[]
 }
 
 model Category {
@@ -61,19 +60,21 @@ model Transaction {
   amount           Float
   currency         String      @default("CLP")
   bank             String      @default("") // 'santander' | 'falabella' | ... — '' = unknown/manual
+  accountType      String      @default("") // 'checking' | 'credit_card' | '' — populated for origin='tracking'
   isInstallment    Boolean     @default(false)
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
   reviewStatus     String      @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
-  transactionType  String      @default("expense")   // 'expense' | 'income'
-  origin           String      @default("manual")    // 'statement' | 'tracking' | 'manual'
+  transactionType  String      @default("expense")   // 'expense' | 'income' | 'transfer'
+  origin           String      @default("manual")    // 'tracking' | 'manual'
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   category         Category    @relation(fields: [categoryId], references: [id])
 
   @@index([userId, date])
+  @@index([userId, origin])
 }
 
 model MerchantRule {
@@ -91,15 +92,3 @@ model MerchantRule {
   @@unique([userId, merchantPattern, bank])
 }
 
-model Snapshot {
-  id          String   @id @default(uuid())
-  userId      String
-  month       String   // "YYYY-MM"
-  checkingTxs Json?    // SnapshotTransaction[] — cuenta corriente
-  ccTxs       Json?    // SnapshotTransaction[] — tarjeta de crédito
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  user        UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-
-  @@unique([userId, month])
-}

@@ -12,6 +12,8 @@ export interface TransactionSummary {
 export interface TransactionFilters {
   categoryId?: string;
   bank?: string;
+  accountType?: string;
+  origin?: string;
   from?: Date;
   to?: Date;
   search?: string;
@@ -32,10 +34,18 @@ export interface ITransactionRepository {
   countByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<number>;
   aggregateByUserId(userId: string, filters?: Omit<TransactionFilters, 'skip' | 'take'>): Promise<TransactionSummary>;
   findInstallmentGroup(userId: string, merchant: string, installmentTotal: number, currentId: string): Promise<Transaction[]>;
+  /** Returns all origin='tracking' transactions for a given YYYY-MM month. */
+  findTrackingByMonth(userId: string, month: string): Promise<Transaction[]>;
+  /** Returns distinct YYYY-MM months that have origin='tracking' transactions, descending. */
+  findTrackingMonths(userId: string): Promise<string[]>;
   create(data: CreateTransactionInput): Promise<Transaction>;
   createMany(data: CreateTransactionInput[]): Promise<void>;
+  /** Like createMany but returns the inserted records. */
+  createManyAndReturn(data: CreateTransactionInput[]): Promise<Transaction[]>;
   update(id: string, data: UpdateTransactionInput): Promise<Transaction>;
   updateMany(ids: string[], userId: string, data: UpdateTransactionInput): Promise<number>;
   confirmAllPending(userId: string): Promise<number>;
   delete(id: string): Promise<void>;
+  /** Deletes origin='tracking' transactions for a month; optionally filtered by bank and accountType. */
+  deleteManyTracking(userId: string, month: string, bank?: string, accountType?: string): Promise<void>;
 }
