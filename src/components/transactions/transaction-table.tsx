@@ -952,7 +952,7 @@ export function TransactionsView() {
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
             disabled={bulkApplying}
-            onClick={() => setBulkDialog('category')}
+            onClick={() => setBulkIndividualOpen(true)}
           >
             <Tags className="h-3.5 w-3.5 mr-1.5" />
             Categoría
@@ -972,7 +972,7 @@ export function TransactionsView() {
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
             disabled={bulkApplying}
-            onClick={() => setBulkDialog('type')}
+            onClick={() => setBulkIndividualOpen(true)}
           >
             <ArrowLeftRight className="h-3.5 w-3.5 mr-1.5" />
             Tipo
@@ -989,16 +989,6 @@ export function TransactionsView() {
               : <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
             }
             {bulkApplying ? 'Aplicando...' : 'Verificar'}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="border-brand-300 text-brand-700 hover:bg-brand-100"
-            disabled={bulkApplying}
-            onClick={() => setBulkIndividualOpen(true)}
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
-            Editar
           </Button>
           <Button
             size="sm"
@@ -1033,27 +1023,10 @@ export function TransactionsView() {
       )}
 
       {/* Bulk dialogs */}
-      <Dialog open={bulkDialog === 'category'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
-        <BulkCategoryDialog
-          count={selectedIds.size}
-          categories={categories}
-          onApply={(categoryId) => applyBulk({ categoryId, reviewStatus: 'confirmed' })}
-          onClose={() => setBulkDialog(null)}
-        />
-      </Dialog>
-
       <Dialog open={bulkDialog === 'merchant'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
         <BulkMerchantDialog
           count={selectedIds.size}
           onApply={(merchant) => applyBulk({ merchant, reviewStatus: 'confirmed' })}
-          onClose={() => setBulkDialog(null)}
-        />
-      </Dialog>
-
-      <Dialog open={bulkDialog === 'type'} onOpenChange={(v) => { if (!v) setBulkDialog(null); }}>
-        <BulkTypeDialog
-          count={selectedIds.size}
-          onApply={(transactionType) => applyBulk({ transactionType })}
           onClose={() => setBulkDialog(null)}
         />
       </Dialog>
