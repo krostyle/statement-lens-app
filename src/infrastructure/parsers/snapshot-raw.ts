@@ -106,6 +106,82 @@ function cleanInstallmentMerchant(desc: string): string {
 }
 
 /**
+ * Parse Santander (and similar) web-portal exports that arrive as tab-separated
+ * text with two separate amount columns: "Monto cargo" and "Monto abono".
+ *
+ * Expected header (case-insensitive, tab-separated):
+ *   Fecha   Tipo    Detalle   Monto cargo   Monto abono
+ *
+ * Cargo rows  → negative amount (expense).
+ * Abono rows  → positive amount (income).
+ * Date carry-forward: when the Fecha cell is empty, the previous date is reused.
+ *
+ * Returns [] when the text doesn't look like this format.
+ */
+export function parseSantanderPortalTab(text: string, fallbackYear: string): RawParsedRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+
+  // Header must have tabs and recognisable column names
+  const headerIdx = lines.findIndex(
+    (l) =>
+      l.includes('\t') &&
+      /fecha/i.test(l) &&
+      /detalle/i.test(l) &&
+      /cargo/i.test(l) &&
+      /abono/i.test(l),
+  );
+  if (headerIdx === -1) return [];
+
+  const headers = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
+  const dateCol  = headers.findIndex((h) => h === 'fecha');
+  const descCol  = headers.findIndex((h) => /detalle/i.test(h));
+  const cargoCol = headers.findIndex((h) => /cargo/i.test(h));
+  const abonoCol = headers.findIndex((h) => /abono/i.test(h));
+  if (dateCol === -1 || descCol === -1 || cargoCol === -1 || abonoCol === -1) return [];
+
+  const rows: RawParsedRow[] = [];
+  let currentDate: string | null = null;
+
+  const parseAmt = (s: string): number => {
+    if (!s || s === '-') return 0;
+    const n = parseFloat(s.replace(/[$.]/g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : Math.abs(n);
+  };
+
+  for (const line of lines.slice(headerIdx + 1)) {
+    if (!line.includes('\t')) continue;
+    const parts = line.split('\t');
+
+    const dateStr   = (parts[dateCol]  ?? '').trim();
+    const description = (parts[descCol] ?? '').trim();
+    const cargoStr  = (parts[cargoCol] ?? '').trim();
+    const abonoStr  = (parts[abonoCol] ?? '').trim();
+
+    if (!description) continue;
+    if (SKIP_PATTERNS.some((re) => re.test(description))) continue;
+
+    if (dateStr) {
+      const m = DATE_RE.exec(dateStr);
+      if (m) currentDate = toIsoDate(m[1], m[2], m[3], fallbackYear);
+    }
+    if (!currentDate) continue;
+
+    const cargo = parseAmt(cargoStr);
+    const abono = parseAmt(abonoStr);
+    if (cargo === 0 && abono === 0) continue;
+
+    rows.push({
+      date: currentDate,
+      description,
+      amount: cargo > 0 ? -cargo : abono,
+      explicitSign: true,
+    });
+  }
+
+  return rows;
+}
+
+/**
  * Parse raw movement text pasted from a bank web portal OR copied from a
  * billed credit-card statement (estado de cuenta facturado).
  *

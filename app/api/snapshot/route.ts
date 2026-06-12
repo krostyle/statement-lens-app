@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
-import { parseRawStatementText, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
+import { parseRawStatementText, parseSantanderPortalTab, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
@@ -13,6 +13,7 @@ import { txToSnapshot } from '@/src/lib/snapshot-utils';
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
 type RuleEntry = { categoryId: string; transactionType?: string | null };
+type CategorizedRow = SnapshotTransaction & { hasRule: boolean };
 
 function categorizeTxs(
   rows: Pick<SnapshotTransaction, 'id' | 'date' | 'description' | 'merchant' | 'amount' | 'transactionType' | 'source' | 'bank'>[],
@@ -21,14 +22,14 @@ function categorizeTxs(
   categoryNameMap: Map<string, string>,
   defaultCategoryId: string,
   bank: string,
-): SnapshotTransaction[] {
+): CategorizedRow[] {
   return rows.map((row) => {
     const pattern    = normalizeMerchant(row.description);
     const ruleEntry  = bankRuleMap.get(`${pattern}|${bank}`) ?? wildcardRuleMap.get(pattern);
     const categoryId = ruleEntry?.categoryId ?? defaultCategoryId;
     const categoryName = categoryNameMap.get(categoryId) ?? 'Otros';
     const transactionType = (ruleEntry?.transactionType as SnapshotTransaction['transactionType'] | undefined | null) ?? row.transactionType;
-    return { ...row, categoryId, categoryName, transactionType };
+    return { ...row, categoryId, categoryName, transactionType, hasRule: !!ruleEntry };
   });
 }
 
@@ -80,8 +81,12 @@ export async function POST(request: Request) {
     let text = csvText ?? '';
     if (!text && csvFile && csvFile.size > 0) text = await csvFile.text();
 
-    // Parse: CSV → raw bank text → AI fallback
+    // Parse: CSV → Santander portal tab → raw bank text → AI fallback
     let rawRows = parseCsvSnapshot(text, sourceType, bank);
+    if (rawRows.length === 0) {
+      const tabRows = parseSantanderPortalTab(text, month.slice(0, 4));
+      if (tabRows.length > 0) rawRows = toSnapshotRows(tabRows, sourceType, bank);
+    }
     if (rawRows.length === 0) {
       rawRows = toSnapshotRows(parseRawStatementText(text, month), sourceType, bank);
     }
@@ -125,7 +130,7 @@ export async function POST(request: Request) {
       bank,
       accountType:     sourceType,
       origin:          'tracking',
-      reviewStatus:    'confirmed',
+      reviewStatus:    tx.hasRule ? 'auto' : 'pending',
       transactionType: tx.transactionType,
       isInstallment:   false,
       installmentNum:  null,

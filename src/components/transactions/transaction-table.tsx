@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -833,7 +833,15 @@ export function TransactionsView() {
                   </td>
                   {/* Comercio — always visible; packs hidden-column info below md */}
                   <td className="px-4 py-3 min-w-0 max-w-[180px] sm:max-w-xs md:max-w-none">
-                    <p className="font-medium text-zinc-900 truncate">{t.merchant}</p>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-medium text-zinc-900 truncate">{t.merchant}</p>
+                      {t.reviewStatus === 'auto' && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-600 border border-blue-200 shrink-0">
+                          <Zap className="h-2.5 w-2.5" />
+                          Regla
+                        </span>
+                      )}
+                    </div>
                     {t.description && (
                       <p className="text-xs text-zinc-400 truncate">{t.description}</p>
                     )}
