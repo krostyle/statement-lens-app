@@ -5,6 +5,7 @@ import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapsho
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
 import { parseRawStatementText, parseSantanderPortalTab, parseFalabellaPortalTab, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
+import type { SnapshotRow } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
@@ -13,10 +14,10 @@ import { txToSnapshot } from '@/src/lib/snapshot-utils';
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
 type RuleEntry = { categoryId: string; transactionType?: string | null };
-type CategorizedRow = SnapshotTransaction & { hasRule: boolean };
+type CategorizedRow = SnapshotRow & { hasRule: boolean; categoryId: string; categoryName: string };
 
 function categorizeTxs(
-  rows: Pick<SnapshotTransaction, 'id' | 'date' | 'description' | 'merchant' | 'amount' | 'transactionType' | 'source' | 'bank'>[],
+  rows: SnapshotRow[],
   bankRuleMap: Map<string, RuleEntry>,
   wildcardRuleMap: Map<string, RuleEntry>,
   categoryNameMap: Map<string, string>,
@@ -149,9 +150,9 @@ export async function POST(request: Request) {
       trackingUploadId: upload.id,
       reviewStatus:     tx.hasRule ? 'auto' : 'pending',
       transactionType:  tx.transactionType,
-      isInstallment:    false,
-      installmentNum:   null,
-      installmentTotal: null,
+      isInstallment:    (tx.installmentTotal ?? 1) > 1,
+      installmentNum:   tx.installmentNum   ?? null,
+      installmentTotal: tx.installmentTotal ?? null,
     }));
 
     await transactionRepo.createManyAndReturn(inputs);

@@ -4,7 +4,10 @@ import { classifyCheckingType } from './snapshot-csv';
 export type SnapshotRow = Pick<
   SnapshotTransaction,
   'id' | 'date' | 'description' | 'merchant' | 'amount' | 'transactionType' | 'source' | 'bank'
->;
+> & {
+  installmentNum?: number | null;
+  installmentTotal?: number | null;
+};
 
 /** A movement extracted from raw text, before categorization. */
 export interface RawParsedRow {
@@ -457,6 +460,8 @@ export function toSnapshotRows(
       transactionType,
       source,
       bank,
+      installmentNum:   row.installmentNum   ?? null,
+      installmentTotal: row.installmentTotal ?? null,
     };
   });
 }
