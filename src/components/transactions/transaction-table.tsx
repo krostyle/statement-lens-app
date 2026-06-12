@@ -232,6 +232,7 @@ export function TransactionsView() {
   const [selectedInstallment, setSelectedInstallment] = useState('all');
   const [selectedReview, setSelectedReview] = useState('all');
   const [selectedType, setSelectedType] = useState('all');
+  const [selectedAccountingMonth, setSelectedAccountingMonth] = useState('');
   const [sortBy, setSortBy] = useState<'date' | 'amount'>('date');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [open, setOpen] = useState(false);
@@ -284,8 +285,12 @@ export function TransactionsView() {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
     if (selectedBank !== 'all') params.set('bank', selectedBank);
-    if (dateFrom) params.set('from', `${dateFrom}T00:00:00.000Z`);
-    if (dateTo)   params.set('to',   `${dateTo}T23:59:59.999Z`);
+    if (selectedAccountingMonth) {
+      params.set('accountingMonth', selectedAccountingMonth);
+    } else {
+      if (dateFrom) params.set('from', `${dateFrom}T00:00:00.000Z`);
+      if (dateTo)   params.set('to',   `${dateTo}T23:59:59.999Z`);
+    }
     if (selectedCategoryId !== 'all') params.set('categoryId', selectedCategoryId);
     if (selectedInstallment === 'multi') { params.set('isInstallment', 'true'); params.set('minInstallmentTotal', '2'); }
     else if (selectedInstallment === 'single') { params.set('isInstallment', 'true'); params.set('maxInstallmentTotal', '1'); }
@@ -309,15 +314,15 @@ export function TransactionsView() {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
+  }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
 
   // Reset page when non-page filters change
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [debouncedSearch, selectedBank, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
+  }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   // Keep header checkbox in sync (checked / indeterminate)
   useEffect(() => {
@@ -432,8 +437,10 @@ export function TransactionsView() {
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(selectedBank && selectedBank !== 'all' ? { bank: selectedBank } : {}),
     ...(selectedCategoryId && selectedCategoryId !== 'all' ? { categoryId: selectedCategoryId } : {}),
-    ...(dateFrom ? { from: `${dateFrom}T00:00:00.000Z` } : {}),
-    ...(dateTo   ? { to:   `${dateTo}T23:59:59.999Z`   } : {}),
+    ...(selectedAccountingMonth ? { accountingMonth: selectedAccountingMonth } : {
+      ...(dateFrom ? { from: `${dateFrom}T00:00:00.000Z` } : {}),
+      ...(dateTo   ? { to:   `${dateTo}T23:59:59.999Z`   } : {}),
+    }),
   });
 
   const hasSelection = selectedIds.size > 0;
@@ -470,12 +477,32 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        <DateRangeFilter
-          from={dateFrom}
-          to={dateTo}
-          onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
-          className="w-full md:w-52"
-        />
+        <div className="relative w-full md:w-40">
+          <Input
+            type="month"
+            value={selectedAccountingMonth}
+            onChange={(e) => setSelectedAccountingMonth(e.target.value)}
+            className="w-full pr-7"
+            title="Mes contable — muestra transacciones de seguimiento del período, incluidas las del mes anterior"
+          />
+          {selectedAccountingMonth && (
+            <button
+              type="button"
+              onClick={() => setSelectedAccountingMonth('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 text-xs leading-none"
+              title="Limpiar mes contable"
+            >✕</button>
+          )}
+        </div>
+
+        {!selectedAccountingMonth && (
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onChange={(f, t) => { setDateFrom(f); setDateTo(t); }}
+            className="w-full md:w-52"
+          />
+        )}
 
         <Select value={selectedCategoryId} onValueChange={setSelectedCategoryId}>
           <SelectTrigger className="w-full md:w-44">

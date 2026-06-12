@@ -28,6 +28,7 @@ export class ListTransactionsUseCase {
     const baseFilters = {
       categoryId: filters?.categoryId,
       bank: filters?.bank,
+      accountingMonth: filters?.accountingMonth,
       from: filters?.from ? new Date(filters.from) : undefined,
       to: filters?.to ? new Date(filters.to) : undefined,
       search: filters?.search,

@@ -27,6 +27,8 @@ export interface UpdateTransactionDTO {
 export interface TransactionFiltersDTO {
   categoryId?: string;
   bank?: string;
+  /** YYYY-MM — overrides from/to when set */
+  accountingMonth?: string;
   from?: string;
   to?: string;
   search?: string;

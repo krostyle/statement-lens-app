@@ -14,6 +14,8 @@ export interface TransactionFilters {
   bank?: string;
   accountType?: string;
   origin?: string;
+  /** When set, overrides from/to: shows tracking txs by accountingMonth + other txs by date in same month */
+  accountingMonth?: string;
   from?: Date;
   to?: Date;
   search?: string;
