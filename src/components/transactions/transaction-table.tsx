@@ -254,6 +254,10 @@ export function TransactionsView() {
   const [confirmAllOpen, setConfirmAllOpen] = useState(false);
   const [confirmAllLoading, setConfirmAllLoading] = useState(false);
 
+  // ── Bulk delete dialog ───────────────────────────────────
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+
   // Debounce search — avoids firing a request on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
@@ -400,6 +404,19 @@ export function TransactionsView() {
     setBulkApplying(false);
     clearSelection();
     setBulkDialog(null);
+    setRefreshKey((k) => k + 1);
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleting(true);
+    await fetch('/api/transactions/bulk', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: [...selectedIds] }),
+    });
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    clearSelection();
     setRefreshKey((k) => k + 1);
   };
 
@@ -585,8 +602,18 @@ export function TransactionsView() {
           </Button>
           <Button
             size="sm"
+            variant="outline"
+            className="border-red-200 text-red-600 hover:bg-red-50 ml-auto"
+            disabled={bulkApplying}
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+            Eliminar
+          </Button>
+          <Button
+            size="sm"
             variant="ghost"
-            className="ml-auto text-zinc-500 hover:text-zinc-700"
+            className="text-zinc-500 hover:text-zinc-700"
             disabled={bulkApplying}
             onClick={clearSelection}
           >
@@ -659,6 +686,32 @@ export function TransactionsView() {
             </Button>
             <Button onClick={handleConfirmAll} disabled={confirmAllLoading}>
               {confirmAllLoading ? 'Verificando...' : 'Confirmar todo'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk delete confirmation */}
+      <Dialog open={bulkDeleteOpen} onOpenChange={(v) => { if (!v) setBulkDeleteOpen(false); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Trash2 className="h-4 w-4" />
+              Eliminar transacciones
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-zinc-600 py-2">
+            ¿Estás seguro que deseas eliminar{' '}
+            <span className="font-semibold text-zinc-900">{selectedIds.size}</span>{' '}
+            transacción{selectedIds.size !== 1 ? 'es' : ''}? Esta acción no se puede deshacer.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDeleteOpen(false)} disabled={bulkDeleting}>
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={handleBulkDelete} disabled={bulkDeleting}>
+              {bulkDeleting && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+              {bulkDeleting ? 'Eliminando...' : `Eliminar ${selectedIds.size}`}
             </Button>
           </DialogFooter>
         </DialogContent>

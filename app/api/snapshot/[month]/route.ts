@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
+import { transactionRepo, categoryRepo, budgetRepo, trackingUploadRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
 
@@ -13,7 +13,11 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ m
   const bank        = searchParams.get('bank') ?? undefined;
   const accountType = (searchParams.get('source') as 'checking' | 'credit_card' | null) ?? undefined;
 
-  await transactionRepo.deleteManyTracking(userId, month, bank, accountType);
+  // Delete upload records (cascade removes linked transactions) + any legacy unlinked rows
+  await Promise.all([
+    trackingUploadRepo.deleteByMonth(userId, month, bank, accountType),
+    transactionRepo.deleteManyTracking(userId, month, bank, accountType),
+  ]);
   return new NextResponse(null, { status: 204 });
 }
 

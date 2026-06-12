@@ -160,6 +160,13 @@ export class TransactionPrismaRepository implements ITransactionRepository {
     await prisma.transaction.delete({ where: { id } });
   }
 
+  async deleteManyByIds(ids: string[], userId: string): Promise<number> {
+    const result = await prisma.transaction.deleteMany({
+      where: { id: { in: ids }, userId },
+    });
+    return result.count;
+  }
+
   async findTrackingByMonth(userId: string, month: string): Promise<Transaction[]> {
     const from = new Date(`${month}-01T00:00:00.000Z`);
     const to   = new Date(from);

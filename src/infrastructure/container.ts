@@ -5,6 +5,7 @@ import { CategoryPrismaRepository } from './database/repositories/category.prism
 import { TransactionPrismaRepository } from './database/repositories/transaction.prisma.repository';
 import { BudgetPrismaRepository } from './database/repositories/budget.prisma.repository';
 import { MerchantRulePrismaRepository } from './database/repositories/merchant-rule.prisma.repository';
+import { TrackingUploadPrismaRepository } from './database/repositories/tracking-upload.prisma.repository';
 import { RawSnapshotParserService } from './ai/raw-snapshot-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
 import { FinancialChatService } from './ai/financial-chat.service';
@@ -33,6 +34,7 @@ const categoryRepo = new CategoryPrismaRepository();
 const transactionRepo = new TransactionPrismaRepository();
 export const budgetRepo = new BudgetPrismaRepository();
 export const merchantRuleRepo = new MerchantRulePrismaRepository();
+export const trackingUploadRepo = new TrackingUploadPrismaRepository();
 
 // Services
 export const rawSnapshotParser = new RawSnapshotParserService();

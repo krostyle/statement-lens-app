@@ -1,7 +1,7 @@
 'use server';
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser } from '@/src/infrastructure/container';
+import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser, trackingUploadRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
 import { parseRawStatementText, parseSantanderPortalTab, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
@@ -112,36 +112,51 @@ export async function POST(request: Request) {
       return true;
     });
 
-    // Replace ALL previous tracking data for this bank+sourceType (no month filter).
-    // This avoids cross-month duplicates: portal data often spans billing cycles
-    // (e.g. May 25 – Jun 11 uploaded as "June"), and re-uploading must replace
-    // the full prior copy regardless of which months its rows fall in.
-    await transactionRepo.deleteManyTracking(userId, undefined, bank, sourceType);
+    // Replace ALL previous tracking data for this bank+sourceType.
+    // Delete the upload records first — FK cascade removes their transactions.
+    // Also call deleteManyTracking to catch any legacy rows without a trackingUploadId.
+    await Promise.all([
+      trackingUploadRepo.deleteByBankAccountType(userId, bank, sourceType),
+      transactionRepo.deleteManyTracking(userId, undefined, bank, sourceType),
+    ]);
 
-    // Persist as real Transaction records
+    // Create the upload record first to get its ID for linking
+    const upload = await trackingUploadRepo.create({
+      userId,
+      bank,
+      accountType: sourceType,
+      month,
+      rowCount: unique.length,
+    });
+
+    // Persist as real Transaction records linked to this upload
     const inputs: CreateTransactionInput[] = unique.map((tx) => ({
       userId,
-      categoryId:      tx.categoryId,
-      date:            new Date(`${tx.date}T12:00:00.000Z`),
-      description:     tx.description,
-      merchant:        tx.merchant,
-      amount:          tx.amount,
-      currency:        'CLP',
+      categoryId:       tx.categoryId,
+      date:             new Date(`${tx.date}T12:00:00.000Z`),
+      description:      tx.description,
+      merchant:         tx.merchant,
+      amount:           tx.amount,
+      currency:         'CLP',
       bank,
-      accountType:     sourceType,
-      origin:          'tracking',
-      accountingMonth: month,
-      reviewStatus:    tx.hasRule ? 'auto' : 'pending',
-      transactionType: tx.transactionType,
-      isInstallment:   false,
-      installmentNum:  null,
+      accountType:      sourceType,
+      origin:           'tracking',
+      accountingMonth:  month,
+      trackingUploadId: upload.id,
+      reviewStatus:     tx.hasRule ? 'auto' : 'pending',
+      transactionType:  tx.transactionType,
+      isInstallment:    false,
+      installmentNum:   null,
       installmentTotal: null,
     }));
 
     await transactionRepo.createManyAndReturn(inputs);
 
     // Build response — show all tracking for the selected month
-    const allTracking = await transactionRepo.findTrackingByMonth(userId, month);
+    const [allTracking, uploads] = await Promise.all([
+      transactionRepo.findTrackingByMonth(userId, month),
+      trackingUploadRepo.findByUserId(userId, month),
+    ]);
     const allSnapshot = allTracking.map((tx) => txToSnapshot(tx, categoryNameMap));
     const checkingTxs = allSnapshot.filter((t) => t.source === 'checking');
     const ccTxs       = allSnapshot.filter((t) => t.source === 'credit_card');
@@ -150,7 +165,7 @@ export async function POST(request: Request) {
     const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
     const skipped = categorized.length - unique.length;
-    return NextResponse.json({ month, checkingTxs, ccTxs, metrics, ...(skipped > 0 ? { duplicatesSkipped: skipped } : {}) });
+    return NextResponse.json({ month, checkingTxs, ccTxs, metrics, uploads, ...(skipped > 0 ? { duplicatesSkipped: skipped } : {}) });
   } catch (err) {
     console.error('[POST /api/snapshot]', err);
     const msg = err instanceof Error ? err.message : 'Error interno';
@@ -167,13 +182,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const month = searchParams.get('month') ?? new Date().toISOString().slice(0, 7);
 
-  const [txs, categories, budgets] = await Promise.all([
+  const [txs, categories, budgets, uploads] = await Promise.all([
     transactionRepo.findTrackingByMonth(userId, month),
     categoryRepo.findByUserId(userId),
     budgetRepo.findByUserId(userId, month),
+    trackingUploadRepo.findByUserId(userId, month),
   ]);
 
-  if (txs.length === 0) return NextResponse.json(null);
+  if (txs.length === 0 && uploads.length === 0) return NextResponse.json(null);
 
   const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
   const allSnapshot     = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
@@ -183,5 +199,5 @@ export async function GET(request: Request) {
   const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
   const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
-  return NextResponse.json({ month, checkingTxs, ccTxs, metrics });
+  return NextResponse.json({ month, checkingTxs, ccTxs, metrics, uploads });
 }

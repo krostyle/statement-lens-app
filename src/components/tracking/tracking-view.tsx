@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react'
 import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
-  ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink, X,
+  ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink, X, Database,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -53,11 +53,21 @@ interface Metrics {
   byCategory: CategoryMetric[];
 }
 
+interface UploadRecord {
+  id: string;
+  bank: string;
+  accountType: string;
+  month: string;
+  rowCount: number;
+  uploadedAt: string;
+}
+
 interface SnapshotData {
   month: string;
   checkingTxs: SnapshotTransaction[];
   ccTxs: SnapshotTransaction[];
   metrics: Metrics;
+  uploads: UploadRecord[];
 }
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -105,9 +115,9 @@ export function TrackingView() {
   const [savedRules, setSavedRules]   = useState<Set<string>>(new Set());
   const [savingRule, setSavingRule]   = useState<string | null>(null);
 
-  // Delete-source confirmation
-  const [confirmDelete, setConfirmDelete] = useState<{ bank: string; source: 'checking' | 'credit_card' } | null>(null);
-  const [deleting, setDeleting]           = useState(false);
+  // Delete-upload confirmation
+  const [confirmDeleteUpload, setConfirmDeleteUpload] = useState<UploadRecord | null>(null);
+  const [deletingUpload, setDeletingUpload]           = useState(false);
 
   // Upload dialog
   const [uploadOpen, setUploadOpen]   = useState(false);
@@ -209,12 +219,12 @@ export function TrackingView() {
     setFilterBank(null);
   };
 
-  const handleDeleteSource = async () => {
-    if (!confirmDelete) return;
-    setDeleting(true);
-    await fetch(`/api/snapshot/${month}?bank=${encodeURIComponent(confirmDelete.bank)}&source=${encodeURIComponent(confirmDelete.source)}`, { method: 'DELETE' });
-    setConfirmDelete(null);
-    setDeleting(false);
+  const handleDeleteUpload = async () => {
+    if (!confirmDeleteUpload) return;
+    setDeletingUpload(true);
+    await fetch(`/api/snapshot/uploads/${confirmDeleteUpload.id}`, { method: 'DELETE' });
+    setConfirmDeleteUpload(null);
+    setDeletingUpload(false);
     await load(month);
     setFilterBank(null);
   };
@@ -296,22 +306,9 @@ export function TrackingView() {
 
   const m        = data?.metrics;
   const hasData  = !!data && (data.checkingTxs.length > 0 || data.ccTxs.length > 0);
+  const uploads  = data?.uploads ?? [];
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
   const budgetPct = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
-
-  type LoadedSource = { bank: string; source: 'checking' | 'credit_card' };
-  const loadedSources: LoadedSource[] = data
-    ? [...new Map<string, LoadedSource>([
-        ...data.checkingTxs.map((t): [string, LoadedSource] => {
-          const b = (t as { bank?: string }).bank ?? 'santander';
-          return [`${b}|checking`, { bank: b, source: 'checking' }];
-        }),
-        ...data.ccTxs.map((t): [string, LoadedSource] => {
-          const b = (t as { bank?: string }).bank ?? 'santander';
-          return [`${b}|credit_card`, { bank: b, source: 'credit_card' }];
-        }),
-      ]).values()]
-    : [];
 
   const availableBanks: string[] = data
     ? [...new Set([...data.checkingTxs, ...data.ccTxs].map((t) => (t as { bank?: string }).bank ?? 'santander'))].sort()
@@ -326,18 +323,6 @@ export function TrackingView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <MonthPicker value={month} onChange={(v) => setMonth(v || currentMonth())} placeholder="Mes actual" />
         <div className="flex items-center gap-2 flex-wrap justify-end">
-          {loadedSources.map(({ bank, source }) => (
-            <span key={`${bank}|${source}`} className="inline-flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-zinc-100 text-zinc-600 border border-zinc-200">
-              {BANK_LABEL[bank] ?? bank} {source === 'credit_card' ? 'TC' : 'CC'}
-              <button
-                onClick={() => setConfirmDelete({ bank, source })}
-                className="text-zinc-400 hover:text-red-500 transition-colors"
-                title={`Eliminar ${BANK_LABEL[bank] ?? bank} ${source === 'credit_card' ? 'TC' : 'CC'}`}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </span>
-          ))}
           <Button size="sm" onClick={openUpload}>
             <Upload className="h-3.5 w-3.5 mr-1.5" />
             {hasData ? 'Agregar cartola' : 'Subir cartola'}
@@ -353,7 +338,7 @@ export function TrackingView() {
           {hasData && (
             <Button variant="destructive" size="sm" onClick={handleClear}>
               <Trash2 className="h-3.5 w-3.5 mr-1" />
-              Limpiar
+              Limpiar todo
             </Button>
           )}
         </div>
@@ -445,32 +430,69 @@ export function TrackingView() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete source confirmation */}
-      <Dialog open={!!confirmDelete} onOpenChange={(v) => { if (!v) setConfirmDelete(null); }}>
+      {/* Delete upload confirmation */}
+      <Dialog open={!!confirmDeleteUpload} onOpenChange={(v) => { if (!v) setConfirmDeleteUpload(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>¿Eliminar datos?</DialogTitle>
+            <DialogTitle>¿Eliminar cartola?</DialogTitle>
           </DialogHeader>
           <p className="text-sm text-zinc-600">
-            Se eliminarán todos los movimientos de{' '}
+            Se eliminarán las{' '}
+            <span className="font-semibold">{confirmDeleteUpload?.rowCount} transacciones</span>{' '}
+            de{' '}
             <span className="font-semibold">
-              {confirmDelete ? (BANK_LABEL[confirmDelete.bank] ?? confirmDelete.bank) : ''}{' '}
-              {confirmDelete?.source === 'credit_card' ? 'Tarjeta de Crédito' : 'Cuenta Corriente'}
-            </span>{' '}
-            de este mes. Esta acción no se puede deshacer.
+              {confirmDeleteUpload ? (BANK_LABEL[confirmDeleteUpload.bank] ?? confirmDeleteUpload.bank) : ''}{' '}
+              {confirmDeleteUpload?.accountType === 'credit_card' ? 'Tarjeta de Crédito' : 'Cuenta Corriente'}
+            </span>.{' '}
+            Esta acción no se puede deshacer.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmDelete(null)} disabled={deleting}>
+            <Button variant="outline" onClick={() => setConfirmDeleteUpload(null)} disabled={deletingUpload}>
               Cancelar
             </Button>
-            <Button variant="destructive" onClick={handleDeleteSource} disabled={deleting}>
-              {deleting
+            <Button variant="destructive" onClick={handleDeleteUpload} disabled={deletingUpload}>
+              {deletingUpload
                 ? <><RefreshCw className="h-4 w-4 mr-2 animate-spin" />Eliminando…</>
                 : <><Trash2 className="h-4 w-4 mr-2" />Eliminar</>}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Upload history */}
+      {uploads.length > 0 && (
+        <div className="rounded-xl border border-zinc-200 bg-white overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-zinc-100 bg-zinc-50 flex items-center gap-2">
+            <Database className="h-3.5 w-3.5 text-zinc-400" />
+            <span className="text-xs font-semibold text-zinc-600">Cartolas cargadas</span>
+          </div>
+          <div className="divide-y divide-zinc-100">
+            {uploads.map((u) => (
+              <div key={u.id} className="flex items-center gap-3 px-4 py-2.5">
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-zinc-800">
+                    {BANK_LABEL[u.bank] ?? u.bank}
+                  </span>
+                  <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-zinc-100 text-zinc-500">
+                    {u.accountType === 'credit_card' ? 'Tarjeta de Crédito' : 'Cuenta Corriente'}
+                  </span>
+                  <span className="ml-2 text-xs text-zinc-400">{u.rowCount} transacciones</span>
+                </div>
+                <span className="text-xs text-zinc-400 shrink-0">
+                  {new Date(u.uploadedAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
+                </span>
+                <button
+                  onClick={() => setConfirmDeleteUpload(u)}
+                  className="text-zinc-300 hover:text-red-500 transition-colors shrink-0"
+                  title="Eliminar esta cartola y sus transacciones"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Metrics */}
       {loading && (

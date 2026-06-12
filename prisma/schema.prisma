@@ -12,10 +12,11 @@ datasource db {
 model UserProfile {
   clerkId        String         @id
   monthlyIncome  Int?
-  categories     Category[]
-  transactions   Transaction[]
-  budgets        Budget[]
-  merchantRules  MerchantRule[]
+  categories      Category[]
+  transactions    Transaction[]
+  budgets         Budget[]
+  merchantRules   MerchantRule[]
+  trackingUploads TrackingUpload[]
 }
 
 model Category {
@@ -50,29 +51,46 @@ model Budget {
   @@unique([userId, categoryId, month])
 }
 
+model TrackingUpload {
+  id           String        @id @default(uuid())
+  userId       String
+  bank         String
+  accountType  String        // 'checking' | 'credit_card'
+  month        String        // YYYY-MM (accountingMonth)
+  rowCount     Int
+  uploadedAt   DateTime      @default(now())
+  user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@index([userId])
+  @@index([userId, month])
+}
+
 model Transaction {
-  id               String      @id @default(uuid())
+  id               String          @id @default(uuid())
   userId           String
   categoryId       String
   date             DateTime
   description      String
   merchant         String
   amount           Float
-  currency         String      @default("CLP")
-  bank             String      @default("") // 'santander' | 'falabella' | ... — '' = unknown/manual
-  accountType      String      @default("") // 'checking' | 'credit_card' | '' — populated for origin='tracking'
-  isInstallment    Boolean     @default(false)
+  currency         String          @default("CLP")
+  bank             String          @default("") // 'santander' | 'falabella' | ... — '' = unknown/manual
+  accountType      String          @default("") // 'checking' | 'credit_card' | '' — populated for origin='tracking'
+  isInstallment    Boolean         @default(false)
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
-  reviewStatus     String      @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
-  transactionType  String      @default("expense")   // 'expense' | 'income' | 'transfer'
-  origin           String      @default("manual")    // 'tracking' | 'manual'
-  accountingMonth  String      @default("")           // 'YYYY-MM' — period this tx is counted in; '' = use date
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
-  user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  category         Category    @relation(fields: [categoryId], references: [id])
+  reviewStatus     String          @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
+  transactionType  String          @default("expense")   // 'expense' | 'income' | 'transfer'
+  origin           String          @default("manual")    // 'tracking' | 'manual'
+  accountingMonth  String          @default("")           // 'YYYY-MM' — period this tx is counted in; '' = use date
+  trackingUploadId String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+  user             UserProfile     @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  category         Category        @relation(fields: [categoryId], references: [id])
+  trackingUpload   TrackingUpload? @relation(fields: [trackingUploadId], references: [id], onDelete: Cascade)
 
   @@index([userId, date])
   @@index([userId, origin])

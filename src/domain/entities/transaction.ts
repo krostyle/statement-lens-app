@@ -24,6 +24,8 @@ export interface Transaction {
   origin: string;
   /** Accounting period override: 'YYYY-MM' when set, otherwise use date field */
   accountingMonth: string;
+  /** FK to TrackingUpload; null for manual entries */
+  trackingUploadId?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +49,7 @@ export type CreateTransactionInput = Pick<
   transactionType?: TransactionType;
   origin?: string;
   accountingMonth?: string;
+  trackingUploadId?: string | null;
 };
 
 export type UpdateTransactionInput = Partial<
