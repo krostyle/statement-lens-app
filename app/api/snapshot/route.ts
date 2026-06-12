@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { categoryRepo, merchantRuleRepo, snapshotRepo, budgetRepo } from '@/src/infrastructure/container';
+import { categoryRepo, merchantRuleRepo, snapshotRepo, budgetRepo, rawSnapshotParser } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
+import { parseRawStatementText, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 
@@ -78,9 +79,21 @@ export async function POST(request: Request) {
       text = await csvFile.text();
     }
 
-    // Parse CSV
-    const rawRows = parseCsvSnapshot(text, sourceType, bank);
-    const newTxs  = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
+    // Parse: CSV with header → raw bank-portal text → AI fallback
+    let rawRows = parseCsvSnapshot(text, sourceType, bank);
+    if (rawRows.length === 0) {
+      rawRows = toSnapshotRows(parseRawStatementText(text, month), sourceType, bank);
+    }
+    if (rawRows.length === 0) {
+      rawRows = toSnapshotRows(await rawSnapshotParser.parse(text, sourceType, month), sourceType, bank);
+    }
+    if (rawRows.length === 0) {
+      return NextResponse.json(
+        { error: 'No se reconocieron movimientos en el texto. Revisa el formato e inténtalo de nuevo.' },
+        { status: 400 },
+      );
+    }
+    const newTxs = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
 
     // Merge: replace existing rows of same bank+source, keep others
     const existing = await snapshotRepo.findByUserAndMonth(userId, month);

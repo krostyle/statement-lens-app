@@ -31,6 +31,7 @@ model Statement {
   s3Url         String
   status        String        @default("pending")
   errorMessage  String?
+  duplicatesSkipped Int       @default(0) // charges omitted because they already existed (date+merchant+amount)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   user          UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
@@ -85,11 +86,14 @@ model Transaction {
   notes            String?
   reviewStatus     String      @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
   transactionType  String      @default("expense")   // 'expense' | 'income'
+  origin           String      @default("manual")    // 'statement' | 'tracking' | 'manual'
   createdAt        DateTime    @default(now())
   updatedAt        DateTime    @updatedAt
   user             UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   statement        Statement?  @relation(fields: [statementId], references: [id], onDelete: Cascade)
   category         Category    @relation(fields: [categoryId], references: [id])
+
+  @@index([userId, date])
 }
 
 model MerchantRule {

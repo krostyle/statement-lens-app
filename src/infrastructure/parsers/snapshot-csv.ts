@@ -28,7 +28,7 @@ const TRANSFER_PATTERNS = [
   /transferencia\s+a\s+mi\b/i,
 ];
 
-function classifyCheckingType(description: string, amount: number): 'expense' | 'income' | 'transfer' {
+export function classifyCheckingType(description: string, amount: number): 'expense' | 'income' | 'transfer' {
   if (TRANSFER_PATTERNS.some((re) => re.test(description))) return 'transfer';
   return amount >= 0 ? 'income' : 'expense';
 }

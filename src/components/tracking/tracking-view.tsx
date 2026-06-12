@@ -175,7 +175,7 @@ export function TrackingView() {
     const hasText = csvInputMode === 'text' && csvText.trim();
     const hasFile = csvInputMode === 'file' && csvFile;
     if (!hasText && !hasFile) {
-      setError('Debes pegar texto CSV o seleccionar un archivo .csv.');
+      setError('Debes pegar los movimientos o seleccionar un archivo .csv.');
       return;
     }
     setUploading(true);
@@ -363,7 +363,7 @@ export function TrackingView() {
       <Dialog open={uploadOpen} onOpenChange={(v) => { if (!v) setUploadOpen(false); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Subir cartola CSV</DialogTitle>
+            <DialogTitle>Subir cartola</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-1">
@@ -409,12 +409,17 @@ export function TrackingView() {
             </div>
 
             {csvInputMode === 'text' ? (
-              <textarea
-                className="w-full h-36 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
-                placeholder={"date,description,amount\n2026-05-08,DELIVERY DEL SO,31430\n2026-05-08,PAYU *UBER TR,2077"}
-                value={csvText}
-                onChange={(e) => setCsvText(e.target.value)}
-              />
+              <div className="space-y-1.5">
+                <textarea
+                  className="w-full h-36 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
+                  placeholder={"Pega los movimientos tal como los copias del banco:\n11/06/2026  PAYU *UBER TR  -$19.989\nSERVICIOS Y COM  -$3.750\n\n…o en formato CSV (date,description,amount)"}
+                  value={csvText}
+                  onChange={(e) => setCsvText(e.target.value)}
+                />
+                <p className="text-xs text-zinc-400">
+                  Acepta el texto copiado directamente desde el sitio del banco — la conversión se hace automáticamente.
+                </p>
+              </div>
             ) : (
               <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
                 <Upload className="h-5 w-5" />

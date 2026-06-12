@@ -9,6 +9,7 @@ import { MerchantRulePrismaRepository } from './database/repositories/merchant-r
 import { SnapshotPrismaRepository } from './database/repositories/snapshot.prisma.repository';
 import { S3StorageService } from './storage/s3.storage.service';
 import { PdfParserService } from './ai/pdf-parser.service';
+import { RawSnapshotParserService } from './ai/raw-snapshot-parser.service';
 import { FinancialAnalysisService } from './ai/financial-analysis.service';
 import { FinancialChatService } from './ai/financial-chat.service';
 
@@ -44,6 +45,7 @@ export const snapshotRepo = new SnapshotPrismaRepository();
 // Services
 export const s3Service = new S3StorageService();
 export const pdfParser = new PdfParserService();
+export const rawSnapshotParser = new RawSnapshotParserService();
 export const financialAnalysisService = new FinancialAnalysisService();
 export const financialChatService = new FinancialChatService();
 
