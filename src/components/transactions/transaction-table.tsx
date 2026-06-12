@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap, Wand2, RefreshCw } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap, Wand2, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -212,6 +212,163 @@ function BulkTypeDialog({
         <Button onClick={handleApply} disabled={!txType || loading}>
           {loading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
           {loading ? 'Aplicando...' : `Aplicar a ${count} transacción${count !== 1 ? 'es' : ''}`}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
+// Bulk individual edit dialog
+// ─────────────────────────────────────────────────────────
+
+interface EditItem {
+  id: string;
+  merchant: string;
+  date: string;
+  amount: number;
+  categoryId: string;
+  transactionType: string;
+  origCategoryId: string;
+  origTransactionType: string;
+}
+
+function BulkIndividualEditDialog({
+  selectedIds,
+  transactions,
+  categories,
+  onClose,
+  onSaved,
+}: {
+  selectedIds: Set<string>;
+  transactions: TransactionResponseDTO[];
+  categories: CategoryResponseDTO[];
+  onClose: () => void;
+  onSaved: (items: EditItem[]) => void;
+}) {
+  const [items, setItems] = useState<EditItem[]>(() =>
+    transactions
+      .filter((t) => selectedIds.has(t.id))
+      .map((t) => ({
+        id: t.id,
+        merchant: t.merchant,
+        date: t.date,
+        amount: t.amount,
+        categoryId: t.categoryId,
+        transactionType: t.transactionType,
+        origCategoryId: t.categoryId,
+        origTransactionType: t.transactionType,
+      }))
+  );
+  const [saving, setSaving] = useState(false);
+
+  const updateItem = (id: string, patch: Partial<Pick<EditItem, 'categoryId' | 'transactionType'>>) =>
+    setItems((prev) => prev.map((it) => it.id === id ? { ...it, ...patch } : it));
+
+  const changed = items.filter(
+    (it) => it.categoryId !== it.origCategoryId || it.transactionType !== it.origTransactionType,
+  );
+
+  const handleSave = async () => {
+    if (changed.length === 0) return;
+    setSaving(true);
+
+    // Agrupa por (categoryId, transactionType) final para minimizar requests
+    const groups = new Map<string, string[]>();
+    for (const item of changed) {
+      const key = `${item.categoryId}|${item.transactionType}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(item.id);
+    }
+
+    await Promise.all(
+      [...groups.entries()].map(([key, ids]) => {
+        const [categoryId, transactionType] = key.split('|');
+        return fetch('/api/transactions/bulk', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, update: { categoryId, transactionType } }),
+        });
+      }),
+    );
+
+    setSaving(false);
+    onSaved(items);
+  };
+
+  return (
+    <DialogContent className="sm:max-w-2xl">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <SlidersHorizontal className="h-4 w-4 text-brand-600" />
+          Editar transacciones individualmente
+        </DialogTitle>
+      </DialogHeader>
+
+      <div className="space-y-1 max-h-[28rem] overflow-y-auto py-1 pr-1">
+        <div className="grid grid-cols-[1fr_9rem_9rem] gap-2 px-2 pb-1 text-xs font-medium text-zinc-400 border-b">
+          <span>Comercio</span>
+          <span>Categoría</span>
+          <span>Tipo</span>
+        </div>
+
+        {items.map((item) => {
+          const dirty = item.categoryId !== item.origCategoryId || item.transactionType !== item.origTransactionType;
+          return (
+            <div
+              key={item.id}
+              className={`grid grid-cols-[1fr_9rem_9rem] gap-2 items-center rounded-lg px-2 py-1.5 transition-colors ${dirty ? 'bg-amber-50 border border-amber-100' : 'hover:bg-zinc-50'}`}
+            >
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-zinc-800 truncate">{item.merchant}</p>
+                <p className="text-xs text-zinc-400">
+                  {formatDate(item.date)}{' '}
+                  <span className={item.amount < 0 ? 'text-red-500' : 'text-emerald-600'}>
+                    {item.amount < 0 ? '−' : '+'}{formatCurrency(Math.abs(item.amount))}
+                  </span>
+                </p>
+              </div>
+
+              <Select value={item.categoryId} onValueChange={(v) => updateItem(item.id, { categoryId: v })}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((c) => (
+                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={item.transactionType} onValueChange={(v) => updateItem(item.id, { transactionType: v })}>
+                <SelectTrigger className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent position="popper">
+                  <SelectItem value="expense"  className="text-xs">Gasto</SelectItem>
+                  <SelectItem value="income"   className="text-xs">Ingreso</SelectItem>
+                  <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          );
+        })}
+      </div>
+
+      <DialogFooter className="items-center">
+        {changed.length > 0 && (
+          <span className="text-xs text-amber-600 mr-auto">
+            {changed.length} cambio{changed.length !== 1 ? 's' : ''} pendiente{changed.length !== 1 ? 's' : ''}
+          </span>
+        )}
+        <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+        <Button onClick={handleSave} disabled={saving || changed.length === 0}>
+          {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {saving
+            ? 'Guardando...'
+            : changed.length > 0
+              ? `Guardar ${changed.length} cambio${changed.length !== 1 ? 's' : ''}`
+              : 'Sin cambios'}
         </Button>
       </DialogFooter>
     </DialogContent>
@@ -431,6 +588,9 @@ export function TransactionsView() {
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
+  // ── Bulk individual edit dialog ───────────────────────────
+  const [bulkIndividualOpen, setBulkIndividualOpen] = useState(false);
+
   // ── Bulk rules dialog ────────────────────────────────────
   const [bulkRulesOpen, setBulkRulesOpen] = useState(false);
 
@@ -615,6 +775,23 @@ export function TransactionsView() {
     setTransactions((prev) => prev.filter((t) => !idsToDelete.has(t.id)));
     setTotal((prev) => prev - idsToDelete.size);
 
+    clearSelection();
+  };
+
+  const handleIndividualSaved = (items: EditItem[]) => {
+    const map = new Map(items.map((it) => [it.id, it]));
+    setTransactions((prev) =>
+      prev.map((t) => {
+        const updated = map.get(t.id);
+        if (!updated) return t;
+        return {
+          ...t,
+          categoryId:      updated.categoryId,
+          transactionType: updated.transactionType as TransactionResponseDTO['transactionType'],
+        };
+      }),
+    );
+    setBulkIndividualOpen(false);
     clearSelection();
   };
 
@@ -818,6 +995,16 @@ export function TransactionsView() {
             variant="outline"
             className="border-brand-300 text-brand-700 hover:bg-brand-100"
             disabled={bulkApplying}
+            onClick={() => setBulkIndividualOpen(true)}
+          >
+            <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+            Editar
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
             onClick={() => setBulkRulesOpen(true)}
           >
             <Wand2 className="h-3.5 w-3.5 mr-1.5" />
@@ -869,6 +1056,19 @@ export function TransactionsView() {
           onApply={(transactionType) => applyBulk({ transactionType })}
           onClose={() => setBulkDialog(null)}
         />
+      </Dialog>
+
+      {/* Bulk individual edit dialog */}
+      <Dialog open={bulkIndividualOpen} onOpenChange={(v) => { if (!v) setBulkIndividualOpen(false); }}>
+        {bulkIndividualOpen && (
+          <BulkIndividualEditDialog
+            selectedIds={selectedIds}
+            transactions={transactions}
+            categories={categories}
+            onClose={() => setBulkIndividualOpen(false)}
+            onSaved={handleIndividualSaved}
+          />
+        )}
       </Dialog>
 
       {/* Bulk rules dialog */}
