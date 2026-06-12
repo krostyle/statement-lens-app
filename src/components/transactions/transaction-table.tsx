@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/src/components/ui/dropdown-menu';
 import { DateRangeFilter } from '@/src/components/ui/date-range-filter';
+import { MonthPicker } from '@/src/components/ui/month-picker';
 import { formatCurrency, formatDate } from '@/src/lib/utils';
 import { Skeleton } from '@/src/components/ui/skeleton';
 import { TransactionForm } from './transaction-form';
@@ -477,23 +478,12 @@ export function TransactionsView() {
           </SelectContent>
         </Select>
 
-        <div className="relative w-full md:w-40">
-          <Input
-            type="month"
-            value={selectedAccountingMonth}
-            onChange={(e) => setSelectedAccountingMonth(e.target.value)}
-            className="w-full pr-7"
-            title="Mes contable — muestra transacciones de seguimiento del período, incluidas las del mes anterior"
-          />
-          {selectedAccountingMonth && (
-            <button
-              type="button"
-              onClick={() => setSelectedAccountingMonth('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 text-xs leading-none"
-              title="Limpiar mes contable"
-            >✕</button>
-          )}
-        </div>
+        <MonthPicker
+          value={selectedAccountingMonth}
+          onChange={setSelectedAccountingMonth}
+          placeholder="Mes contable..."
+          className="w-full md:w-44"
+        />
 
         {!selectedAccountingMonth && (
           <DateRangeFilter
