@@ -22,6 +22,8 @@ export interface Transaction {
   transactionType: TransactionType;
   /** Ingestion origin: 'tracking' | 'manual' */
   origin: string;
+  /** Accounting period override: 'YYYY-MM' when set, otherwise use date field */
+  accountingMonth: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -44,6 +46,7 @@ export type CreateTransactionInput = Pick<
   reviewStatus?: ReviewStatus;
   transactionType?: TransactionType;
   origin?: string;
+  accountingMonth?: string;
 };
 
 export type UpdateTransactionInput = Partial<

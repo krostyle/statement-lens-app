@@ -50,6 +50,7 @@ function createMockTransactionRepo(): ITransactionRepository {
         bank: '',
         accountType: '',
         origin: 'manual',
+        accountingMonth: '',
         reviewStatus: 'pending',
         transactionType: 'expense',
         createdAt: new Date(),

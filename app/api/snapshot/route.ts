@@ -130,6 +130,7 @@ export async function POST(request: Request) {
       bank,
       accountType:     sourceType,
       origin:          'tracking',
+      accountingMonth: month,
       reviewStatus:    tx.hasRule ? 'auto' : 'pending',
       transactionType: tx.transactionType,
       isInstallment:   false,

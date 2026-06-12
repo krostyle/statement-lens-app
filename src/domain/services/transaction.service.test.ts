@@ -23,6 +23,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     bank: '',
     accountType: '',
     origin: 'manual',
+    accountingMonth: '',
     reviewStatus: 'pending',
     transactionType: 'expense',
     notes: null,
