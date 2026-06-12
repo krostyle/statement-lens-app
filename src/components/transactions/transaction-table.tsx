@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap } from 'lucide-react';
+import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap, Wand2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -219,6 +219,177 @@ function BulkTypeDialog({
 }
 
 // ─────────────────────────────────────────────────────────
+// Bulk rules dialog
+// ─────────────────────────────────────────────────────────
+
+interface RuleItem {
+  merchantPattern: string;
+  merchant: string;
+  categoryId: string;
+  transactionType: string;
+  bank: string;
+  hasExistingRule: boolean;
+  checked: boolean;
+}
+
+function BulkRulesDialog({
+  selectedIds,
+  transactions,
+  categories,
+  onClose,
+}: {
+  selectedIds: Set<string>;
+  transactions: TransactionResponseDTO[];
+  categories: CategoryResponseDTO[];
+  onClose: () => void;
+}) {
+  const [loadingRules, setLoadingRules] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [items, setItems] = useState<RuleItem[]>([]);
+
+  useEffect(() => {
+    fetch('/api/merchant-rules')
+      .then((r) => r.json())
+      .then((rules: Array<{ merchantPattern: string; bank: string }>) => {
+        const existingPatterns = new Set(rules.map((r) => `${r.merchantPattern}|${r.bank}`));
+
+        const selected = transactions.filter((t) => selectedIds.has(t.id));
+        const seen = new Map<string, RuleItem>();
+        for (const tx of selected) {
+          const pattern = tx.merchant.toLowerCase().trim();
+          if (seen.has(pattern)) continue;
+          const bankSpecific = existingPatterns.has(`${pattern}|${tx.bank}`);
+          const wildcard     = existingPatterns.has(`${pattern}|`);
+          const hasExistingRule = bankSpecific || wildcard;
+          seen.set(pattern, {
+            merchantPattern: pattern,
+            merchant: tx.merchant,
+            categoryId: tx.categoryId,
+            transactionType: tx.transactionType,
+            bank: tx.bank,
+            hasExistingRule,
+            checked: !hasExistingRule,
+          });
+        }
+
+        setItems([...seen.values()]);
+        setLoadingRules(false);
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const updateItem = (pattern: string, patch: Partial<RuleItem>) =>
+    setItems((prev) => prev.map((it) => it.merchantPattern === pattern ? { ...it, ...patch } : it));
+
+  const handleSave = async () => {
+    setSaving(true);
+    const toCreate = items.filter((it) => it.checked);
+    await Promise.all(
+      toCreate.map((it) =>
+        fetch('/api/merchant-rules', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            merchant: it.merchant,
+            bank: it.bank || '',
+            categoryId: it.categoryId,
+            transactionType: it.transactionType || null,
+          }),
+        }),
+      ),
+    );
+    setSaving(false);
+    onClose();
+  };
+
+  const checkedCount = items.filter((it) => it.checked).length;
+
+  return (
+    <DialogContent className="sm:max-w-lg">
+      <DialogHeader>
+        <DialogTitle className="flex items-center gap-2">
+          <Wand2 className="h-4 w-4 text-brand-600" />
+          Crear reglas desde selección
+        </DialogTitle>
+      </DialogHeader>
+
+      {loadingRules ? (
+        <div className="py-10 flex justify-center">
+          <Loader2 className="h-5 w-5 animate-spin text-zinc-400" />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="py-6 text-sm text-zinc-400 text-center">
+          No hay comercios en las transacciones seleccionadas.
+        </p>
+      ) : (
+        <div className="space-y-2 max-h-80 overflow-y-auto py-2 pr-1">
+          {items.map((item) => (
+            <div
+              key={item.merchantPattern}
+              className={`flex items-start gap-3 p-2.5 rounded-lg border transition-colors ${item.checked ? 'border-brand-200 bg-brand-50/40' : 'border-zinc-100 bg-white'}`}
+            >
+              <input
+                type="checkbox"
+                checked={item.checked}
+                onChange={(e) => updateItem(item.merchantPattern, { checked: e.target.checked })}
+                className="mt-0.5 h-4 w-4 accent-primary cursor-pointer shrink-0"
+              />
+              <div className="flex-1 min-w-0 space-y-2">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-sm font-medium text-zinc-800 truncate">{item.merchant}</span>
+                  {item.hasExistingRule && (
+                    <Badge variant="secondary" className="text-xs shrink-0">Ya existe — se actualizará</Badge>
+                  )}
+                  {item.bank && (
+                    <Badge variant="outline" className="text-xs shrink-0 capitalize">{item.bank}</Badge>
+                  )}
+                </div>
+                {item.checked && (
+                  <div className="flex gap-2">
+                    <Select value={item.categoryId} onValueChange={(v) => updateItem(item.merchantPattern, { categoryId: v })}>
+                      <SelectTrigger className="h-7 text-xs flex-1">
+                        <SelectValue placeholder="Categoría..." />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((c) => (
+                          <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select
+                      value={item.transactionType || 'auto'}
+                      onValueChange={(v) => updateItem(item.merchantPattern, { transactionType: v === 'auto' ? '' : v })}
+                    >
+                      <SelectTrigger className="h-7 text-xs w-36">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent position="popper">
+                        <SelectItem value="auto" className="text-xs">Auto-detectar</SelectItem>
+                        <SelectItem value="expense" className="text-xs">Gasto</SelectItem>
+                        <SelectItem value="income" className="text-xs">Ingreso</SelectItem>
+                        <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
+        <Button onClick={handleSave} disabled={saving || checkedCount === 0 || loadingRules}>
+          {saving && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}
+          {saving ? 'Guardando...' : `Guardar ${checkedCount} regla${checkedCount !== 1 ? 's' : ''}`}
+        </Button>
+      </DialogFooter>
+    </DialogContent>
+  );
+}
+
+// ─────────────────────────────────────────────────────────
 // Main view
 // ─────────────────────────────────────────────────────────
 
@@ -259,6 +430,9 @@ export function TransactionsView() {
   // ── Bulk delete dialog ───────────────────────────────────
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+
+  // ── Bulk rules dialog ────────────────────────────────────
+  const [bulkRulesOpen, setBulkRulesOpen] = useState(false);
 
   // Debounce search — avoids firing a request on every keystroke
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -408,22 +582,32 @@ export function TransactionsView() {
       body: JSON.stringify({ ids: [...selectedIds], update }),
     });
     setBulkApplying(false);
+
+    // Actualiza el estado local sin refrescar la tabla completa
+    setTransactions((prev) =>
+      prev.map((t) => selectedIds.has(t.id) ? { ...t, ...update } as TransactionResponseDTO : t)
+    );
+
     clearSelection();
     setBulkDialog(null);
-    setRefreshKey((k) => k + 1);
   };
 
   const handleBulkDelete = async () => {
     setBulkDeleting(true);
+    const idsToDelete = new Set(selectedIds);
     await fetch('/api/transactions/bulk', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ids: [...selectedIds] }),
+      body: JSON.stringify({ ids: [...idsToDelete] }),
     });
     setBulkDeleting(false);
     setBulkDeleteOpen(false);
+
+    // Elimina del estado local sin refrescar
+    setTransactions((prev) => prev.filter((t) => !idsToDelete.has(t.id)));
+    setTotal((prev) => prev - idsToDelete.size);
+
     clearSelection();
-    setRefreshKey((k) => k + 1);
   };
 
   const handleConfirmAll = async () => {
@@ -562,6 +746,10 @@ export function TransactionsView() {
             <span className="hidden sm:inline">Exportar CSV</span>
           </Button>
         </a>
+        <Button variant="outline" onClick={() => setRefreshKey((k) => k + 1)} title="Recargar tabla">
+          <RefreshCw className="h-4 w-4" />
+          <span className="hidden sm:inline">Actualizar</span>
+        </Button>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Nueva transacción</span>
@@ -620,6 +808,16 @@ export function TransactionsView() {
           <Button
             size="sm"
             variant="outline"
+            className="border-brand-300 text-brand-700 hover:bg-brand-100"
+            disabled={bulkApplying}
+            onClick={() => setBulkRulesOpen(true)}
+          >
+            <Wand2 className="h-3.5 w-3.5 mr-1.5" />
+            Reglas
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
             className="border-red-200 text-red-600 hover:bg-red-50 ml-auto"
             disabled={bulkApplying}
             onClick={() => setBulkDeleteOpen(true)}
@@ -663,6 +861,18 @@ export function TransactionsView() {
           onApply={(transactionType) => applyBulk({ transactionType })}
           onClose={() => setBulkDialog(null)}
         />
+      </Dialog>
+
+      {/* Bulk rules dialog */}
+      <Dialog open={bulkRulesOpen} onOpenChange={(v) => { if (!v) setBulkRulesOpen(false); }}>
+        {bulkRulesOpen && (
+          <BulkRulesDialog
+            selectedIds={selectedIds}
+            transactions={transactions}
+            categories={categories}
+            onClose={() => setBulkRulesOpen(false)}
+          />
+        )}
       </Dialog>
 
       {/* Delete confirmation */}
