@@ -297,7 +297,7 @@ function BulkIndividualEditDialog({
   };
 
   return (
-    <DialogContent className="sm:max-w-2xl">
+    <DialogContent className="w-full max-w-lg">
       <DialogHeader>
         <DialogTitle className="flex items-center gap-2">
           <SlidersHorizontal className="h-4 w-4 text-brand-600" />
@@ -305,51 +305,46 @@ function BulkIndividualEditDialog({
         </DialogTitle>
       </DialogHeader>
 
-      <div className="space-y-1 max-h-[28rem] overflow-y-auto py-1 pr-1">
-        <div className="grid grid-cols-[1fr_9rem_9rem] gap-2 px-2 pb-1 text-xs font-medium text-zinc-400 border-b">
-          <span>Comercio</span>
-          <span>Categoría</span>
-          <span>Tipo</span>
-        </div>
-
+      <div className="space-y-1.5 max-h-[32rem] overflow-y-auto py-1 pr-1">
         {items.map((item) => {
           const dirty = item.categoryId !== item.origCategoryId || item.transactionType !== item.origTransactionType;
           return (
             <div
               key={item.id}
-              className={`grid grid-cols-[1fr_9rem_9rem] gap-2 items-center rounded-lg px-2 py-1.5 transition-colors ${dirty ? 'bg-amber-50 border border-amber-100' : 'hover:bg-zinc-50'}`}
+              className={`rounded-lg border px-3 py-2.5 space-y-2 transition-colors ${dirty ? 'border-amber-200 bg-amber-50' : 'border-zinc-100 bg-white'}`}
             >
-              <div className="min-w-0">
+              {/* Línea 1: comercio + monto */}
+              <div className="flex items-center justify-between gap-2 min-w-0">
                 <p className="text-sm font-medium text-zinc-800 truncate">{item.merchant}</p>
-                <p className="text-xs text-zinc-400">
-                  {formatDate(item.date)}{' '}
-                  <span className={item.amount < 0 ? 'text-red-500' : 'text-emerald-600'}>
-                    {item.amount < 0 ? '−' : '+'}{formatCurrency(Math.abs(item.amount))}
-                  </span>
-                </p>
+                <span className={`text-xs font-medium shrink-0 ${item.amount < 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                  {item.amount < 0 ? '−' : '+'}{formatCurrency(Math.abs(item.amount))}
+                </span>
               </div>
 
-              <Select value={item.categoryId} onValueChange={(v) => updateItem(item.id, { categoryId: v })}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((c) => (
-                    <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={item.transactionType} onValueChange={(v) => updateItem(item.id, { transactionType: v })}>
-                <SelectTrigger className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent position="popper">
-                  <SelectItem value="expense"  className="text-xs">Gasto</SelectItem>
-                  <SelectItem value="income"   className="text-xs">Ingreso</SelectItem>
-                  <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
-                </SelectContent>
-              </Select>
+              {/* Línea 2: fecha + selectores */}
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-zinc-400 shrink-0 w-[4.5rem]">{formatDate(item.date)}</span>
+                <Select value={item.categoryId} onValueChange={(v) => updateItem(item.id, { categoryId: v })}>
+                  <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    {[...categories].sort((a, b) => a.name.localeCompare(b.name, 'es')).map((c) => (
+                      <SelectItem key={c.id} value={c.id} className="text-xs">{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={item.transactionType} onValueChange={(v) => updateItem(item.id, { transactionType: v })}>
+                  <SelectTrigger className="h-7 text-xs w-28 shrink-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent position="popper">
+                    <SelectItem value="expense"  className="text-xs">Gasto</SelectItem>
+                    <SelectItem value="income"   className="text-xs">Ingreso</SelectItem>
+                    <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           );
         })}
