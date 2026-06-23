@@ -126,17 +126,31 @@ export async function POST(request: Request) {
       transactionRepo.deleteManyTracking(userId, month, bank, sourceType),
     ]);
 
+    // Cross-month duplicate check: a pasted range can bleed into an adjacent
+    // accounting month already tracked separately (e.g. re-pasting the portal
+    // history overlaps days already saved under last month's upload). Duplicate
+    // identity is (date + amount + description) — the accounting month must
+    // never be part of the match, or rows legitimately belonging to another
+    // month would never be recognized as already-saved.
+    const existingTracking = await transactionRepo.findByUserId(userId, {
+      bank, accountType: sourceType, origin: 'tracking',
+    });
+    const existingKeys = new Set(
+      existingTracking.map((t) => `${t.date.toISOString().slice(0, 10)}|${t.amount}|${t.description}`),
+    );
+    const newRows = unique.filter((tx) => !existingKeys.has(`${tx.date}|${tx.amount}|${tx.description}`));
+
     // Create the upload record first to get its ID for linking
     const upload = await trackingUploadRepo.create({
       userId,
       bank,
       accountType: sourceType,
       month,
-      rowCount: unique.length,
+      rowCount: newRows.length,
     });
 
     // Persist as real Transaction records linked to this upload
-    const inputs: CreateTransactionInput[] = unique.map((tx) => ({
+    const inputs: CreateTransactionInput[] = newRows.map((tx) => ({
       userId,
       categoryId:       tx.categoryId,
       date:             new Date(`${tx.date}T12:00:00.000Z`),
@@ -170,7 +184,7 @@ export async function POST(request: Request) {
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
     const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month);
 
-    const skipped = categorized.length - unique.length;
+    const skipped = categorized.length - newRows.length;
     return NextResponse.json({ month, checkingTxs, ccTxs, metrics, uploads, ...(skipped > 0 ? { duplicatesSkipped: skipped } : {}) });
   } catch (err) {
     console.error('[POST /api/snapshot]', err);
