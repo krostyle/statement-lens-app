@@ -117,12 +117,13 @@ export async function POST(request: Request) {
       return true;
     });
 
-    // Replace ALL previous tracking data for this bank+sourceType.
+    // Replace previous tracking data for this bank+sourceType+month only — other
+    // months tracked for the same bank/account must stay untouched.
     // Delete the upload records first — FK cascade removes their transactions.
     // Also call deleteManyTracking to catch any legacy rows without a trackingUploadId.
     await Promise.all([
-      trackingUploadRepo.deleteByBankAccountType(userId, bank, sourceType),
-      transactionRepo.deleteManyTracking(userId, undefined, bank, sourceType),
+      trackingUploadRepo.deleteByMonth(userId, month, bank, sourceType),
+      transactionRepo.deleteManyTracking(userId, month, bank, sourceType),
     ]);
 
     // Create the upload record first to get its ID for linking

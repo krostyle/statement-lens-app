@@ -18,10 +18,6 @@ export class TrackingUploadPrismaRepository implements ITrackingUploadRepository
     await prisma.trackingUpload.deleteMany({ where: { id, userId } });
   }
 
-  async deleteByBankAccountType(userId: string, bank: string, accountType: string): Promise<void> {
-    await prisma.trackingUpload.deleteMany({ where: { userId, bank, accountType } });
-  }
-
   async deleteByMonth(userId: string, month: string, bank?: string, accountType?: string): Promise<void> {
     await prisma.trackingUpload.deleteMany({
       where: {

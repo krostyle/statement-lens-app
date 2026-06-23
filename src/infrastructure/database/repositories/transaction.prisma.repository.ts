@@ -213,21 +213,28 @@ export class TransactionPrismaRepository implements ITransactionRepository {
   }
 
   async deleteManyTracking(userId: string, month?: string, bank?: string, accountType?: string): Promise<void> {
-    const dateFilter = month
-      ? (() => {
-          const from = new Date(`${month}-01T00:00:00.000Z`);
-          const to   = new Date(from);
-          to.setUTCMonth(to.getUTCMonth() + 1);
-          return { gte: from, lt: to };
-        })()
-      : undefined;
+    // Match the same accountingMonth-aware logic as findTrackingByMonth so a
+    // re-upload for `month` never touches tracking rows that belong to other
+    // months (e.g. a salary dated in the prior month but accountingMonth=month).
+    let monthFilter: Prisma.TransactionWhereInput | undefined;
+    if (month) {
+      const from = new Date(`${month}-01T00:00:00.000Z`);
+      const to   = new Date(from);
+      to.setUTCMonth(to.getUTCMonth() + 1);
+      monthFilter = {
+        OR: [
+          { accountingMonth: month },
+          { accountingMonth: '', date: { gte: from, lt: to } },
+        ],
+      };
+    }
     await prisma.transaction.deleteMany({
       where: {
         userId,
         origin: 'tracking',
-        ...(dateFilter   ? { date: dateFilter } : {}),
-        ...(bank         ? { bank }             : {}),
-        ...(accountType  ? { accountType }      : {}),
+        ...(monthFilter  ?? {}),
+        ...(bank         ? { bank }        : {}),
+        ...(accountType  ? { accountType } : {}),
       },
     });
   }
