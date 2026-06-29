@@ -751,7 +751,7 @@ export function TransactionsView() {
       prev.map((t) => selectedIds.has(t.id) ? { ...t, ...update } as TransactionResponseDTO : t)
     );
 
-    clearSelection();
+    // Mantiene la selección para poder encadenar más acciones masivas
     setBulkDialog(null);
   };
 
@@ -787,7 +787,7 @@ export function TransactionsView() {
       }),
     );
     setBulkIndividualOpen(false);
-    clearSelection();
+    // Mantiene la selección para poder encadenar más acciones masivas
   };
 
   const handleConfirmAll = async () => {
