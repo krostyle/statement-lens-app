@@ -349,7 +349,7 @@ export async function GET(req: Request) {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Seguimiento ${esc(formatMonth(month))} — Statement Lens</title>
+  <title>Mes contable ${esc(formatMonth(month))} — Statement Lens</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; color: #18181b; background: #fff; font-size: 14px; line-height: 1.5; }
@@ -409,8 +409,8 @@ export async function GET(req: Request) {
     </div>
 
     <div class="header">
-      <div class="header-brand">Statement Lens · Reporte de seguimiento</div>
-      <div class="header-title">Seguimiento — ${esc(formatMonth(month))}</div>
+      <div class="header-brand">Statement Lens · Reporte de mes contable</div>
+      <div class="header-title">Mes contable — ${esc(formatMonth(month))}</div>
       <div class="header-meta">Generado el ${esc(generatedAt)} · Día ${metrics.daysElapsed} de ${metrics.daysInMonth} (${monthPct}% del mes)</div>
     </div>
 

@@ -717,11 +717,10 @@ export async function GET(req: Request) {
   }
 
   const [y, m] = month.split('-').map(Number);
-  const from = new Date(Date.UTC(y, m - 1, 1));
-  const to   = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+  const to = new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
 
   const [transactions, budgets, categories] = await Promise.all([
-    transactionRepo.findByUserId(userId, { from, to }),
+    transactionRepo.findByUserId(userId, { accountingMonth: month }),
     budgetRepo.findByUserId(userId, month),
     categoryRepo.findByUserId(userId),
   ]);
@@ -750,11 +749,8 @@ export async function GET(req: Request) {
 
   // Previous month — for comparison section
   const prevMonth = prevMonthStr(month);
-  const [py, pm]  = prevMonth.split('-').map(Number);
-  const prevFrom  = new Date(Date.UTC(py, pm - 1, 1));
-  const prevTo    = new Date(Date.UTC(py, pm, 0, 23, 59, 59, 999));
   const [prevTxs, prevBudgets] = await Promise.all([
-    transactionRepo.findByUserId(userId, { from: prevFrom, to: prevTo }),
+    transactionRepo.findByUserId(userId, { accountingMonth: prevMonth }),
     budgetRepo.findByUserId(userId, prevMonth),
   ]);
   let prevSnapshot: PrevSnapshot | null = null;

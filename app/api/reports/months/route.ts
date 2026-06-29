@@ -8,12 +8,12 @@ export async function GET() {
 
   const txs = await prisma.transaction.findMany({
     where: { userId },
-    select: { date: true },
+    select: { date: true, accountingMonth: true },
   });
 
   const monthSet = new Set<string>();
   for (const tx of txs) {
-    const m = `${tx.date.getUTCFullYear()}-${String(tx.date.getUTCMonth() + 1).padStart(2, '0')}`;
+    const m = tx.accountingMonth || `${tx.date.getUTCFullYear()}-${String(tx.date.getUTCMonth() + 1).padStart(2, '0')}`;
     monthSet.add(m);
   }
 

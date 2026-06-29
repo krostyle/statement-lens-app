@@ -106,9 +106,9 @@ export function ReportsView() {
 
       <div className="space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-zinc-700 mb-1">Seguimiento</h2>
+          <h2 className="text-sm font-semibold text-zinc-700 mb-1">Mes contable</h2>
           <p className="text-sm text-zinc-500">
-            Reportes generados desde cartolas CSV subidas en la página de seguimiento.
+            Reportes generados desde cartolas CSV subidas en la página de mes contable.
           </p>
         </div>
         <MonthList

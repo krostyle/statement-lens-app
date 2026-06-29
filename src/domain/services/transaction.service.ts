@@ -62,7 +62,7 @@ export function groupByMonth(transactions: Transaction[]): MonthlySpend[] {
   // Collect all transactions per month, then net by category within each month
   const byMonth = new Map<string, Transaction[]>();
   for (const t of transactions) {
-    const key = `${t.date.getUTCFullYear()}-${String(t.date.getUTCMonth() + 1).padStart(2, '0')}`;
+    const key = t.accountingMonth || `${t.date.getUTCFullYear()}-${String(t.date.getUTCMonth() + 1).padStart(2, '0')}`;
     const arr = byMonth.get(key) ?? [];
     arr.push(t);
     byMonth.set(key, arr);

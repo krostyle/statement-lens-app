@@ -23,7 +23,7 @@ const navItems = [
   { href: '/transactions', label: 'Transacciones', icon: ArrowLeftRight },
   { href: '/categories', label: 'Categorías', icon: Tag },
   { href: '/budgets', label: 'Presupuestos', icon: Target },
-  { href: '/tracking', label: 'Seguimiento', icon: TrendingUp },
+  { href: '/tracking', label: 'Mes contable', icon: TrendingUp },
   { href: '/rules', label: 'Reglas', icon: BookMarked },
   { href: '/reports', label: 'Reportes', icon: BarChart2 },
 ];
