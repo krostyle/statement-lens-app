@@ -108,6 +108,61 @@ function cleanInstallmentMerchant(desc: string): string {
     .trim();
 }
 
+/** A bare money token: "$3.335.364", "$13" — no header to key off of here, so this is stricter than MONEY_RE. */
+const BARE_TAB_MONEY_RE = /^\$\s*-?\d{1,3}(?:\.\d{3})*(?:,\d+)?$/;
+
+/**
+ * Parse Santander portal exports copied WITHOUT the header row — just the raw
+ * tab-separated data lines, 4 columns: Fecha \t Detalle \t Monto cargo \t Monto abono.
+ * Cargo/abono are mutually exclusive per row (whichever column is empty tells
+ * you the other one is the real movement). There's no header text to detect,
+ * so the format is recognized structurally: every line must start with a date
+ * and have cargo/abono cells that are either empty or a bare "$" amount.
+ *
+ *   26-06-2026   076042014K REMUNERACION WALMART CHI                    $3.335.364
+ *   26-06-2026   0781495999 TRANSF A CENTRO DE ACONDIC...   $100.000
+ *
+ * Returns [] when any line breaks the expected shape (caller falls back to
+ * parseRawStatementText / AI).
+ */
+export function parseSantanderPortalTabNoHeader(text: string, fallbackYear: string): RawParsedRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length === 0) return [];
+
+  const rows: RawParsedRow[] = [];
+
+  for (const line of lines) {
+    if (!line.includes('\t')) return [];
+    const parts = line.split('\t').map((p) => p.trim());
+    if (parts.length < 3) return [];
+
+    const [dateStr, description, cargoStr = '', abonoStr = ''] = parts;
+
+    const m = DATE_RE.exec(dateStr);
+    if (!m) return [];
+    if (!description) return [];
+    if (cargoStr && !BARE_TAB_MONEY_RE.test(cargoStr)) return [];
+    if (abonoStr && !BARE_TAB_MONEY_RE.test(abonoStr)) return [];
+    if (!cargoStr && !abonoStr) continue; // informational row, e.g. trailing blank cells
+
+    if (SKIP_PATTERNS.some((re) => re.test(description))) continue;
+
+    const parseAmt = (s: string) => Math.abs(parseFloat(s.replace(/[$.]/g, '').replace(',', '.')));
+    const cargo = cargoStr ? parseAmt(cargoStr) : 0;
+    const abono = abonoStr ? parseAmt(abonoStr) : 0;
+    if (cargo === 0 && abono === 0) continue;
+
+    rows.push({
+      date: toIsoDate(m[1], m[2], m[3], fallbackYear),
+      description,
+      amount: cargo > 0 ? -cargo : abono,
+      explicitSign: true,
+    });
+  }
+
+  return rows;
+}
+
 /**
  * Parse Falabella CMR web-portal exports pasted as tab-separated text.
  *
