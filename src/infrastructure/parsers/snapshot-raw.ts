@@ -310,10 +310,18 @@ export function parseSantanderPortalTab(text: string, fallbackYear: string): Raw
     if (!line.includes('\t')) continue;
     const parts = line.split('\t');
 
-    const dateStr   = (parts[dateCol]  ?? '').trim();
-    const description = (parts[descCol] ?? '').trim();
-    const cargoStr  = (parts[cargoCol] ?? '').trim();
-    const abonoStr  = (parts[abonoCol] ?? '').trim();
+    // Continuation rows (additional movements on the same date) don't just
+    // leave the Fecha cell empty — Santander drops the Fecha AND Tipo cells
+    // entirely, shifting every later column 2 positions to the left. Detect
+    // this by checking whether the row's leading cell actually looks like a
+    // date; if not, re-read Detalle/Cargo/Abono from the shifted offset.
+    const leadingLooksLikeDate = DATE_RE.test((parts[dateCol] ?? '').trim());
+    const shift = leadingLooksLikeDate ? 0 : 2;
+
+    const dateStr      = leadingLooksLikeDate ? (parts[dateCol] ?? '').trim() : '';
+    const description  = (parts[descCol  - shift] ?? '').trim();
+    const cargoStr      = (parts[cargoCol - shift] ?? '').trim();
+    const abonoStr      = (parts[abonoCol - shift] ?? '').trim();
 
     if (!description) continue;
     if (SKIP_PATTERNS.some((re) => re.test(description))) continue;
