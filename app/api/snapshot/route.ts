@@ -4,7 +4,7 @@ import { auth } from '@clerk/nextjs/server';
 import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser, trackingUploadRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
 import { parseCsvSnapshot } from '@/src/infrastructure/parsers/snapshot-csv';
-import { parseRawStatementText, parseSantanderPortalTab, parseSantanderPortalTabNoHeader, parseFalabellaPortalTab, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
+import { parseRawStatementText, parseSantanderPortalTab, parseSantanderPortalTabNoHeader, parseFalabellaPortalTab, parseFalabellaEstadoCuenta, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotRow } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
@@ -82,7 +82,7 @@ export async function POST(request: Request) {
     let text = csvText ?? '';
     if (!text && csvFile && csvFile.size > 0) text = await csvFile.text();
 
-    // Parse: CSV → Santander portal tab (with/without header) → Falabella portal tab → raw bank text → AI fallback
+    // Parse: CSV → Santander portal tab (with/without header) → Falabella portal tab → Falabella estado de cuenta → raw bank text → AI fallback
     let rawRows = parseCsvSnapshot(text, sourceType, bank);
     if (rawRows.length === 0) {
       const tabRows = parseSantanderPortalTab(text, month.slice(0, 4));
@@ -95,6 +95,10 @@ export async function POST(request: Request) {
     if (rawRows.length === 0) {
       const falRows = parseFalabellaPortalTab(text);
       if (falRows.length > 0) rawRows = toSnapshotRows(falRows, sourceType, bank);
+    }
+    if (rawRows.length === 0) {
+      const falEcRows = parseFalabellaEstadoCuenta(text);
+      if (falEcRows.length > 0) rawRows = toSnapshotRows(falEcRows, sourceType, bank);
     }
     if (rawRows.length === 0) {
       rawRows = toSnapshotRows(parseRawStatementText(text, month), sourceType, bank);

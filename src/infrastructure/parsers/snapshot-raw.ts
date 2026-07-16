@@ -264,6 +264,95 @@ export function parseFalabellaPortalTab(text: string): RawParsedRow[] {
 }
 
 /**
+ * Parse Falabella CMR estado de cuenta (new portal format) pasted as tab-separated text.
+ *
+ * Expected header (tab-separated, case-insensitive):
+ *   FECHA  DESCRIPCION  TITULAR/ADICIONAL  MONTO  CUOTAS PENDIENTES  VALOR CUOTA
+ *
+ * Amount convention:
+ *   Positive VALOR CUOTA → purchase (cargo) → stored as negative (expense).
+ *   Negative VALOR CUOTA → payment          → stored as positive (transfer).
+ *
+ * Installments: CUOTAS PENDIENTES > 0 → isInstallment, append "(N cuotas pendientes)" to description.
+ *
+ * Returns [] when the text doesn't match this format.
+ */
+export function parseFalabellaEstadoCuenta(text: string): RawParsedRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headerIdx = lines.findIndex(
+    (l) =>
+      l.includes('\t') &&
+      /\bfecha\b/i.test(l) &&
+      /\bdescripci[oó]n\b/i.test(l) &&
+      /cuotas\s+pendientes/i.test(l) &&
+      /valor\s+cuota/i.test(l),
+  );
+  if (headerIdx === -1) return [];
+
+  const headers       = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
+  const dateCol       = headers.findIndex((h) => /^fecha$/.test(h));
+  const descCol       = headers.findIndex((h) => /^descripci[oó]n$/.test(h));
+  const cuotasCol     = headers.findIndex((h) => /cuotas\s+pendientes/.test(h));
+  const valorCuotaCol = headers.findIndex((h) => /valor\s+cuota/.test(h));
+  if (dateCol === -1 || descCol === -1 || cuotasCol === -1 || valorCuotaCol === -1) return [];
+
+  const parseAmt = (s: string): number => {
+    const clean = s.trim().replace(/\s/g, '');
+    if (!clean) return NaN;
+    const neg = clean.startsWith('-');
+    const abs = parseFloat(
+      clean.replace(/^-/, '').replace('$', '').replace(/\./g, '').replace(',', '.'),
+    );
+    return isNaN(abs) ? NaN : neg ? -abs : abs;
+  };
+
+  const rows: RawParsedRow[] = [];
+
+  for (const line of lines.slice(headerIdx + 1)) {
+    if (!line.includes('\t')) continue;
+    const parts = line.split('\t');
+
+    const dateStr       = (parts[dateCol]       ?? '').trim();
+    const desc          = (parts[descCol]        ?? '').trim();
+    const cuotasStr     = (parts[cuotasCol]      ?? '').trim();
+    const valorCuotaStr = (parts[valorCuotaCol]  ?? '').trim();
+
+    if (!desc || !dateStr) continue;
+    if (SKIP_PATTERNS.some((re) => re.test(desc))) continue;
+
+    // Date: DD-MM-YYYY → YYYY-MM-DD
+    const dm = /^(\d{1,2})-(\d{1,2})-(\d{2,4})$/.exec(dateStr);
+    if (!dm) continue;
+    const date = `${dm[3].length === 2 ? `20${dm[3]}` : dm[3]}-${dm[2].padStart(2, '0')}-${dm[1].padStart(2, '0')}`;
+
+    const parsedAmt = parseAmt(valorCuotaStr);
+    if (isNaN(parsedAmt) || parsedAmt === 0) continue;
+
+    // Positive VALOR CUOTA = cargo → negative in our system; negative = payment → positive
+    const amount = -parsedAmt;
+
+    const cuotas = parseInt(cuotasStr, 10);
+    const hasInstallments = !isNaN(cuotas) && cuotas > 0;
+
+    const description   = hasInstallments ? `${desc} (${cuotas} cuotas pendientes)` : desc;
+    const installmentTotal = hasInstallments ? cuotas + 1 : undefined;
+
+    rows.push({
+      date,
+      description,
+      merchant: desc,
+      amount,
+      explicitSign: true,
+      ...(hasInstallments ? { installmentTotal } : {}),
+    });
+  }
+
+  return rows;
+}
+
+/**
  * Parse Santander (and similar) web-portal exports that arrive as tab-separated
  * text with two separate amount columns: "Monto cargo" and "Monto abono".
  *
