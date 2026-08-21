@@ -58,6 +58,7 @@ model TrackingUpload {
   accountType  String        // 'checking' | 'credit_card'
   month        String        // YYYY-MM (accountingMonth)
   rowCount     Int
+  isFinalized  Boolean       @default(false)
   uploadedAt   DateTime      @default(now())
   user         UserProfile   @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
   transactions Transaction[]

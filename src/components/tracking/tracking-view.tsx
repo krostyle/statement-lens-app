@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
   ChevronDown, ChevronRight, Pencil, BookMarked, ExternalLink, X, Database,
+  CheckCircle2, Circle,
 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { MonthPicker } from '@/src/components/ui/month-picker';
@@ -59,6 +60,7 @@ interface UploadRecord {
   accountType: string;
   month: string;
   rowCount: number;
+  isFinalized: boolean;
   uploadedAt: string;
 }
 
@@ -216,6 +218,19 @@ export function TrackingView() {
     setDeletingUpload(false);
     await load(month);
     setFilterBank(null);
+  };
+
+  const toggleFinalized = async (u: UploadRecord) => {
+    const next = !u.isFinalized;
+    setData((prev) => prev ? {
+      ...prev,
+      uploads: prev.uploads.map((r) => r.id === u.id ? { ...r, isFinalized: next } : r),
+    } : null);
+    await fetch(`/api/snapshot/uploads/${u.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isFinalized: next }),
+    });
   };
 
   const saveRule = async (merchant: string, bank: string, categoryId: string) => {
@@ -457,6 +472,15 @@ export function TrackingView() {
                 <span className="text-xs text-zinc-400 shrink-0">
                   {new Date(u.uploadedAt).toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })}
                 </span>
+                <button
+                  onClick={() => toggleFinalized(u)}
+                  className={`shrink-0 transition-colors ${u.isFinalized ? 'text-green-500 hover:text-green-600' : 'text-zinc-300 hover:text-zinc-500'}`}
+                  title={u.isFinalized ? 'Cartola completa — haz clic para desmarcar' : 'Marcar cartola como completa'}
+                >
+                  {u.isFinalized
+                    ? <CheckCircle2 className="h-4 w-4" />
+                    : <Circle className="h-4 w-4" />}
+                </button>
                 <button
                   onClick={() => setConfirmDeleteUpload(u)}
                   className="text-zinc-300 hover:text-red-500 transition-colors shrink-0"

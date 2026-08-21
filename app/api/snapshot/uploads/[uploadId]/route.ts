@@ -11,7 +11,19 @@ export async function DELETE(
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const { uploadId } = await params;
-  // deleteById checks userId — cascade FK deletes all linked transactions
   await trackingUploadRepo.deleteById(uploadId, userId);
   return new NextResponse(null, { status: 204 });
+}
+
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ uploadId: string }> },
+) {
+  const { userId } = await auth();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { uploadId } = await params;
+  const { isFinalized } = await req.json() as { isFinalized: boolean };
+  const updated = await trackingUploadRepo.setFinalized(uploadId, userId, isFinalized);
+  return NextResponse.json(updated);
 }
