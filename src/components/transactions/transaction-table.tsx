@@ -809,6 +809,31 @@ export function TransactionsView() {
 
   const hasSelection = selectedIds.size > 0;
 
+  const hasActiveFilters =
+    search !== '' ||
+    selectedBank !== 'all' ||
+    selectedAccountType !== 'all' ||
+    dateFrom !== '' ||
+    dateTo !== '' ||
+    selectedCategoryId !== 'all' ||
+    selectedInstallment !== 'all' ||
+    selectedReview !== 'all' ||
+    selectedType !== 'all' ||
+    selectedAccountingMonth !== '';
+
+  const clearFilters = () => {
+    setSearch('');
+    setSelectedBank('all');
+    setSelectedAccountType('all');
+    setDateFrom('');
+    setDateTo('');
+    setSelectedCategoryId('all');
+    setSelectedInstallment('all');
+    setSelectedReview('all');
+    setSelectedType('all');
+    setSelectedAccountingMonth('');
+  };
+
   return (
     <div className="space-y-4">
       {/* ── Filters row ──
@@ -909,6 +934,19 @@ export function TransactionsView() {
           onChange={(e) => setSearch(e.target.value)}
           className="col-span-2 w-full md:flex-1 md:min-w-[160px]"
         />
+
+        {hasActiveFilters && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+            className="col-span-2 md:col-auto text-zinc-500 hover:text-zinc-800 gap-1.5"
+            title="Borrar todos los filtros"
+          >
+            <X className="h-3.5 w-3.5" />
+            Borrar filtros
+          </Button>
+        )}
       </div>
 
       {/* ── Action buttons row ── */}
