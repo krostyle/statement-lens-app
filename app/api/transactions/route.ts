@@ -18,6 +18,7 @@ export async function GET(request: Request) {
     {
       categoryId: searchParams.get('categoryId') ?? undefined,
       bank: searchParams.get('bank') ?? undefined,
+      accountType: searchParams.get('accountType') ?? undefined,
       accountingMonth: searchParams.get('accountingMonth') ?? undefined,
       from: searchParams.get('from') ?? undefined,
       to: searchParams.get('to') ?? undefined,

@@ -30,11 +30,8 @@ import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 import type { PaginatedTransactionsDTO, TransactionSummaryDTO } from '@/src/application/use-cases/transactions/list-transactions.use-case';
 
 const BANK_LABELS: Record<string, string> = {
-  santander:   'Santander',
-  falabella:   'Falabella',
-  liderbci:    'LiderBCI',
-  bci:         'BCI',
-  bancoestado: 'BancoEstado',
+  santander: 'Santander',
+  falabella: 'Falabella',
 };
 
 type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
@@ -550,6 +547,7 @@ export function TransactionsView() {
   const [categories, setCategories] = useState<CategoryResponseDTO[]>([]);
   const [search, setSearch] = useState('');
   const [selectedBank, setSelectedBank] = useState('all');
+  const [selectedAccountType, setSelectedAccountType] = useState('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [selectedCategoryId, setSelectedCategoryId] = useState('all');
@@ -615,6 +613,7 @@ export function TransactionsView() {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('search', debouncedSearch);
     if (selectedBank !== 'all') params.set('bank', selectedBank);
+    if (selectedAccountType !== 'all') params.set('accountType', selectedAccountType);
     if (selectedAccountingMonth) {
       params.set('accountingMonth', selectedAccountingMonth);
     } else {
@@ -652,15 +651,15 @@ export function TransactionsView() {
       .catch(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
+  }, [debouncedSearch, selectedBank, selectedAccountType, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir, page, refreshKey]);
 
   // Reset page when non-page filters change
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, selectedBank, selectedAccountType, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, sortBy, sortDir]);
 
   // Clear selection when filters or page change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [debouncedSearch, selectedBank, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
+  }, [debouncedSearch, selectedBank, selectedAccountType, selectedAccountingMonth, dateFrom, dateTo, selectedCategoryId, selectedInstallment, selectedReview, selectedType, page]);
 
   // Keep header checkbox in sync (checked / indeterminate)
   useEffect(() => {
@@ -830,15 +829,23 @@ export function TransactionsView() {
 
         <Select value={selectedBank} onValueChange={setSelectedBank}>
           <SelectTrigger className="w-full md:w-40">
+            <SelectValue placeholder="Todos los bancos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos los bancos</SelectItem>
+            <SelectItem value="santander">Santander</SelectItem>
+            <SelectItem value="falabella">Falabella</SelectItem>
+          </SelectContent>
+        </Select>
+
+        <Select value={selectedAccountType} onValueChange={setSelectedAccountType}>
+          <SelectTrigger className="w-full md:w-44">
             <SelectValue placeholder="Todas las cuentas" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todas las cuentas</SelectItem>
-            <SelectItem value="santander">Santander</SelectItem>
-            <SelectItem value="falabella">Falabella</SelectItem>
-            <SelectItem value="liderbci">LiderBCI</SelectItem>
-            <SelectItem value="bci">BCI</SelectItem>
-            <SelectItem value="bancoestado">BancoEstado</SelectItem>
+            <SelectItem value="credit_card">Tarjeta de crédito</SelectItem>
+            <SelectItem value="checking">Cuenta corriente</SelectItem>
           </SelectContent>
         </Select>
 
