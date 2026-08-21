@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
+import { useEffect, useState, useCallback, type ReactNode } from 'react';
 import Link from 'next/link';
 import {
   Upload, Trash2, TrendingUp, TrendingDown, Minus, RefreshCw,
@@ -77,19 +77,13 @@ const SOURCE_LABEL: Record<string, string> = {
 };
 
 const BANK_LABEL: Record<string, string> = {
-  santander:   'Santander',
-  falabella:   'Falabella',
-  bci:         'BCI',
-  bancoestado: 'BancoEstado',
-  liderbci:    'LiderBCI',
+  santander: 'Santander',
+  falabella: 'Falabella',
 };
 
 const BANKS = [
-  { value: 'santander',   label: 'Santander' },
-  { value: 'falabella',   label: 'Falabella' },
-  { value: 'bci',         label: 'BCI' },
-  { value: 'bancoestado', label: 'BancoEstado' },
-  { value: 'liderbci',    label: 'LiderBCI' },
+  { value: 'santander', label: 'Santander' },
+  { value: 'falabella', label: 'Falabella' },
 ];
 
 export function TrackingView() {
@@ -120,20 +114,17 @@ export function TrackingView() {
   const [deletingUpload, setDeletingUpload]           = useState(false);
 
   // Upload dialog
-  const [uploadOpen, setUploadOpen]   = useState(false);
-  const [bank, setBank]               = useState('santander');
-  const [sourceType, setSourceType]   = useState<'checking' | 'credit_card'>('credit_card');
-  const [csvInputMode, setCsvInputMode] = useState<'text' | 'file'>('text');
-  const [csvText, setCsvText]         = useState('');
-  const [csvFile, setCsvFile]         = useState<File | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadMonth, setUploadMonth] = useState(currentMonth);
+  const [bank, setBank]             = useState('santander');
+  const [sourceType, setSourceType] = useState<'checking' | 'credit_card'>('credit_card');
+  const [csvText, setCsvText]       = useState('');
 
   const openUpload = () => {
+    setUploadMonth(month);
     setBank('santander');
     setSourceType('credit_card');
-    setCsvInputMode('text');
     setCsvText('');
-    setCsvFile(null);
     setError('');
     setUploadOpen(true);
   };
@@ -182,27 +173,25 @@ export function TrackingView() {
   }, []);
 
   const handleUpload = async () => {
-    const hasText = csvInputMode === 'text' && csvText.trim();
-    const hasFile = csvInputMode === 'file' && csvFile;
-    if (!hasText && !hasFile) {
-      setError('Debes pegar los movimientos o seleccionar un archivo .csv.');
+    if (!csvText.trim()) {
+      setError('Debes pegar los movimientos del banco.');
       return;
     }
     setUploading(true);
     setError('');
     try {
       const fd = new FormData();
-      fd.append('month', month);
+      fd.append('month', uploadMonth);
       fd.append('bank', bank);
       fd.append('sourceType', sourceType);
-      if (hasText) fd.append('csvText', csvText.trim());
-      if (hasFile && csvFile) fd.append('csvFile', csvFile);
+      fd.append('csvText', csvText.trim());
 
       const res  = await fetch('/api/snapshot', { method: 'POST', body: fd });
       const json = await res.json();
       if (!res.ok) {
         setError(json?.error ?? 'Error al procesar los datos.');
       } else {
+        setMonth(uploadMonth);
         setData(json);
         setUploadOpen(false);
       }
@@ -352,6 +341,16 @@ export function TrackingView() {
           </DialogHeader>
 
           <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label>Mes contable</Label>
+              <MonthPicker
+                value={uploadMonth}
+                onChange={(v) => setUploadMonth(v || currentMonth())}
+                placeholder="Selecciona el mes..."
+                className="w-full"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Banco</Label>
@@ -367,52 +366,29 @@ export function TrackingView() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label>Tipo</Label>
+                <Label>Tipo de cuenta</Label>
                 <Select value={sourceType} onValueChange={(v) => setSourceType(v as typeof sourceType)}>
                   <SelectTrigger className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="credit_card">Tarjeta de Crédito</SelectItem>
-                    <SelectItem value="checking">Cuenta Corriente</SelectItem>
+                    <SelectItem value="credit_card">Tarjeta de crédito</SelectItem>
+                    <SelectItem value="checking">Cuenta corriente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            <div className="flex gap-4 text-sm">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="csvInputMode" value="text" checked={csvInputMode === 'text'}
-                  onChange={() => setCsvInputMode('text')} className="accent-brand-600" />
-                Pegar texto
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input type="radio" name="csvInputMode" value="file" checked={csvInputMode === 'file'}
-                  onChange={() => setCsvInputMode('file')} className="accent-brand-600" />
-                Subir archivo
-              </label>
+            <div className="space-y-1.5">
+              <Label>Movimientos</Label>
+              <textarea
+                className="w-full h-40 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
+                placeholder={"Pega los movimientos copiados desde el portal del banco.\n\nSantander TC / CC:\nFecha  Tipo  Detalle  Monto cargo  Monto abono\n25/07/2026  FASIL MARKET  -$19.190\n\nFalabella TC (Excel):\nFECHA  DESCRIPCION  TITULAR/ADICIONAL  MONTO  CUOTAS PENDIENTES  VALOR CUOTA\n19-07-2026  COMPRA UBER  Adicional  $5.513  0  $5.513"}
+                value={csvText}
+                onChange={(e) => setCsvText(e.target.value)}
+                autoFocus
+              />
             </div>
-
-            {csvInputMode === 'text' ? (
-              <div className="space-y-1.5">
-                <textarea
-                  className="w-full h-36 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
-                  placeholder={"Pega los movimientos tal como los copias del banco:\n11/06/2026  PAYU *UBER TR  -$19.989\nSERVICIOS Y COM  -$3.750\n\n…o en formato CSV (date,description,amount)"}
-                  value={csvText}
-                  onChange={(e) => setCsvText(e.target.value)}
-                />
-                <p className="text-xs text-zinc-400">
-                  Acepta el texto copiado directamente desde el sitio del banco — la conversión se hace automáticamente.
-                </p>
-              </div>
-            ) : (
-              <label className="flex flex-col items-center justify-center gap-2 h-24 rounded-lg border-2 border-dashed border-zinc-200 hover:border-brand-600 cursor-pointer transition-colors bg-zinc-50 hover:bg-brand-50 text-zinc-400 hover:text-brand-600">
-                <Upload className="h-5 w-5" />
-                <span className="text-xs">{csvFile ? csvFile.name : 'Seleccionar archivo (.csv)'}</span>
-                <input ref={fileInputRef} type="file" accept=".csv,text/csv" className="hidden"
-                  onChange={(e) => setCsvFile(e.target.files?.[0] ?? null)} />
-              </label>
-            )}
 
             {error && <p className="text-sm text-red-600">{error}</p>}
           </div>
@@ -806,7 +782,7 @@ export function TrackingView() {
 
       {!loading && !hasData && (
         <div className="rounded-xl border border-dashed border-zinc-200 p-10 text-center text-zinc-400 text-sm">
-          Sube tus movimientos en formato CSV para ver el resumen del mes.
+          Pega los movimientos del banco para ver el resumen del mes.
         </div>
       )}
 
