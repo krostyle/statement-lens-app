@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFalabellaEstadoCuenta, parseSantanderPortalTab, toSnapshotRows } from './snapshot-raw';
+import { parseFalabellaEstadoCuenta, parseSantanderCCCartola, parseSantanderPortalTab, toSnapshotRows } from './snapshot-raw';
 
 // ─── Falabella TC — Excel/portal tab-separated ────────────────────────────────
 
@@ -187,6 +187,75 @@ describe('parseSantanderPortalTab — CC (cuenta corriente)', () => {
 
     const pago = txs.find((t) => t.description.includes('PAGO CUOTA CREDITO'))!;
     expect(pago.transactionType).toBe('transfer');
+  });
+});
+
+// ─── Santander CC Cartola — tabla portal con CHEQUES Y OTROS CARGOS ──────────
+
+const SAN_CC_CARTOLA = [
+  'FECHA\tSUCURSAL\tDESCRIPCIÓN\tN° DOCUMENTO\tCHEQUES Y OTROS CARGOS\tDEPOSITOS Y OTROS ABONOS\tSALDO',
+  '06/07\tAgustinas\t0187620899 Transf. DIEGO BUSTAMANTE ALBARRAN\t1010157\t\t$200.000\t$219.575',
+  '07/07\tAgustinas\t0761872877 Transf a khipu CLBS D\t\t$30.157\t\t$189.418',
+  '08/07\tAgustinas\tPago Cuota Crédito Consumo N° 650051370478\t\t$199.757\t\t',
+  '08/07\tOPER. CENT\tTraspaso con la Cuenta N° 001016850736\t\t\t$27.988\t',
+  '30/07\tG.Finanzas\t076042014K REMUNERACION    WALMART CHI\t\t\t$2.536.213\t',
+  '30/07\tAgustinas\tTraspaso Internet a T. Crédito\t\t$1.539.308\t\t',
+].join('\n');
+
+describe('parseSantanderCCCartola', () => {
+  it('parses abono row (DEPOSITOS) as positive amount', () => {
+    const rows = parseSantanderCCCartola(SAN_CC_CARTOLA, '2026');
+    const row = rows.find((r) => r.description.includes('DIEGO BUSTAMANTE'))!;
+
+    expect(row.date).toBe('2026-07-06');
+    expect(row.amount).toBe(200000);
+    expect(row.explicitSign).toBe(true);
+  });
+
+  it('parses cargo row (CHEQUES) as negative amount', () => {
+    const rows = parseSantanderCCCartola(SAN_CC_CARTOLA, '2026');
+    const row = rows.find((r) => r.description.includes('khipu CLBS'))!;
+
+    expect(row.date).toBe('2026-07-07');
+    expect(row.amount).toBe(-30157);
+  });
+
+  it('handles amounts with multiple thousands separators', () => {
+    const rows = parseSantanderCCCartola(SAN_CC_CARTOLA, '2026');
+    const remuneracion = rows.find((r) => r.description.includes('REMUNERACION'))!;
+
+    expect(remuneracion.amount).toBe(2536213);
+  });
+
+  it('uses fallbackYear for dates without year', () => {
+    const rows = parseSantanderCCCartola(SAN_CC_CARTOLA, '2026');
+    expect(rows.every((r) => r.date.startsWith('2026-'))).toBe(true);
+  });
+
+  it('returns correct row count (no header, no empty-amount rows)', () => {
+    const rows = parseSantanderCCCartola(SAN_CC_CARTOLA, '2026');
+    expect(rows).toHaveLength(6);
+  });
+
+  it('returns [] when header is missing or wrong format', () => {
+    expect(parseSantanderCCCartola('FECHA\tDESCRIPCIÓN\tMONTO\n06/07\tFoo\t$100', '2026')).toEqual([]);
+    expect(parseSantanderCCCartola('no hay nada aqui', '2026')).toEqual([]);
+  });
+
+  it('classifies types correctly via toSnapshotRows for checking', () => {
+    const txs = toSnapshotRows(parseSantanderCCCartola(SAN_CC_CARTOLA, '2026'), 'checking', 'santander');
+
+    const remuneracion = txs.find((t) => t.description.includes('REMUNERACION'))!;
+    expect(remuneracion.transactionType).toBe('income');
+
+    const traspaso = txs.find((t) => t.description.includes('T. Crédito'))!;
+    expect(traspaso.transactionType).toBe('transfer');
+
+    const pago = txs.find((t) => t.description.includes('Pago Cuota'))!;
+    expect(pago.transactionType).toBe('transfer');
+
+    expect(txs.every((t) => t.source === 'checking')).toBe(true);
+    expect(txs.every((t) => t.bank === 'santander')).toBe(true);
   });
 });
 

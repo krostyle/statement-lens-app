@@ -222,6 +222,78 @@ export function parseSantanderPortalTab(text: string, fallbackYear: string): Raw
 }
 
 /**
+ * Parse Santander cartola CC (cuenta corriente) exported from the web portal
+ * as a tab-separated table (paste from browser).
+ *
+ * Expected header (tab-separated, case-insensitive):
+ *   FECHA  SUCURSAL  DESCRIPCIÓN  N° DOCUMENTO  CHEQUES Y OTROS CARGOS  DEPOSITOS Y OTROS ABONOS  SALDO
+ *
+ * Date format: DD/MM (no year) → fallbackYear is used.
+ * Cargo  (col 4) > 0 → expense → stored as negative.
+ * Abono  (col 5) > 0 → income  → stored as positive.
+ *
+ * Returns [] when the text doesn't match this format.
+ */
+export function parseSantanderCCCartola(text: string, fallbackYear: string): RawParsedRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headerIdx = lines.findIndex(
+    (l) =>
+      l.includes('\t') &&
+      /fecha/i.test(l) &&
+      /cheques\s+y\s+otros\s+cargos/i.test(l) &&
+      /dep[oó]sitos\s+y\s+otros\s+abonos/i.test(l),
+  );
+  if (headerIdx === -1) return [];
+
+  const headers  = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
+  const dateCol  = headers.findIndex((h) => /^fecha$/.test(h));
+  const descCol  = headers.findIndex((h) => /^descripci[oó]n$/.test(h));
+  const cargoCol = headers.findIndex((h) => /cheques\s+y\s+otros\s+cargos/i.test(h));
+  const abonoCol = headers.findIndex((h) => /dep[oó]sitos\s+y\s+otros\s+abonos/i.test(h));
+  if (dateCol === -1 || descCol === -1 || cargoCol === -1 || abonoCol === -1) return [];
+
+  const parseAmt = (s: string): number => {
+    if (!s || s === '-' || s === '0') return 0;
+    const n = parseFloat(s.replace(/[$.\s]/g, '').replace(',', '.'));
+    return isNaN(n) ? 0 : Math.abs(n);
+  };
+
+  const rows: RawParsedRow[] = [];
+
+  for (const line of lines.slice(headerIdx + 1)) {
+    if (!line.includes('\t')) continue;
+    const parts = line.split('\t');
+
+    const dateStr     = (parts[dateCol]  ?? '').trim();
+    const description = (parts[descCol]  ?? '').trim();
+    const cargoStr    = (parts[cargoCol] ?? '').trim();
+    const abonoStr    = (parts[abonoCol] ?? '').trim();
+
+    if (!description || !dateStr) continue;
+    if (SKIP_PATTERNS.some((re) => re.test(description))) continue;
+
+    const m = DATE_RE.exec(dateStr);
+    if (!m) continue;
+    const date = toIsoDate(m[1], m[2], m[3], fallbackYear);
+
+    const cargo = parseAmt(cargoStr);
+    const abono = parseAmt(abonoStr);
+    if (cargo === 0 && abono === 0) continue;
+
+    rows.push({
+      date,
+      description,
+      amount: cargo > 0 ? -cargo : abono,
+      explicitSign: true,
+    });
+  }
+
+  return rows;
+}
+
+/**
  * Apply sign conventions and transaction-type classification, producing the
  * same row shape used throughout the app. Shared by both parsers.
  */
