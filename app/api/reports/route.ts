@@ -1,6 +1,5 @@
 import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, budgetRepo, categoryRepo } from '@/src/infrastructure/container';
-import { prisma } from '@/src/infrastructure/database/prisma.client';
 import {
   netSpendByCategory,
   calculateTotalIncome,
@@ -189,17 +188,6 @@ function generateBarChart(summary: CategorySummary[]): string {
   return `<div style="padding-top:2px;">${legend}${bars}</div>`;
 }
 
-// ─── Installments section ─────────────────────────────────────────────────────
-
-interface ActiveInstallment {
-  merchant: string;
-  bank: string | null;
-  amount: number;
-  installmentNum: number;
-  installmentTotal: number;
-  remaining: number;
-}
-
 const BANK_LABELS: Record<string, string> = {
   santander: 'Santander',
   falabella: 'Falabella',
@@ -207,53 +195,6 @@ const BANK_LABELS: Record<string, string> = {
   bci: 'BCI',
   bancoestado: 'BancoEstado',
 };
-
-function generateInstallmentsSection(
-  items: ActiveInstallment[],
-  totalMonthly: number,
-  totalDebt: number,
-): string {
-  if (items.length === 0) return '';
-  const sorted = [...items].sort((a, b) => b.remaining - a.remaining);
-  const rows = sorted.map((i) => {
-    const bankLabel = i.bank ? (BANK_LABELS[i.bank] ?? i.bank) : '—';
-    const name = i.merchant.length > 28 ? `${i.merchant.slice(0, 26)}…` : i.merchant;
-    return `
-      <tr class="tx-row">
-        <td class="tx-merchant" style="padding-left:10px;">${esc(name)}</td>
-        <td style="font-size:12px;color:#6b7280;text-align:center;">${esc(bankLabel)}</td>
-        <td style="font-size:12px;color:#374151;text-align:center;">${i.installmentNum}/${i.installmentTotal}</td>
-        <td style="font-size:12px;font-weight:600;color:#18181b;text-align:right;padding-right:10px;">${clp(i.amount)}</td>
-        <td style="font-size:12px;color:#374151;text-align:right;padding-right:10px;">${clp(i.remaining)}</td>
-      </tr>`;
-  }).join('');
-  return `
-  <div class="section">
-    <div class="section-title">Cuotas activas</div>
-    <p style="font-size:12px;color:#6b7280;margin-bottom:12px;">
-      Compras que pagaste en cuotas y que aún tienen cuotas pendientes. <strong>Cuota mensual</strong> es lo que te descuenta la tarjeta cada mes. <strong>Cuotas pendientes × cuota mensual</strong> = lo que todavía debes pagar en total.
-    </p>
-    <table class="cat-table" style="font-size:12px;">
-      <thead class="cat-table-head">
-        <tr>
-          <th style="text-align:left;">Comercio</th>
-          <th style="text-align:center;">Tarjeta</th>
-          <th style="text-align:center;" title="Cuota actual / Total de cuotas">Progreso</th>
-          <th style="text-align:right;" title="Lo que te descuenta la tarjeta cada mes">Cuota mensual</th>
-          <th style="text-align:right;" title="Total de cuotas que aún faltan por pagar">Cuotas pendientes × cuota</th>
-        </tr>
-      </thead>
-      <tbody>${rows}</tbody>
-      <tfoot>
-        <tr style="background:#f9fafb;border-top:2px solid #d1d5db;">
-          <td colspan="3" style="padding:8px 10px;font-size:12px;font-weight:700;color:#374151;">Total</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#18181b;text-align:right;">${clp(totalMonthly)}</td>
-          <td style="padding:8px 10px;font-size:12px;font-weight:700;color:#dc2626;text-align:right;">${clp(totalDebt)}</td>
-        </tr>
-      </tfoot>
-    </table>
-  </div>`;
-}
 
 // ─── Trend section ────────────────────────────────────────────────────────────
 
@@ -295,9 +236,6 @@ function generateReportHtml(
   summary: CategorySummary[],
   transactions: Transaction[],
   prevSnapshot: PrevSnapshot | null,
-  activeInstallments: ActiveInstallment[],
-  totalMonthlyInstallments: number,
-  totalDebtInstallments: number,
   trend: MonthlySpend[],
   savingsRate6m: number | null,
   rolling6mMonths: number,
@@ -692,8 +630,6 @@ function generateReportHtml(
 
     ${internalTransfersHtml}
 
-    ${generateInstallmentsSection(activeInstallments, totalMonthlyInstallments, totalDebtInstallments)}
-
     <div class="report-footer">
       <span>Statement Lens</span>
       <span>Generado el ${esc(generatedDate)}</span>
@@ -767,30 +703,6 @@ export async function GET(req: Request) {
     };
   }
 
-  // Active installments
-  const installmentTxs = await prisma.transaction.findMany({
-    where: { userId, isInstallment: true },
-    orderBy: [{ date: 'desc' }, { installmentNum: 'desc' }],
-  });
-  const instMap = new Map<string, typeof installmentTxs[number]>();
-  for (const tx of installmentTxs) {
-    if (tx.installmentNum === null || tx.installmentTotal === null) continue;
-    const key = `${tx.bank}||${tx.installmentTotal}||${Math.round(Math.abs(tx.amount) / 100)}`;
-    if (!instMap.has(key)) instMap.set(key, tx);
-  }
-  const activeInstallments: ActiveInstallment[] = Array.from(instMap.values())
-    .filter((tx) => tx.installmentNum! < tx.installmentTotal!)
-    .map((tx) => ({
-      merchant:        tx.merchant,
-      bank:            tx.bank || null,
-      amount:          Math.abs(tx.amount),
-      installmentNum:  tx.installmentNum!,
-      installmentTotal: tx.installmentTotal!,
-      remaining:       (tx.installmentTotal! - tx.installmentNum!) * Math.abs(tx.amount),
-    }));
-  const totalMonthlyInstallments = activeInstallments.reduce((s, i) => s + i.amount, 0);
-  const totalDebtInstallments    = activeInstallments.reduce((s, i) => s + i.remaining, 0);
-
   // 6-month trend + rolling savings rate
   const trendFrom = new Date(Date.UTC(y, m - 7, 1));
   const trendTxs  = await transactionRepo.findByUserId(userId, { from: trendFrom, to });
@@ -806,7 +718,6 @@ export async function GET(req: Request) {
   const html = generateReportHtml(
     month, totalSpent, totalBudget, summary,
     transactions, prevSnapshot,
-    activeInstallments, totalMonthlyInstallments, totalDebtInstallments,
     trend, savingsRate6m, rolling6mMonths,
   );
 
