@@ -34,6 +34,10 @@ function esc(str: string): string {
   return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function cleanDesc(desc: string): string {
+  return desc.replace(/\s*\(\d+\s+cuotas?\s+pendientes\)\s*$/i, '');
+}
+
 // ─── Chart generators ─────────────────────────────────────────────────────────
 
 const CHART_COLORS = [
@@ -217,7 +221,7 @@ export async function GET(req: Request) {
       const bankLabel = BANK_LABELS[t.bank ?? ''] ?? t.bank ?? '';
       return `<tr class="tx-row">
         <td class="tx-date">${t.date.slice(5).replace('-', '/')}</td>
-        <td class="tx-merchant">${esc(t.description)}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
+        <td class="tx-merchant">${esc(cleanDesc(t.description))}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
         <td class="tx-amount" style="color:#16a34a;font-weight:700;">+${esc(clp(t.amount))}</td>
       </tr>`;
     }).join('');
@@ -290,7 +294,7 @@ export async function GET(req: Request) {
       const bankLabel = BANK_LABELS[t.bank ?? ''] ?? t.bank ?? '';
       return `<tr class="tx-row">
         <td class="tx-date">${t.date.slice(5).replace('-', '/')}</td>
-        <td class="tx-merchant">${esc(t.description)}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
+        <td class="tx-merchant">${esc(cleanDesc(t.description))}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
         <td class="tx-amount">${esc(clp(Math.abs(t.amount)))}</td>
       </tr>`;
     }).join('');
@@ -319,7 +323,7 @@ export async function GET(req: Request) {
       const bankLabel = BANK_LABELS[t.bank ?? ''] ?? t.bank ?? '';
       return `<tr class="tx-row">
         <td class="tx-date">${t.date.slice(5).replace('-', '/')}</td>
-        <td class="tx-merchant">${esc(t.description)}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
+        <td class="tx-merchant">${esc(cleanDesc(t.description))}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
         <td class="tx-amount" style="color:#9ca3af;">${esc(clp(Math.abs(t.amount)))}</td>
       </tr>`;
     }).join('');

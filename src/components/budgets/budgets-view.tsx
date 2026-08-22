@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { Pencil, Trash2, Plus, Tag, Wand2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, Tag, Wand2, Copy, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
@@ -35,6 +35,8 @@ export function BudgetsView() {
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
   const [recommendOpen, setRecommendOpen] = useState(false);
+  const [copyingPrev, setCopyingPrev] = useState(false);
+  const [copyPrevMsg, setCopyPrevMsg] = useState('');
 
   // Income state
   const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null); // manual estimate
@@ -147,6 +149,35 @@ export function BudgetsView() {
     }
   };
 
+  const copyPrevMonth = async () => {
+    const [y, m] = month.split('-').map(Number);
+    const prev = new Date(y, m - 2);
+    const prevMonth = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+    setCopyingPrev(true);
+    setCopyPrevMsg('');
+    try {
+      const res = await fetch(`/api/budgets?month=${prevMonth}`);
+      const prevBudgets: BudgetResponseDTO[] = res.ok ? await res.json() : [];
+      if (prevBudgets.length === 0) {
+        setCopyPrevMsg('No hay presupuestos en el mes anterior.');
+        return;
+      }
+      await fetch('/api/budgets/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          month,
+          budgets: prevBudgets.map((b) => ({ categoryId: b.categoryId, monthlyAmount: b.monthlyAmount })),
+        }),
+      });
+      await load();
+      setCopyPrevMsg(`${prevBudgets.length} presupuestos copiados.`);
+      setTimeout(() => setCopyPrevMsg(''), 3000);
+    } finally {
+      setCopyingPrev(false);
+    }
+  };
+
   const editingCategoryName = editingCategoryId
     ? categories.find((c) => c.id === editingCategoryId)?.name
     : '';
@@ -192,11 +223,24 @@ export function BudgetsView() {
             )}
           </div>
         </div>
-        <Button variant="outline" onClick={() => setRecommendOpen(true)}>
-          <Wand2 className="h-4 w-4 mr-2" />
-          Sugerir presupuestos
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={copyPrevMonth} disabled={copyingPrev}>
+            {copyingPrev
+              ? <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              : <Copy className="h-4 w-4 mr-2" />}
+            Copiar mes anterior
+          </Button>
+          <Button variant="outline" onClick={() => setRecommendOpen(true)}>
+            <Wand2 className="h-4 w-4 mr-2" />
+            Sugerir presupuestos
+          </Button>
+        </div>
       </div>
+      {copyPrevMsg && (
+        <p className={`text-xs ${copyPrevMsg.startsWith('No') ? 'text-amber-600' : 'text-green-700'}`}>
+          {copyPrevMsg}
+        </p>
+      )}
 
       {/* Budget progress bar */}
       {effectiveIncome && totalBudgeted > 0 && (
