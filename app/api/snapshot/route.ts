@@ -22,8 +22,19 @@ function categorizeTxs(
   categoryNameMap: Map<string, string>,
   defaultCategoryId: string,
   bank: string,
+  additionalCardCategoryId?: string,
 ): CategorizedRow[] {
   return rows.map((row) => {
+    // Adicional rows (partner's card on Falabella TC) get their own category
+    if (row.isAdditional && additionalCardCategoryId) {
+      return {
+        ...row,
+        categoryId: additionalCardCategoryId,
+        categoryName: categoryNameMap.get(additionalCardCategoryId) ?? 'Mi Amorcito',
+        transactionType: row.transactionType,
+        hasRule: true,
+      };
+    }
     const pattern    = normalizeMerchant(row.description);
     const ruleEntry  = bankRuleMap.get(`${pattern}|${bank}`) ?? wildcardRuleMap.get(pattern);
     const categoryId = ruleEntry?.categoryId ?? defaultCategoryId;
@@ -66,9 +77,10 @@ export async function POST(request: Request) {
       budgetRepo.findByUserId(userId, month),
     ]);
 
-    const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
-    const defaultCategoryId = categories.find((c) => c.name === 'Otros')?.id ?? categories[0]?.id ?? '';
-    const bankRuleMap       = new Map<string, RuleEntry>();
+    const categoryNameMap        = new Map(categories.map((c) => [c.id, c.name]));
+    const defaultCategoryId      = categories.find((c) => c.name === 'Otros')?.id ?? categories[0]?.id ?? '';
+    const additionalCardCategoryId = categories.find((c) => c.name === 'Mi Amorcito')?.id;
+    const bankRuleMap            = new Map<string, RuleEntry>();
     const wildcardRuleMap   = new Map<string, RuleEntry>();
     for (const rule of merchantRules) {
       const entry: RuleEntry = { categoryId: rule.categoryId, transactionType: rule.transactionType };
@@ -105,7 +117,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const categorized = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank);
+    const categorized = categorizeTxs(rawRows, bankRuleMap, wildcardRuleMap, categoryNameMap, defaultCategoryId, bank, additionalCardCategoryId);
 
     // Deduplicate within the uploaded batch by (date + amount + description).
     // Handles copy-paste noise where the same row appears twice in the pasted text.

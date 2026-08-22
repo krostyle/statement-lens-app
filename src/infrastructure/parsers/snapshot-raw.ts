@@ -7,6 +7,7 @@ export type SnapshotRow = Pick<
 > & {
   installmentNum?: number | null;
   installmentTotal?: number | null;
+  isAdditional?: boolean;
 };
 
 export interface RawParsedRow {
@@ -17,6 +18,7 @@ export interface RawParsedRow {
   merchant?: string;
   installmentNum?: number | null;
   installmentTotal?: number | null;
+  isAdditional?: boolean;
 }
 
 const SKIP_PATTERNS = [
@@ -35,7 +37,6 @@ const CC_PAYMENT_PATTERNS = [
   /^pago\b/i,
   /pago\s+(recibido|pap|autom[aá]tico)/i,
   /abono\s+pago/i,
-  /^monto\s+cancelado\b/i,
 ];
 
 // Leading date: "11/06/2026", "11-06-2026", "12/02/26", "27/07" (year optional)
@@ -75,11 +76,12 @@ export function parseFalabellaEstadoCuenta(text: string): RawParsedRow[] {
   );
   if (headerIdx === -1) return [];
 
-  const headers       = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
-  const dateCol       = headers.findIndex((h) => /^fecha$/.test(h));
-  const descCol       = headers.findIndex((h) => /^descripci[oó]n$/.test(h));
-  const cuotasCol     = headers.findIndex((h) => /cuotas\s+pendientes/.test(h));
-  const valorCuotaCol = headers.findIndex((h) => /valor\s+cuota/.test(h));
+  const headers        = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
+  const dateCol        = headers.findIndex((h) => /^fecha$/.test(h));
+  const descCol        = headers.findIndex((h) => /^descripci[oó]n$/.test(h));
+  const cuotasCol      = headers.findIndex((h) => /cuotas\s+pendientes/.test(h));
+  const valorCuotaCol  = headers.findIndex((h) => /valor\s+cuota/.test(h));
+  const cardHolderCol  = headers.findIndex((h) => /titular/i.test(h)); // TITULAR/ADICIONAL column
   if (dateCol === -1 || descCol === -1 || cuotasCol === -1 || valorCuotaCol === -1) return [];
 
   const parseAmt = (s: string): number => {
@@ -102,6 +104,8 @@ export function parseFalabellaEstadoCuenta(text: string): RawParsedRow[] {
     const desc          = (parts[descCol]        ?? '').trim();
     const cuotasStr     = (parts[cuotasCol]      ?? '').trim();
     const valorCuotaStr = (parts[valorCuotaCol]  ?? '').trim();
+    const cardHolder    = cardHolderCol !== -1 ? (parts[cardHolderCol] ?? '').trim() : '';
+    const isAdditional  = /^adicional$/i.test(cardHolder);
 
     if (!desc || !dateStr) continue;
     if (SKIP_PATTERNS.some((re) => re.test(desc))) continue;
@@ -130,6 +134,7 @@ export function parseFalabellaEstadoCuenta(text: string): RawParsedRow[] {
       amount,
       explicitSign: true,
       ...(hasInstallments ? { installmentTotal } : {}),
+      ...(isAdditional ? { isAdditional: true } : {}),
     });
   }
 
@@ -308,7 +313,7 @@ export function toSnapshotRows(
     let transactionType: 'expense' | 'income' | 'transfer';
 
     if (source === 'credit_card') {
-      if (row.explicitSign && CC_PAYMENT_PATTERNS.some((re) => re.test(row.description))) {
+      if (amount > 0 && row.explicitSign && CC_PAYMENT_PATTERNS.some((re) => re.test(row.description))) {
         transactionType = 'transfer';
       } else {
         if (!row.explicitSign) amount = -Math.abs(amount);
@@ -329,6 +334,7 @@ export function toSnapshotRows(
       bank,
       installmentNum:   row.installmentNum   ?? null,
       installmentTotal: row.installmentTotal ?? null,
+      ...(row.isAdditional ? { isAdditional: true } : {}),
     };
   });
 }
