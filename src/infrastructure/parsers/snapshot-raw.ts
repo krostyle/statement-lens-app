@@ -123,13 +123,11 @@ export function parseFalabellaEstadoCuenta(text: string): RawParsedRow[] {
 
     const cuotas = parseInt(cuotasStr, 10);
     const hasInstallments = !isNaN(cuotas) && cuotas > 0;
-
-    const description    = hasInstallments ? `${desc} (${cuotas} cuotas pendientes)` : desc;
     const installmentTotal = hasInstallments ? cuotas + 1 : undefined;
 
     rows.push({
       date,
-      description,
+      description: desc,
       merchant: desc,
       amount,
       explicitSign: true,

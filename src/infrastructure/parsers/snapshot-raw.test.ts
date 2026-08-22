@@ -34,8 +34,8 @@ describe('parseFalabellaEstadoCuenta', () => {
 
     expect(row.amount).toBe(-13715); // VALOR CUOTA, not MONTO
     expect(row.installmentTotal).toBe(6); // cuotas + 1
-    expect(row.description).toContain('5 cuotas pendientes');
-    expect(row.merchant).toBe('COMPRA EN CUOTAS MERCADOPAGO *IVETASPA'); // merchant is clean (no "(X cuotas)")
+    expect(row.description).toBe('COMPRA EN CUOTAS MERCADOPAGO *IVETASPA'); // clean, no suffix
+    expect(row.merchant).toBe('COMPRA EN CUOTAS MERCADOPAGO *IVETASPA');
   });
 
   it('parses payment row (negative VALOR CUOTA) as positive amount', () => {
