@@ -19,6 +19,8 @@ const TRANSFER_PATTERNS = [
   /\blca\b/i,                          // Línea de Crédito Automática
   /pago\s+cuota\s+cr[eé]d/i,          // consumer loan installment
   /traspaso.*l[íi]nea/i,              // "Traspaso ... Línea"
+  // Payment descriptions
+  /^monto\s+cancelado\b/i,            // Falabella CMR payment row
   // Own-account transfers
   /traspaso\s+con\s+la\s+cuenta/i,    // "TRASPASO CON LA CUENTA N°"
   /trf\s+a\s+yo\b/i,

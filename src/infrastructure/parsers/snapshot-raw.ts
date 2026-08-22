@@ -35,6 +35,7 @@ const CC_PAYMENT_PATTERNS = [
   /^pago\b/i,
   /pago\s+(recibido|pap|autom[aá]tico)/i,
   /abono\s+pago/i,
+  /^monto\s+cancelado\b/i,
 ];
 
 // Leading date: "11/06/2026", "11-06-2026", "12/02/26", "27/07" (year optional)
@@ -307,7 +308,7 @@ export function toSnapshotRows(
     let transactionType: 'expense' | 'income' | 'transfer';
 
     if (source === 'credit_card') {
-      if (amount > 0 && row.explicitSign && CC_PAYMENT_PATTERNS.some((re) => re.test(row.description))) {
+      if (row.explicitSign && CC_PAYMENT_PATTERNS.some((re) => re.test(row.description))) {
         transactionType = 'transfer';
       } else {
         if (!row.explicitSign) amount = -Math.abs(amount);
