@@ -9,28 +9,39 @@ function buildWhere(userId: string, filters?: Omit<TransactionFilters, 'skip' | 
   if (filters?.bank) where.bank = filters.bank;
   if (filters?.accountType !== undefined) where.accountType = filters.accountType;
   if (filters?.origin !== undefined) where.origin = filters.origin;
+
+  // Collect AND-level conditions that each contain their own OR clauses,
+  // so that combining accountingMonth (OR) with search (OR) doesn't overwrite one another.
+  const andClauses: Prisma.TransactionWhereInput[] = [];
+
   if (filters?.accountingMonth) {
     const from = new Date(`${filters.accountingMonth}-01T00:00:00.000Z`);
     const to   = new Date(from);
     to.setUTCMonth(to.getUTCMonth() + 1);
-    // Tracking rows: match by accountingMonth field.
-    // Manual / legacy rows: match by date falling in the same calendar month.
-    where.OR = [
-      { accountingMonth: filters.accountingMonth },
-      { accountingMonth: '', date: { gte: from, lt: to } },
-    ];
+    andClauses.push({
+      OR: [
+        { accountingMonth: filters.accountingMonth },
+        { accountingMonth: '', date: { gte: from, lt: to } },
+      ],
+    });
   } else if (filters?.from || filters?.to) {
     where.date = {
       ...(filters.from ? { gte: filters.from } : {}),
       ...(filters.to ? { lte: filters.to } : {}),
     };
   }
+
   if (filters?.search) {
-    where.OR = [
-      { merchant: { contains: filters.search, mode: 'insensitive' } },
-      { description: { contains: filters.search, mode: 'insensitive' } },
-    ];
+    andClauses.push({
+      OR: [
+        { merchant: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+      ],
+    });
   }
+
+  if (andClauses.length > 0) where.AND = andClauses;
+
   if (filters?.isInstallment !== undefined) where.isInstallment = filters.isInstallment;
   if (filters?.reviewStatus) where.reviewStatus = filters.reviewStatus;
   if (filters?.transactionType) where.transactionType = filters.transactionType;
