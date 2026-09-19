@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
-import { Pencil, Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap, Wand2, RefreshCw, SlidersHorizontal } from 'lucide-react';
+import { Trash2, Plus, ChevronLeft, ChevronRight, Download, Tags, PenLine, ShieldCheck, CheckCheck, Check, X, BookMarked, MoreHorizontal, Loader2, ArrowLeftRight, ArrowUpDown, ArrowUp, ArrowDown, Zap, Wand2, RefreshCw, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/src/components/ui/button';
 import { Input } from '@/src/components/ui/input';
@@ -338,7 +338,7 @@ function BulkIndividualEditDialog({
                   <SelectContent position="popper">
                     <SelectItem value="expense"  className="text-xs">Gasto</SelectItem>
                     <SelectItem value="income"   className="text-xs">Ingreso</SelectItem>
-                    <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
+                    <SelectItem value="transfer" className="text-xs">Transferencia interna</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -516,7 +516,7 @@ function BulkRulesDialog({
                         <SelectItem value="auto" className="text-xs">Auto-detectar</SelectItem>
                         <SelectItem value="expense" className="text-xs">Gasto</SelectItem>
                         <SelectItem value="income" className="text-xs">Ingreso</SelectItem>
-                        <SelectItem value="transfer" className="text-xs">Transferencia</SelectItem>
+                        <SelectItem value="transfer" className="text-xs">Transferencia interna</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -696,7 +696,6 @@ export function TransactionsView() {
   };
 
   const openCreate = () => { setEditing(null); setOpen(true); };
-  const openEdit = (t: TransactionResponseDTO) => { setEditing(t); setOpen(true); };
 
   const toggleRow = (id: string) => {
     setSelectedIds((prev) => {
@@ -1428,11 +1427,8 @@ export function TransactionsView() {
                   </td>
                   {/* Actions */}
                   <td className="px-3 py-3" onClick={(e) => e.stopPropagation()}>
-                    {/* Desktop: two icon buttons */}
+                    {/* Desktop: icon button */}
                     <div className="hidden sm:flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(t)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setDeleteTarget(t)}>
                         <Trash2 className="h-3.5 w-3.5 text-red-500" />
                       </Button>
@@ -1446,10 +1442,6 @@ export function TransactionsView() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => openEdit(t)}>
-                            <Pencil className="h-3.5 w-3.5 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
                           <DropdownMenuItem
                             className="text-red-600 focus:text-red-600"
                             onClick={() => setDeleteTarget(t)}
