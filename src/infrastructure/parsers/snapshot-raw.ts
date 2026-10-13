@@ -308,6 +308,7 @@ const KNOWN_ACCENTED_WORDS = [
   'línea', 'líneas', 'crédito', 'créditos', 'depósito', 'depósitos',
   'mínimo', 'mínima', 'automático', 'automática', 'préstamo', 'préstamos',
   'comisión', 'comisiones', 'número', 'números',
+  'amortización', 'amortizaciones', 'periódica', 'periódico', 'periódicas', 'periódicos',
 ];
 
 function toMojibakePattern(word: string): RegExp {
@@ -329,6 +330,9 @@ function fixKnownAccentMojibake(text: string): string {
   for (const word of KNOWN_ACCENTED_WORDS) {
     result = result.replace(toMojibakePattern(word), (match) => matchCase(match, word));
   }
+  // "N°" (número de documento) — the degree sign isn't a vowel, so it needs its own rule.
+  // Only fires right before a digit, so an unrelated "N?" is left alone.
+  result = result.replace(/\bN\?(?=\s*\d)/gi, 'N°');
   return result;
 }
 

@@ -304,6 +304,37 @@ describe('toSnapshotRows', () => {
     expect(rows[1].description).toBe('Monto mínimo a pagar');
   });
 
+  it('restores "amortización" and "periódica" from a real Santander cuenta corriente export', () => {
+    const rows = toSnapshotRows(
+      [{ date: '2026-09-04', description: 'Amortizaci?n Peri?dica LCA N? 001016850736', amount: -10734, explicitSign: true }],
+      'checking',
+      'santander',
+    );
+    expect(rows[0].description).toBe('Amortización Periódica LCA N° 001016850736');
+  });
+
+  it('restores the "N°" document-number symbol when it was corrupted into "N?"', () => {
+    const rows = toSnapshotRows(
+      [
+        { date: '2026-09-03', description: 'Traspaso con la Cuenta N? 001016850736', amount: 34310, explicitSign: true },
+        { date: '2026-09-21', description: 'Pago Cuota Cr?dito Consumo N? 650051370478', amount: -199757, explicitSign: true },
+      ],
+      'checking',
+      'santander',
+    );
+    expect(rows[0].description).toBe('Traspaso con la Cuenta N° 001016850736');
+    expect(rows[1].description).toBe('Pago Cuota Crédito Consumo N° 650051370478');
+  });
+
+  it('leaves a person/merchant name with "?" untouched, e.g. a surname missing its "ñ"', () => {
+    const rows = toSnapshotRows(
+      [{ date: '2026-09-03', description: '0179829894 Transf a Camila Santiba?ez', amount: -23200, explicitSign: true }],
+      'checking',
+      'santander',
+    );
+    expect(rows[0].description).toBe('0179829894 Transf a Camila Santiba?ez');
+  });
+
   it('leaves an unrecognized word with "?" untouched (merchant names cannot be recovered)', () => {
     const rows = toSnapshotRows(
       [{ date: '2026-07-01', description: 'CAF? LITERARIO', amount: -5000, explicitSign: true }],
