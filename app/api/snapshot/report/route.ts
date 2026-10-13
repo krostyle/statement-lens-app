@@ -389,9 +389,49 @@ export async function GET(req: Request) {
     </table>
   </div>` : '';
 
+  // ── All transactions (including returns/credit notes) ───────────────────────
+  // "Por comercio" nets returns into each merchant's total, so a devolución never shows as
+  // its own line there — this flat, chronological list is the one place every movement appears.
+  const expenseTxsAll = allTxs
+    .filter((t) => t.transactionType === 'expense')
+    .sort((a, b) => b.date.localeCompare(a.date));
+  const transactionsHtml = expenseTxsAll.length > 0 ? (() => {
+    const rows = expenseTxsAll.map((t) => {
+      const isReturn = t.amount > 0;
+      const bankLabel = BANK_LABELS[t.bank ?? ''] ?? t.bank ?? '';
+      const amountCell = isReturn
+        ? `<span class="text-green">-${esc(clp(t.amount))}</span>`
+        : esc(clp(Math.abs(t.amount)));
+      const merchantCell = isReturn
+        ? `${esc(cleanDesc(t.description))} <span class="return-badge">devolución</span>`
+        : esc(cleanDesc(t.description));
+      return `<tr class="tx-row">
+        <td class="tx-date">${t.date.slice(5).replace('-', '/')}</td>
+        <td class="tx-merchant">${merchantCell}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
+        <td class="tx-merchant">${esc(t.categoryName || 'Sin asignar')}</td>
+        <td class="tx-amount">${amountCell}</td>
+      </tr>`;
+    }).join('');
+    return `
+    <div class="section">
+      <div class="section-title">Transacciones</div>
+      <table class="cat-table" style="font-size:12px;">
+        <thead class="cat-table-head">
+          <tr>
+            <th style="text-align:left;width:60px">Fecha</th>
+            <th style="text-align:left">Comercio</th>
+            <th style="text-align:left">Categoría</th>
+            <th style="text-align:right">Monto</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+  })() : '';
+
   // ── Category detail ──────────────────────────────────────────────────────────
-  // One flat table, one header — transaction-level detail lives in "Por comercio" below,
-  // so this table stays scannable even with a long list of categories.
+  // One flat table, one header — transaction-level detail lives in the "Transacciones"
+  // section, so this table stays scannable even with a long list of categories.
   const categoriesHtml = metrics.byCategory.map((cat) => {
     const budgeted = cat.budget ?? 0;
     const isOver = budgeted > 0 && cat.total > budgeted;
@@ -492,6 +532,7 @@ export async function GET(req: Request) {
     .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; margin-right: 5px; }
     .badge-red { background: #fee2e2; color: #991b1b; }
     .badge-green { background: #dcfce7; color: #166534; }
+    .return-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; background: #dcfce7; color: #166534; margin-left: 5px; vertical-align: middle; }
     .text-red { color: #dc2626; }
     .text-green { color: #16a34a; }
     .report-footer { margin-top: 40px; padding-top: 12px; border-top: 1px solid #e5e7eb; display: flex; justify-content: space-between; font-size: 11px; color: #9ca3af; }
@@ -575,6 +616,8 @@ export async function GET(req: Request) {
     ${generateTrendSection(trend, month)}
 
     ${merchantHtml}
+
+    ${transactionsHtml}
 
     <!-- Detalle por categoría -->
     <div class="section">

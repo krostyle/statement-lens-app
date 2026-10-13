@@ -102,6 +102,28 @@ describe('GET /api/snapshot/report', () => {
     expect(html).not.toContain('$230.000');
   });
 
+  it('lists every transaction including returns, which the merchant table nets away', async () => {
+    mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
+    vi.mocked(transactionRepo.findTrackingByMonth).mockImplementation(async (_userId, month) =>
+      month === '2024-03'
+        ? ([
+            { id: 'tx-1', date: new Date('2024-03-05'), description: 'Falabella', merchant: 'Falabella', amount: -1435756, transactionType: 'expense', categoryId: 'cat-amorcito', accountType: 'credit_card', bank: 'falabella' },
+            { id: 'tx-2', date: new Date('2024-03-10'), description: 'Falabella', merchant: 'Falabella', amount: 365896, transactionType: 'expense', categoryId: 'cat-amorcito', accountType: 'credit_card', bank: 'falabella' },
+          ] as never)
+        : []
+    );
+    vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
+      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
+    const html = await res.text();
+
+    expect(html).toContain('devolución');
+    expect(html).toContain('$365.896'); // the return shows as its own line
+    expect(html).toContain('$1.069.860'); // the net total in "Por comercio"/category still reflects it
+  });
+
   it('renders a comparison vs. the previous month when it had tracking data', async () => {
     mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
     vi.mocked(transactionRepo.findTrackingByMonth).mockImplementation(async (_userId, month) => {
