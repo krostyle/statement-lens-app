@@ -24,3 +24,8 @@ export const DEFAULT_CATEGORIES: DefaultCategoryDefinition[] = [
 export function getCategoryNames(categories: Category[]): string[] {
   return categories.map((c) => c.name);
 }
+
+/** Ids of categories whose spend is always fully reimbursed (e.g. an additional card holder). */
+export function getExcludedCategoryIds(categories: Category[]): Set<string> {
+  return new Set(categories.filter((c) => c.excludeFromBudget).map((c) => c.id));
+}

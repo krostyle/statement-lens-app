@@ -51,6 +51,19 @@ describe('calculateTotalExpenses', () => {
   it('returns 0 for empty array', () => {
     expect(calculateTotalExpenses([])).toBe(0);
   });
+
+  it('excludes categories passed in excludedCategoryIds from the total', () => {
+    const txs = [
+      makeTransaction({ categoryId: 'cat1', amount: -500 }),
+      makeTransaction({ categoryId: 'cat-reimbursable', amount: -2000 }),
+    ];
+    expect(calculateTotalExpenses(txs, new Set(['cat-reimbursable']))).toBe(500);
+  });
+
+  it('with no excludedCategoryIds given, behaves exactly as before', () => {
+    const txs = [makeTransaction({ categoryId: 'cat1', amount: -500 })];
+    expect(calculateTotalExpenses(txs)).toBe(500);
+  });
 });
 
 describe('groupByMonth', () => {
@@ -73,6 +86,15 @@ describe('groupByMonth', () => {
     ];
     const result = groupByMonth(txs);
     expect(result).toEqual([{ month: '2024-02', total: 100 }]);
+  });
+
+  it('excludes categories passed in excludedCategoryIds from every month total', () => {
+    const txs = [
+      makeTransaction({ categoryId: 'cat1', amount: -100, date: new Date('2024-01-10') }),
+      makeTransaction({ categoryId: 'cat-reimbursable', amount: -900, date: new Date('2024-01-12') }),
+    ];
+    const result = groupByMonth(txs, new Set(['cat-reimbursable']));
+    expect(result).toEqual([{ month: '2024-01', total: 100 }]);
   });
 });
 

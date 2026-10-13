@@ -19,6 +19,7 @@ export class UpdateCategoryUseCase {
       icon: updated.icon,
       type: updated.type,
       isDefault: updated.isDefault,
+      excludeFromBudget: updated.excludeFromBudget,
     };
   }
 }

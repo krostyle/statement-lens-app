@@ -53,12 +53,25 @@ export function calculateTotalIncome(transactions: Transaction[]): number {
     .reduce((sum, t) => sum + t.amount, 0);
 }
 
-export function calculateTotalExpenses(transactions: Transaction[]): number {
+/**
+ * Total net expenses, excluding any category in `excludedCategoryIds` (e.g. a
+ * category for spend that is always fully reimbursed, like an additional card holder).
+ * Excluded categories are still visible via `netSpendByCategory` — only the total is affected.
+ */
+export function calculateTotalExpenses(
+  transactions: Transaction[],
+  excludedCategoryIds: Set<string> = new Set(),
+): number {
   const nets = netSpendByCategory(transactions);
-  return Array.from(nets.values()).reduce((sum, v) => sum + v, 0);
+  return Array.from(nets.entries())
+    .filter(([categoryId]) => !excludedCategoryIds.has(categoryId))
+    .reduce((sum, [, v]) => sum + v, 0);
 }
 
-export function groupByMonth(transactions: Transaction[]): MonthlySpend[] {
+export function groupByMonth(
+  transactions: Transaction[],
+  excludedCategoryIds: Set<string> = new Set(),
+): MonthlySpend[] {
   // Collect all transactions per month, then net by category within each month
   const byMonth = new Map<string, Transaction[]>();
   for (const t of transactions) {
@@ -70,7 +83,9 @@ export function groupByMonth(transactions: Transaction[]): MonthlySpend[] {
   return Array.from(byMonth.entries())
     .map(([month, txs]) => {
       const nets = netSpendByCategory(txs);
-      const total = Array.from(nets.values()).reduce((sum, v) => sum + v, 0);
+      const total = Array.from(nets.entries())
+        .filter(([categoryId]) => !excludedCategoryIds.has(categoryId))
+        .reduce((sum, [, v]) => sum + v, 0);
       return { month, total };
     })
     .filter(({ total }) => total > 0)

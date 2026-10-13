@@ -2,6 +2,7 @@ export interface CreateCategoryDTO {
   name: string;
   color: string;
   icon?: string;
+  excludeFromBudget?: boolean;
 }
 
 export interface UpdateCategoryDTO {
@@ -9,6 +10,7 @@ export interface UpdateCategoryDTO {
   color?: string;
   icon?: string;
   type?: 'needs' | 'wants' | null;
+  excludeFromBudget?: boolean;
 }
 
 export interface CategoryResponseDTO {
@@ -19,4 +21,5 @@ export interface CategoryResponseDTO {
   icon?: string | null;
   type?: 'needs' | 'wants' | null;
   isDefault: boolean;
+  excludeFromBudget: boolean;
 }

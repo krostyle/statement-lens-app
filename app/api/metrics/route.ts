@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { transactionRepo } from '@/src/infrastructure/container';
+import { transactionRepo, categoryRepo } from '@/src/infrastructure/container';
 import { buildMetrics } from '@/src/adapters/presenters/metrics.presenter';
+import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
 function toMonthStr(date: Date) {
@@ -27,6 +28,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const monthParam = searchParams.get('month');
   const now = new Date();
+  const excludedCategoryIds = getExcludedCategoryIds(await categoryRepo.findByUserId(userId));
 
   if (monthParam) {
     // ── Month mode ───────────────────────────────────────────────────────
@@ -43,6 +45,7 @@ export async function GET(request: Request) {
         currentPeriod,
         scopeTxs: allTxs,
         filterMode: 'month',
+        excludedCategoryIds,
       })
     );
   }
@@ -60,6 +63,7 @@ export async function GET(request: Request) {
       currentPeriod,
       scopeTxs: allTxs,
       filterMode: 'default',
+      excludedCategoryIds,
     })
   );
 }

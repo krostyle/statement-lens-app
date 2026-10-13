@@ -12,6 +12,7 @@ describe('toCategoryDTO', () => {
       icon: 'ShoppingCart',
       type: 'needs',
       isDefault: true,
+      excludeFromBudget: false,
       createdAt: new Date('2024-01-01'),
       updatedAt: new Date('2024-01-02'),
     };
@@ -25,6 +26,7 @@ describe('toCategoryDTO', () => {
       color: '#f97316',
       icon: 'ShoppingCart',
       isDefault: true,
+      excludeFromBudget: false,
     });
     expect(dto).not.toHaveProperty('createdAt');
     expect(dto).not.toHaveProperty('updatedAt');
@@ -38,6 +40,7 @@ describe('toCategoryDTO', () => {
       color: '#999999',
       icon: null,
       isDefault: false,
+      excludeFromBudget: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

@@ -9,6 +9,7 @@ import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
 import { DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/src/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/src/components/ui/select';
+import { Checkbox } from '@/src/components/ui/checkbox';
 import type { CategoryResponseDTO } from '@/src/application/dtos/category.dto';
 
 function translateApiError(raw: string | undefined): string {
@@ -23,6 +24,7 @@ function translateApiError(raw: string | undefined): string {
 const formSchema = z.object({
   name: z.string().min(1, 'Nombre requerido').max(50),
   type: z.enum(['needs', 'wants']).nullable().optional(),
+  excludeFromBudget: z.boolean().optional(),
 });
 type FormInput = z.infer<typeof formSchema>;
 
@@ -44,8 +46,8 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
   } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
     defaultValues: category
-      ? { name: category.name, type: category.type ?? null }
-      : { type: null },
+      ? { name: category.name, type: category.type ?? null, excludeFromBudget: category.excludeFromBudget }
+      : { type: null, excludeFromBudget: false },
   });
 
   const onSubmit = async (data: FormInput) => {
@@ -110,6 +112,29 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
             <p className="text-xs text-muted-foreground">
               Usado para la regla 50/30/20 en sugerencias de presupuesto con IA
             </p>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Controller
+              name="excludeFromBudget"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="excludeFromBudget"
+                  checked={field.value ?? false}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  className="mt-0.5"
+                />
+              )}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="excludeFromBudget" className="cursor-pointer">
+                Excluir del gasto total
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Para gastos siempre reembolsados (ej: tarjeta adicional de otra persona). Sigue
+                apareciendo en el desglose por categoría, pero no se suma a tu presupuesto ni a tus métricas.
+              </p>
+            </div>
           </div>
           {serverError && (
             <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">

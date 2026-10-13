@@ -2,6 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
+import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -165,11 +166,15 @@ export async function GET(req: Request) {
   if (txs.length === 0) return new Response('No tracking data for this month', { status: 404 });
 
   const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
+  const excludedCategoryIds = getExcludedCategoryIds(categories);
   const allTxs: SnapshotTransaction[] = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
   const budgetsByCategory = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
 
-  const metrics = computeSnapshotMetrics(allTxs, budgetsByCategory, month);
-  const totalBudget = budgets.reduce((s, b) => s + b.monthlyAmount, 0);
+  const metrics = computeSnapshotMetrics(allTxs, budgetsByCategory, month, excludedCategoryIds);
+  // Excluded categories' budgets are left out too, so budgetPct stays comparable to totalExpenses.
+  const totalBudget = budgets
+    .filter((b) => !excludedCategoryIds.has(b.categoryId))
+    .reduce((s, b) => s + b.monthlyAmount, 0);
 
   const expenses = allTxs.filter((t) => t.transactionType === 'expense' && t.amount < 0);
   const income   = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
@@ -187,11 +192,12 @@ export async function GET(req: Request) {
   const monthPct    = Math.min(Math.round((metrics.daysElapsed / metrics.daysInMonth) * 100), 100);
   const generatedAt = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 
-  // ── Donut chart ──────────────────────────────────────────────────────────────
-  const donutHtml = generateDonutChart(metrics.byCategory);
-
-  // ── Bar chart ────────────────────────────────────────────────────────────────
-  const barHtml = generateBarChart(metrics.byCategory);
+  // ── Donut + bar charts ────────────────────────────────────────────────────────
+  // Excluded categories (fully reimbursed) stay in the per-category detail section below for
+  // full visibility, but are left out of these "your real spending" charts to match the headline totals.
+  const chartCategories = metrics.byCategory.filter((c) => !excludedCategoryIds.has(c.categoryId));
+  const donutHtml = generateDonutChart(chartCategories);
+  const barHtml = generateBarChart(chartCategories);
 
   // ── Budget bar ───────────────────────────────────────────────────────────────
   const budgetBarHtml = budgetPct !== null ? (() => {

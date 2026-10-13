@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, categoryRepo, budgetRepo, trackingUploadRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
+import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ month: string }> }) {
   const { userId } = await auth();
@@ -59,7 +60,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ mo
   const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
   const allSnapshot     = updated.map((tx) => txToSnapshot(tx, categoryNameMap));
   const budgetMap       = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-  const metrics         = computeSnapshotMetrics(allSnapshot, budgetMap, month);
+  const metrics         = computeSnapshotMetrics(allSnapshot, budgetMap, month, getExcludedCategoryIds(categories));
 
   return NextResponse.json({ metrics });
 }

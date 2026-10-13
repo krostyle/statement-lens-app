@@ -9,5 +9,6 @@ export function toCategoryDTO(c: Category): CategoryResponseDTO {
     color: c.color,
     icon: c.icon,
     isDefault: c.isDefault,
+    excludeFromBudget: c.excludeFromBudget,
   };
 }

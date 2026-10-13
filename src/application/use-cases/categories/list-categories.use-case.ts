@@ -14,6 +14,7 @@ export class ListCategoriesUseCase {
       icon: c.icon,
       type: c.type,
       isDefault: c.isDefault,
+      excludeFromBudget: c.excludeFromBudget,
     }));
   }
 }

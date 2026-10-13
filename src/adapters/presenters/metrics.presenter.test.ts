@@ -116,6 +116,30 @@ describe('buildMetrics', () => {
     expect(result.topCategories[1]).toEqual({ categoryId: 'cat-1', total: 5000 });
   });
 
+  it('excludes a flagged category from totals/dailyAverage/savingsRate but keeps it in topCategories', () => {
+    const currentTxs = [
+      makeTransaction({ categoryId: 'cat-own', amount: -10000 }),
+      makeTransaction({ categoryId: 'cat-amorcito', amount: -90000 }),
+      makeTransaction({ categoryId: 'cat-own', amount: 50000, transactionType: 'income' }),
+    ];
+
+    const result = buildMetrics({
+      currentTxs,
+      previousTxs: [],
+      currentPeriod: '2024-03',
+      scopeTxs: [],
+      filterMode: 'month',
+      excludedCategoryIds: new Set(['cat-amorcito']),
+    });
+
+    expect(result.currentMonthTotal).toBe(10000);
+    expect(result.dailyAverage).toBe(10000 / 31);
+    expect(result.savingsRate).toBe(80); // 1 - 10000/50000
+    expect(result.topCategories).toEqual(
+      expect.arrayContaining([{ categoryId: 'cat-amorcito', total: 90000 }])
+    );
+  });
+
   it('preserves the requested filterMode', () => {
     const result = buildMetrics({
       currentTxs: [],

@@ -10,6 +10,7 @@ type PrismaCategory = {
   icon: string | null;
   type: string | null;
   isDefault: boolean;
+  excludeFromBudget: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

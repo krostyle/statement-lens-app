@@ -34,11 +34,13 @@ export function buildMetrics(params: {
   /** All transactions in scope for trend chart, merchants, categories. */
   scopeTxs: Transaction[];
   filterMode: MetricsFilterMode;
+  /** Categories whose spend is always fully reimbursed — excluded from totals, kept in topCategories. */
+  excludedCategoryIds?: Set<string>;
 }): MetricsDTO {
-  const { currentTxs, previousTxs, currentPeriod, scopeTxs, filterMode } = params;
+  const { currentTxs, previousTxs, currentPeriod, scopeTxs, filterMode, excludedCategoryIds = new Set<string>() } = params;
 
-  const currentMonthTotal = calculateTotalExpenses(currentTxs);
-  const previousMonthTotal = calculateTotalExpenses(previousTxs);
+  const currentMonthTotal = calculateTotalExpenses(currentTxs, excludedCategoryIds);
+  const previousMonthTotal = calculateTotalExpenses(previousTxs, excludedCategoryIds);
   const percentChange =
     previousMonthTotal === 0
       ? 0
@@ -48,7 +50,7 @@ export function buildMetrics(params: {
   const daysInMonth = new Date(Date.UTC(y, m, 0)).getUTCDate();
   const dailyAverage = currentMonthTotal / daysInMonth;
 
-  const monthlyTrend = groupByMonth(scopeTxs);
+  const monthlyTrend = groupByMonth(scopeTxs, excludedCategoryIds);
 
   // categories & merchants → always scoped to the selected period
   // netSpendByCategory nets returns/credit-notes against purchases per category

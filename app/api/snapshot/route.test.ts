@@ -47,8 +47,8 @@ function formRequest(fields: Record<string, string>) {
   return new Request('http://localhost/api/snapshot', { method: 'POST', body: fd });
 }
 
-const otrosCategory = { id: 'cat-otros', userId: 'user-1', name: 'Otros', color: '#999', icon: null, isDefault: true, createdAt: new Date(), updatedAt: new Date() };
-const comidaCategory = { id: 'cat-comida', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: false, createdAt: new Date(), updatedAt: new Date() };
+const otrosCategory = { id: 'cat-otros', userId: 'user-1', name: 'Otros', color: '#999', icon: null, isDefault: true, excludeFromBudget: false, createdAt: new Date(), updatedAt: new Date() };
+const comidaCategory = { id: 'cat-comida', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: false, excludeFromBudget: false, createdAt: new Date(), updatedAt: new Date() };
 
 beforeEach(() => {
   vi.clearAllMocks();

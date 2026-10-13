@@ -10,8 +10,8 @@ datasource db {
 /// Clerk manages authentication (email, password, sessions).
 /// clerkId matches the Clerk user ID (format: "user_xxxx").
 model UserProfile {
-  clerkId        String         @id
-  monthlyIncome  Int?
+  clerkId         String           @id
+  monthlyIncome   Int?
   categories      Category[]
   transactions    Transaction[]
   budgets         Budget[]
@@ -20,19 +20,20 @@ model UserProfile {
 }
 
 model Category {
-  id            String         @id @default(uuid())
-  userId        String
-  name          String
-  color         String
-  icon          String?
-  type          String?
-  isDefault     Boolean        @default(false)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  user          UserProfile    @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
-  transactions  Transaction[]
-  budgets       Budget[]
-  merchantRules MerchantRule[]
+  id                String         @id @default(uuid())
+  userId            String
+  name              String
+  color             String
+  icon              String?
+  type              String?
+  isDefault         Boolean        @default(false)
+  excludeFromBudget Boolean        @default(false)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  user              UserProfile    @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
+  transactions      Transaction[]
+  budgets           Budget[]
+  merchantRules     MerchantRule[]
 
   @@unique([userId, name])
 }
@@ -41,7 +42,7 @@ model Budget {
   id            String      @id @default(uuid())
   userId        String
   categoryId    String
-  month         String      // "YYYY-MM" e.g. "2026-04"
+  month         String // "YYYY-MM" e.g. "2026-04"
   monthlyAmount Float
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -55,8 +56,8 @@ model TrackingUpload {
   id           String        @id @default(uuid())
   userId       String
   bank         String
-  accountType  String        // 'checking' | 'credit_card'
-  month        String        // YYYY-MM (accountingMonth)
+  accountType  String // 'checking' | 'credit_card'
+  month        String // YYYY-MM (accountingMonth)
   rowCount     Int
   isFinalized  Boolean       @default(false)
   uploadedAt   DateTime      @default(now())
@@ -82,10 +83,10 @@ model Transaction {
   installmentNum   Int?
   installmentTotal Int?
   notes            String?
-  reviewStatus     String          @default("pending")  // 'pending' | 'auto' | 'confirmed' | 'manual'
-  transactionType  String          @default("expense")   // 'expense' | 'income' | 'transfer'
-  origin           String          @default("manual")    // 'tracking' | 'manual'
-  accountingMonth  String          @default("")           // 'YYYY-MM' — period this tx is counted in; '' = use date
+  reviewStatus     String          @default("pending") // 'pending' | 'auto' | 'confirmed' | 'manual'
+  transactionType  String          @default("expense") // 'expense' | 'income' | 'transfer'
+  origin           String          @default("manual") // 'tracking' | 'manual'
+  accountingMonth  String          @default("") // 'YYYY-MM' — period this tx is counted in; '' = use date
   trackingUploadId String?
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
@@ -100,10 +101,10 @@ model Transaction {
 model MerchantRule {
   id              String      @id @default(uuid())
   userId          String
-  merchantPattern String      // normalized (lowercase, trimmed) merchant name
+  merchantPattern String // normalized (lowercase, trimmed) merchant name
   bank            String      @default("") // "" = any card; "santander" | "falabella" | "liderbci"
   categoryId      String
-  transactionType String?     // null = auto-detect; "expense" | "income" | "transfer"
+  transactionType String? // null = auto-detect; "expense" | "income" | "transfer"
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
   user            UserProfile @relation(fields: [userId], references: [clerkId], onDelete: Cascade)
@@ -111,4 +112,3 @@ model MerchantRule {
 
   @@unique([userId, merchantPattern, bank])
 }
-

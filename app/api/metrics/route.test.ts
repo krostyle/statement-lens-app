@@ -4,10 +4,11 @@ import { urlRequest } from '@/src/test/helpers/api-request';
 vi.mock('@clerk/nextjs/server', () => ({ auth: vi.fn() }));
 vi.mock('@/src/infrastructure/container', () => ({
   transactionRepo: { findByUserId: vi.fn() },
+  categoryRepo: { findByUserId: vi.fn() },
 }));
 
 import { auth } from '@clerk/nextjs/server';
-import { transactionRepo } from '@/src/infrastructure/container';
+import { transactionRepo, categoryRepo } from '@/src/infrastructure/container';
 import { GET } from './route';
 import type { Transaction } from '@/src/domain/entities/transaction';
 
@@ -39,6 +40,7 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(categoryRepo.findByUserId).mockResolvedValue([]);
 });
 
 describe('GET /api/metrics', () => {
@@ -64,6 +66,25 @@ describe('GET /api/metrics', () => {
     expect(json.filterMode).toBe('month');
     expect(json.currentMonthTotal).toBe(20000);
     expect(json.previousMonthTotal).toBe(5000);
+  });
+
+  it('excludes a category flagged excludeFromBudget from currentMonthTotal', async () => {
+    mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
+    vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
+      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    vi.mocked(transactionRepo.findByUserId).mockResolvedValue([
+      makeTransaction({ categoryId: 'cat-1', accountingMonth: '2024-03', amount: -10000 }),
+      makeTransaction({ categoryId: 'cat-amorcito', accountingMonth: '2024-03', amount: -90000 }),
+    ]);
+
+    const res = await GET(urlRequest('http://localhost/api/metrics', { month: '2024-03' }));
+    const json = await res.json();
+
+    expect(json.currentMonthTotal).toBe(10000);
+    expect(json.topCategories).toEqual(
+      expect.arrayContaining([{ categoryId: 'cat-amorcito', total: 90000 }])
+    );
   });
 
   it('defaults to the current month when no month param is given', async () => {

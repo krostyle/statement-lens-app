@@ -4,6 +4,7 @@ import type { ICategoryRepository } from '@/src/domain/repositories/category.rep
 import type { UserProfilePrismaRepository } from '@/src/infrastructure/database/repositories/user-profile.prisma.repository';
 import type { FinancialChatService, ChatMessage, FinancialContext, CurrentMonthSnapshot } from '@/src/infrastructure/ai/financial-chat.service';
 import { netSpendByCategory } from '@/src/domain/services/transaction.service';
+import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
 
@@ -62,7 +63,7 @@ export class FinancialChatUseCase {
     let currentMonthSnapshot: CurrentMonthSnapshot | undefined;
     if (trackingTxs.length > 0) {
       const allSnapshot = trackingTxs.map((tx) => txToSnapshot(tx, categoryMap));
-      const metrics     = computeSnapshotMetrics(allSnapshot, budgetMap, currentMonth);
+      const metrics     = computeSnapshotMetrics(allSnapshot, budgetMap, currentMonth, getExcludedCategoryIds(categories));
 
       const snapRecentTxs = allSnapshot
         .filter((t) => t.transactionType === 'expense' && t.amount < 0)

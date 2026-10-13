@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_CATEGORIES } from './category.service';
+import { DEFAULT_CATEGORIES, getExcludedCategoryIds } from './category.service';
+import type { Category } from '../entities/category';
+
+function makeCategory(overrides: Partial<Category> = {}): Category {
+  return {
+    id: 'cat-1',
+    userId: 'user-1',
+    name: 'Alimentación',
+    color: '#f97316',
+    icon: 'ShoppingCart',
+    isDefault: false,
+    excludeFromBudget: false,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    ...overrides,
+  };
+}
 
 describe('DEFAULT_CATEGORIES', () => {
   it('contains at least 10 categories', () => {
@@ -23,5 +39,19 @@ describe('DEFAULT_CATEGORIES', () => {
     const names = DEFAULT_CATEGORIES.map((c) => c.name);
     expect(names).toContain('Alimentación');
     expect(names).toContain('Transporte');
+  });
+});
+
+describe('getExcludedCategoryIds', () => {
+  it('returns the ids of categories flagged excludeFromBudget', () => {
+    const categories = [
+      makeCategory({ id: 'cat-1', excludeFromBudget: false }),
+      makeCategory({ id: 'cat-amorcito', excludeFromBudget: true }),
+    ];
+    expect(getExcludedCategoryIds(categories)).toEqual(new Set(['cat-amorcito']));
+  });
+
+  it('returns an empty set when no category is flagged', () => {
+    expect(getExcludedCategoryIds([makeCategory()])).toEqual(new Set());
   });
 });

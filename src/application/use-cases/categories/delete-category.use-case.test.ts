@@ -13,7 +13,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
     findByUserIdAndName: async (userId, name) =>
       store.find((c) => c.userId === userId && c.name === name) ?? null,
     create: async (data: CreateCategoryInput) => {
-      const cat: Category = { id: `cat-${++idCounter}`, ...data, createdAt: new Date(), updatedAt: new Date() };
+      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() };
       store.push(cat);
       return cat;
     },
@@ -34,6 +34,7 @@ const customCategory: Category = {
   color: '#aaaaaa',
   icon: 'Star',
   isDefault: false,
+  excludeFromBudget: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -45,6 +46,7 @@ const defaultCategory: Category = {
   color: '#f97316',
   icon: 'ShoppingCart',
   isDefault: true,
+  excludeFromBudget: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

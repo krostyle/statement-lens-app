@@ -13,15 +13,23 @@ function daysElapsed(month: string): number {
   return today.getDate();
 }
 
+/**
+ * @param excludedCategoryIds Categories whose spend is always fully reimbursed (e.g. an
+ *   additional card holder's purchases) — excluded from totalExpenses/dailyAverage/projection,
+ *   but still shown in full in byCategory and byMerchant.
+ */
 export function computeSnapshotMetrics(
   allTxs: SnapshotTransaction[],
   budgetsByCategory: Map<string, number>,
   month: string,
+  excludedCategoryIds: Set<string> = new Set(),
 ) {
   const expenses = allTxs.filter((t) => t.transactionType === 'expense' && t.amount < 0);
   const income   = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
 
-  const totalExpenses = expenses.reduce((s, t) => s + Math.abs(t.amount), 0);
+  const totalExpenses = expenses
+    .filter((t) => !excludedCategoryIds.has(t.categoryId))
+    .reduce((s, t) => s + Math.abs(t.amount), 0);
   const totalIncome   = income.reduce((s, t) => s + t.amount, 0);
 
   const elapsed   = daysElapsed(month);

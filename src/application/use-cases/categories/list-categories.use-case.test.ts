@@ -11,6 +11,7 @@ function makeCategory(overrides: Partial<Category> = {}): Category {
     color: '#f97316',
     icon: 'ShoppingCart',
     isDefault: true,
+    excludeFromBudget: false,
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,

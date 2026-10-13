@@ -6,6 +6,7 @@ import {
   calculateTotalExpenses,
   groupByMonth,
 } from '@/src/domain/services/transaction.service';
+import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
 import type { Transaction } from '@/src/domain/entities/transaction';
 import type { MonthlySpend } from '@/src/domain/services/transaction.service';
 
@@ -239,6 +240,7 @@ function generateReportHtml(
   trend: MonthlySpend[],
   savingsRate6m: number | null,
   rolling6mMonths: number,
+  excludedCategoryIds: Set<string>,
 ): string {
   const diff = totalBudget - totalSpent;
   const isOver = totalSpent > totalBudget;
@@ -365,9 +367,12 @@ function generateReportHtml(
       </tbody>`;
   }).join('');
 
-  // ── Charts ────────────────────────────────────────────────────────────────
-  const donutHtml = generateDonutChart(summary);
-  const barHtml   = generateBarChart(summary);
+  // ── Charts ──────────────────────────────────────────────────────────────────
+  // Excluded categories (fully reimbursed) stay in the per-category table below for full
+  // visibility, but are left out of these "your real spending" charts to match the headline totals.
+  const chartSummary = summary.filter((s) => !excludedCategoryIds.has(s.categoryId));
+  const donutHtml = generateDonutChart(chartSummary);
+  const barHtml   = generateBarChart(chartSummary);
 
   // ── Income section ────────────────────────────────────────────────────────
   const incomeTxs = transactions
@@ -662,6 +667,7 @@ export async function GET(req: Request) {
   ]);
 
   const catNameMap = new Map(categories.map((c) => [c.id, c.name]));
+  const excludedCategoryIds = getExcludedCategoryIds(categories);
   const spendMap   = netSpendByCategory(transactions);
 
   const summary: CategorySummary[] = budgets.map((b) => {
@@ -680,8 +686,11 @@ export async function GET(req: Request) {
     };
   });
 
-  const totalSpent  = summary.reduce((s, c) => s + c.spent, 0);
-  const totalBudget = summary.reduce((s, c) => s + c.budgeted, 0);
+  // Excluded categories (e.g. a fully-reimbursed additional card) stay in `summary` for
+  // visibility/breakdown, but don't count toward the user's own real totals.
+  const includedSummary = summary.filter((c) => !excludedCategoryIds.has(c.categoryId));
+  const totalSpent  = includedSummary.reduce((s, c) => s + c.spent, 0);
+  const totalBudget = includedSummary.reduce((s, c) => s + c.budgeted, 0);
 
   // Previous month — for comparison section
   const prevMonth = prevMonthStr(month);
@@ -694,7 +703,9 @@ export async function GET(req: Request) {
     const prevSpendMap = netSpendByCategory(prevTxs);
     prevSnapshot = {
       month: prevMonth,
-      totalSpent: Array.from(prevSpendMap.values()).reduce((s, v) => s + v, 0),
+      totalSpent: Array.from(prevSpendMap.entries())
+        .filter(([categoryId]) => !excludedCategoryIds.has(categoryId))
+        .reduce((s, [, v]) => s + v, 0),
       summary: prevBudgets.map((b) => ({
         categoryId:   b.categoryId,
         categoryName: catNameMap.get(b.categoryId) ?? b.categoryId,
@@ -706,10 +717,10 @@ export async function GET(req: Request) {
   // 6-month trend + rolling savings rate
   const trendFrom = new Date(Date.UTC(y, m - 7, 1));
   const trendTxs  = await transactionRepo.findByUserId(userId, { from: trendFrom, to });
-  const trend     = groupByMonth(trendTxs);
+  const trend     = groupByMonth(trendTxs, excludedCategoryIds);
 
   const rolling6mIncome   = calculateTotalIncome(trendTxs);
-  const rolling6mExpenses = calculateTotalExpenses(trendTxs);
+  const rolling6mExpenses = calculateTotalExpenses(trendTxs, excludedCategoryIds);
   const rolling6mMonths   = trend.length;
   const savingsRate6m: number | null = rolling6mIncome > 0
     ? Math.round((1 - rolling6mExpenses / rolling6mIncome) * 100)
@@ -719,6 +730,7 @@ export async function GET(req: Request) {
     month, totalSpent, totalBudget, summary,
     transactions, prevSnapshot,
     trend, savingsRate6m, rolling6mMonths,
+    excludedCategoryIds,
   );
 
   return new Response(html, {

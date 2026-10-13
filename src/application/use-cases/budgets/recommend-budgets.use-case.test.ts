@@ -51,6 +51,7 @@ const needsCategory: Category = {
   icon: 'ShoppingCart',
   type: 'needs',
   isDefault: true,
+  excludeFromBudget: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

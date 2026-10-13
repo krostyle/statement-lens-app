@@ -13,7 +13,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
     findByUserIdAndName: async (userId, name) =>
       store.find((c) => c.userId === userId && c.name === name) ?? null,
     create: async (data: CreateCategoryInput) => {
-      const cat: Category = { id: `cat-${++idCounter}`, ...data, createdAt: new Date(), updatedAt: new Date() };
+      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() };
       store.push(cat);
       return cat;
     },
@@ -23,7 +23,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
       return cat;
     },
     delete: async (id) => { const idx = store.findIndex((c) => c.id === id); store.splice(idx, 1); },
-    createMany: async (data) => { data.forEach((d) => store.push({ id: `cat-${++idCounter}`, ...d, createdAt: new Date(), updatedAt: new Date() })); },
+    createMany: async (data) => { data.forEach((d) => store.push({ id: `cat-${++idCounter}`, ...d, excludeFromBudget: d.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() })); },
   };
 }
 
@@ -55,6 +55,7 @@ describe('CreateCategoryUseCase', () => {
       color: '#84cc16',
       icon: 'Plane',
       isDefault: false,
+      excludeFromBudget: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

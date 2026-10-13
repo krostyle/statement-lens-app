@@ -12,7 +12,13 @@ export function createMockCategoryRepo(existing: Category[] = []): ICategoryRepo
     findByUserIdAndName: async (userId, name) =>
       store.find((c) => c.userId === userId && c.name === name) ?? null,
     create: async (data: CreateCategoryInput) => {
-      const cat: Category = { id: `cat-${++idCounter}`, ...data, createdAt: new Date(), updatedAt: new Date() };
+      const cat: Category = {
+        id: `cat-${++idCounter}`,
+        ...data,
+        excludeFromBudget: data.excludeFromBudget ?? false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
       store.push(cat);
       return cat;
     },
@@ -27,7 +33,15 @@ export function createMockCategoryRepo(existing: Category[] = []): ICategoryRepo
       if (idx >= 0) store.splice(idx, 1);
     },
     createMany: async (data) => {
-      data.forEach((d) => store.push({ id: `cat-${++idCounter}`, ...d, createdAt: new Date(), updatedAt: new Date() }));
+      data.forEach((d) =>
+        store.push({
+          id: `cat-${++idCounter}`,
+          ...d,
+          excludeFromBudget: d.excludeFromBudget ?? false,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        })
+      );
     },
   };
 }
