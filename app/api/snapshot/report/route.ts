@@ -3,6 +3,8 @@ import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
 import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
+import { groupByMonth, calculateTotalIncome, calculateTotalExpenses } from '@/src/domain/services/transaction.service';
+import type { MonthlySpend } from '@/src/domain/services/transaction.service';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -25,6 +27,12 @@ const SOURCE_LABELS: Record<string, string> = {
 function formatMonth(month: string): string {
   const [y, m] = month.split('-');
   return `${MONTH_NAMES[m] ?? m} ${y}`;
+}
+
+function prevMonthStr(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 2, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 }
 
 function clp(n: number): string {
@@ -145,6 +153,37 @@ function generateBarChart(items: { categoryName: string; total: number; budget: 
   return `<div style="padding-top:2px;">${legend}${bars}</div>`;
 }
 
+// ─── Trend section ────────────────────────────────────────────────────────────
+
+function generateTrendSection(trend: MonthlySpend[], reportMonth: string): string {
+  if (trend.length < 2) return '';
+  const maxVal = Math.max(...trend.map((t) => t.total));
+  const bars = trend.map((t) => {
+    const isReport = t.month === reportMonth;
+    const pct = maxVal > 0 ? (t.total / maxVal) * 100 : 0;
+    const [y, m] = t.month.split('-');
+    const label = `${MONTH_NAMES[m] ?? m} ${y}`;
+    const barColor  = isReport ? '#1e40af' : '#93c5fd';
+    const textColor = isReport ? '#1e40af' : '#6b7280';
+    const fontWeight = isReport ? '700' : '500';
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+        <div style="width:90px;text-align:right;font-size:11px;color:${textColor};font-weight:${fontWeight};flex-shrink:0;white-space:nowrap;">${esc(label)}</div>
+        <div style="flex:1;position:relative;height:18px;border-radius:3px;background:#f3f4f6;min-width:0;">
+          <div style="position:absolute;inset:0;width:${pct.toFixed(1)}%;background:${barColor};border-radius:3px;min-width:4px;"></div>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:${Math.min(pct, 60).toFixed(1)}%;pointer-events:none;">
+            <span style="font-size:10px;font-weight:600;color:${pct > 35 ? '#fff' : textColor};padding-left:5px;white-space:nowrap;">${esc(clp(t.total))}</span>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+  return `
+  <div class="section">
+    <div class="section-title">Tendencia de gastos (últimos ${trend.length} meses)</div>
+    <div style="padding-top:4px;">${bars}</div>
+  </div>`;
+}
+
 // ─── Route ────────────────────────────────────────────────────────────────────
 
 export async function GET(req: Request) {
@@ -191,6 +230,72 @@ export async function GET(req: Request) {
   const budgetPct   = totalBudget > 0 ? Math.round((metrics.totalExpenses / totalBudget) * 100) : null;
   const monthPct    = Math.min(Math.round((metrics.daysElapsed / metrics.daysInMonth) * 100), 100);
   const generatedAt = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  // ── Comparison vs. previous month ────────────────────────────────────────────
+  const prevMonth = prevMonthStr(month);
+  const prevTxs = await transactionRepo.findTrackingByMonth(userId, prevMonth);
+  let comparisonHtml = '';
+  if (prevTxs.length > 0) {
+    const prevAllTxs = prevTxs.map((tx) => txToSnapshot(tx, categoryNameMap));
+    const prevMetrics = computeSnapshotMetrics(prevAllTxs, new Map(), prevMonth, excludedCategoryIds);
+    if (prevMetrics.totalExpenses > 0) {
+      const spentChange = ((metrics.totalExpenses - prevMetrics.totalExpenses) / prevMetrics.totalExpenses) * 100;
+
+      const changeTag = (change: number) => {
+        const cls = change > 2 ? 'tag-red' : change < -2 ? 'tag-green' : 'tag-neutral';
+        return `<span class="tag ${cls}">${change > 0 ? '+' : ''}${change.toFixed(1)}%</span>`;
+      };
+
+      const categoryChanges = metrics.byCategory
+        .map((c) => {
+          const prev = prevMetrics.byCategory.find((p) => p.categoryId === c.categoryId);
+          if (!prev || prev.total === 0) return null;
+          const change = ((c.total - prev.total) / prev.total) * 100;
+          return { categoryName: c.categoryName, total: c.total, prevTotal: prev.total, change };
+        })
+        .filter((c): c is NonNullable<typeof c> => c !== null)
+        .sort((a, b) => Math.abs(b.change) - Math.abs(a.change))
+        .slice(0, 6);
+
+      const catChangesHtml = categoryChanges.map((c) => `
+        <div class="cmp-row">
+          <span class="cmp-name">${esc(c.categoryName || 'Sin asignar')}</span>
+          <div class="cmp-right">
+            <span class="cmp-vals">${clp(c.prevTotal)} → ${clp(c.total)}</span>
+            ${changeTag(c.change)}
+          </div>
+        </div>`).join('');
+
+      comparisonHtml = `
+      <div class="section">
+        <div class="section-title">Comparativa vs. ${esc(formatMonth(prevMonth))}</div>
+        <div class="cmp-box">
+          <div class="cmp-row cmp-total">
+            <span class="cmp-name"><strong>Gasto total</strong></span>
+            <div class="cmp-right">
+              <span class="cmp-vals">${clp(prevMetrics.totalExpenses)} → ${clp(metrics.totalExpenses)}</span>
+              ${changeTag(spentChange)}
+            </div>
+          </div>
+          ${catChangesHtml}
+        </div>
+      </div>`;
+    }
+  }
+
+  // ── 6-month trend + rolling savings rate ─────────────────────────────────────
+  const [trendY, trendM] = month.split('-').map(Number);
+  const trendFrom = new Date(Date.UTC(trendY, trendM - 7, 1));
+  const trendTo   = new Date(Date.UTC(trendY, trendM, 0, 23, 59, 59, 999));
+  const trendTxs  = await transactionRepo.findByUserId(userId, { origin: 'tracking', from: trendFrom, to: trendTo });
+  const trend     = groupByMonth(trendTxs, excludedCategoryIds);
+
+  const rolling6mIncome   = calculateTotalIncome(trendTxs);
+  const rolling6mExpenses = calculateTotalExpenses(trendTxs, excludedCategoryIds);
+  const rolling6mMonths   = trend.length;
+  const savingsRate6m: number | null = rolling6mIncome > 0
+    ? Math.round((1 - rolling6mExpenses / rolling6mIncome) * 100)
+    : null;
 
   // ── Donut + bar charts ────────────────────────────────────────────────────────
   // Excluded categories (fully reimbursed) stay in the per-category detail section below for
@@ -380,6 +485,17 @@ export async function GET(req: Request) {
     .metric-label { font-size: 11px; color: #6b7280; margin-bottom: 5px; font-weight: 500; }
     .metric-value { font-size: 17px; font-weight: 800; color: #0f172a; }
     .metric-desc { font-size: 10px; color: #9ca3af; margin-top: 4px; line-height: 1.4; }
+    .cmp-box { border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden; }
+    .cmp-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 14px; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .cmp-row:last-child { border-bottom: none; }
+    .cmp-total { background: #f9fafb; }
+    .cmp-name { color: #374151; }
+    .cmp-right { display: flex; align-items: center; gap: 10px; }
+    .cmp-vals { font-size: 12px; color: #9ca3af; }
+    .tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+    .tag-red { background: #fee2e2; color: #991b1b; }
+    .tag-green { background: #dcfce7; color: #166534; }
+    .tag-neutral { background: #f3f4f6; color: #6b7280; }
     .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .cat-table-head th { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; background: #f4f4f5; border-top: 1px solid #e5e7eb; border-bottom: 2px solid #d1d5db; text-align: right; }
     .cat-table-head th:first-child { text-align: left; }
@@ -449,6 +565,14 @@ export async function GET(req: Request) {
           <div class="metric-desc">Estimado al cierre del mes</div>
         </div>
       </div>
+      ${savingsRate6m !== null ? `
+      <div style="margin-top:12px;padding:12px 14px;border-radius:8px;background:#f0fdf4;border:1px solid #86efac;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:#166534;text-transform:uppercase;letter-spacing:.06em;margin-bottom:2px;">Tasa de ahorro · promedio de los últimos ${rolling6mMonths} ${rolling6mMonths === 1 ? 'mes' : 'meses'}</div>
+          <div style="font-size:11px;color:#4b7c5e;">De cada $100 que ganaste, ahorraste $${Math.max(0, savingsRate6m)} en promedio — más confiable que la tasa mensual porque el sueldo suele llegar un mes y gastarse al siguiente</div>
+        </div>
+        <span style="font-size:22px;font-weight:800;color:${savingsRate6m >= 0 ? '#166534' : '#dc2626'};flex-shrink:0;">${savingsRate6m}%</span>
+      </div>` : ''}
     </div>
 
     ${budgetBarHtml}
@@ -468,6 +592,10 @@ export async function GET(req: Request) {
         </div>
       </div>
     </div>
+
+    ${comparisonHtml}
+
+    ${generateTrendSection(trend, month)}
 
     ${merchantHtml}
 

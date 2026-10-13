@@ -190,10 +190,10 @@ export function TrackingView() {
           </Button>
           {hasData && (
             <Button variant="outline" size="sm" asChild>
-              <a href={`/api/snapshot/report?month=${month}`} target="_blank" rel="noopener noreferrer">
+              <Link href="/reports">
                 <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
                 Ver reporte
-              </a>
+              </Link>
             </Button>
           )}
           {hasData && (
