@@ -21,7 +21,10 @@ export interface RawParsedRow {
   isAdditional?: boolean;
 }
 
-// Excel clipboard paste can mangle accented letters into a literal "?" (e.g. "mínimo" → "m?nimo").
+// Some banks export statements with accented vowels already replaced by a literal "?"
+// (e.g. "mínimo" → "m?nimo") — confirmed to be broken in the source file itself, not a
+// copy/paste artifact. The original vowel is unrecoverable, so pattern matching below
+// accepts "?" as a stand-in wherever an accented vowel is expected.
 const SKIP_PATTERNS = [
   /saldo\s+(inicial|final|anterior|contable|disponible)/i,
   /^total(es)?\b/i,
@@ -298,6 +301,37 @@ export function parseSantanderCCCartola(text: string, fallbackYear: string): Raw
   return rows;
 }
 
+// Known Spanish financial vocabulary we can confidently restore when "?" stands in for
+// an accented vowel. Merchant names aren't in this list on purpose: a "?" there is not
+// recoverable (it could have been any vowel), so those are left as-is rather than guessed.
+const KNOWN_ACCENTED_WORDS = [
+  'línea', 'líneas', 'crédito', 'créditos', 'depósito', 'depósitos',
+  'mínimo', 'mínima', 'automático', 'automática', 'préstamo', 'préstamos',
+  'comisión', 'comisiones', 'número', 'números',
+];
+
+function toMojibakePattern(word: string): RegExp {
+  const pattern = word.replace(/[íéáóú]/gi, (vowel) => `[${vowel}?]`);
+  return new RegExp(`\\b${pattern}\\b`, 'gi');
+}
+
+function matchCase(template: string, replacement: string): string {
+  if (template === template.toUpperCase()) return replacement.toUpperCase();
+  if (template[0] === template[0].toUpperCase()) {
+    return replacement[0].toUpperCase() + replacement.slice(1).toLowerCase();
+  }
+  return replacement.toLowerCase();
+}
+
+/** Restores known financial vocabulary where a bank export replaced an accented vowel with "?". */
+function fixKnownAccentMojibake(text: string): string {
+  let result = text;
+  for (const word of KNOWN_ACCENTED_WORDS) {
+    result = result.replace(toMojibakePattern(word), (match) => matchCase(match, word));
+  }
+  return result;
+}
+
 /**
  * Apply sign conventions and transaction-type classification, producing the
  * same row shape used throughout the app. Shared by both parsers.
@@ -322,11 +356,12 @@ export function toSnapshotRows(
       transactionType = classifyCheckingType(row.description, amount);
     }
 
+    const description = fixKnownAccentMojibake(row.description);
     return {
       id: crypto.randomUUID(),
       date: row.date,
-      description: row.description,
-      merchant: row.merchant ?? row.description,
+      description,
+      merchant: fixKnownAccentMojibake(row.merchant ?? row.description),
       amount,
       transactionType,
       source,

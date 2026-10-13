@@ -281,6 +281,38 @@ describe('parseSantanderCCCartola', () => {
 // ─── toSnapshotRows ───────────────────────────────────────────────────────────
 
 describe('toSnapshotRows', () => {
+  it('restores known Spanish financial vocabulary when "?" stands in for an accented vowel', () => {
+    const rows = toSnapshotRows(
+      [{ date: '2026-07-01', description: 'Intereses L?nea de Cr?dito', amount: -1640, explicitSign: true }],
+      'checking',
+      'santander',
+    );
+    expect(rows[0].description).toBe('Intereses Línea de Crédito');
+    expect(rows[0].merchant).toBe('Intereses Línea de Crédito');
+  });
+
+  it('preserves the original casing style (all-caps vs. title case) when fixing known words', () => {
+    const rows = toSnapshotRows(
+      [
+        { date: '2026-07-01', description: 'PAGO L?NEA DE CR?DITO', amount: -1000, explicitSign: true },
+        { date: '2026-07-02', description: 'Monto m?nimo a pagar', amount: -2000, explicitSign: true },
+      ],
+      'checking',
+      'santander',
+    );
+    expect(rows[0].description).toBe('PAGO LÍNEA DE CRÉDITO');
+    expect(rows[1].description).toBe('Monto mínimo a pagar');
+  });
+
+  it('leaves an unrecognized word with "?" untouched (merchant names cannot be recovered)', () => {
+    const rows = toSnapshotRows(
+      [{ date: '2026-07-01', description: 'CAF? LITERARIO', amount: -5000, explicitSign: true }],
+      'credit_card',
+      'santander',
+    );
+    expect(rows[0].description).toBe('CAF? LITERARIO');
+  });
+
   it('assigns id, source and bank to every row', () => {
     const rows = toSnapshotRows(
       [{ date: '2026-07-01', description: 'UBER', amount: -5000, explicitSign: true }],
