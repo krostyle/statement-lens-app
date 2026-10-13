@@ -24,12 +24,21 @@ export function computeSnapshotMetrics(
   month: string,
   excludedCategoryIds: Set<string> = new Set(),
 ) {
-  const expenses = allTxs.filter((t) => t.transactionType === 'expense' && t.amount < 0);
-  const income   = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
+  // Returns/credit notes (positive amounts) net against purchases — same convention as the
+  // domain's netSpendByCategory/getTopMerchants — instead of being ignored outright.
+  const expenseTxs = allTxs.filter((t) => t.transactionType === 'expense' && t.amount !== 0);
+  const income     = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
 
-  const totalExpenses = expenses
-    .filter((t) => !excludedCategoryIds.has(t.categoryId))
-    .reduce((s, t) => s + Math.abs(t.amount), 0);
+  const categoryNets = new Map<string, number>();
+  const categoryNames = new Map<string, string>();
+  for (const t of expenseTxs) {
+    categoryNets.set(t.categoryId, (categoryNets.get(t.categoryId) ?? 0) + t.amount);
+    if (!categoryNames.has(t.categoryId)) categoryNames.set(t.categoryId, t.categoryName);
+  }
+
+  const totalExpenses = Array.from(categoryNets.entries())
+    .filter(([categoryId, net]) => net < 0 && !excludedCategoryIds.has(categoryId))
+    .reduce((s, [, net]) => s + Math.abs(net), 0);
   const totalIncome   = income.reduce((s, t) => s + t.amount, 0);
 
   const elapsed   = daysElapsed(month);
@@ -37,30 +46,32 @@ export function computeSnapshotMetrics(
   const dailyAvg  = elapsed > 0 ? totalExpenses / elapsed : 0;
   const projected = Math.round(dailyAvg * total);
 
-  // By merchant — categoryName is empty string when transactions have mixed categories
+  // By merchant — categoryName is empty string when transactions have mixed categories.
+  // A return/credit note reduces that merchant's running total (floored at 0, same as getTopMerchants).
   const merchantMap = new Map<string, {
     total: number; count: number;
     categoryName: string; categoryId: string; mixedCategories: boolean;
     sources: Set<string>; banks: Set<string>;
   }>();
-  for (const t of expenses) {
-    const e = merchantMap.get(t.merchant);
-    if (!e) {
-      merchantMap.set(t.merchant, {
-        total: Math.abs(t.amount), count: 1,
-        categoryName: t.categoryName, categoryId: t.categoryId, mixedCategories: false,
-        sources: new Set([t.source]),
-        banks: new Set([(t as { bank?: string }).bank ?? 'santander']),
-      });
-    } else {
+  for (const t of expenseTxs) {
+    const e = merchantMap.get(t.merchant) ?? {
+      total: 0, count: 0,
+      categoryName: t.categoryName, categoryId: t.categoryId, mixedCategories: false,
+      sources: new Set<string>(), banks: new Set<string>(),
+    };
+    if (t.amount < 0) {
       e.total += Math.abs(t.amount);
       e.count += 1;
-      if (e.categoryId !== t.categoryId) e.mixedCategories = true;
-      e.sources.add(t.source);
-      e.banks.add((t as { bank?: string }).bank ?? 'santander');
+    } else {
+      e.total = Math.max(0, e.total - t.amount);
     }
+    if (e.categoryId !== t.categoryId) e.mixedCategories = true;
+    e.sources.add(t.source);
+    e.banks.add((t as { bank?: string }).bank ?? 'santander');
+    merchantMap.set(t.merchant, e);
   }
   const byMerchant = Array.from(merchantMap.entries())
+    .filter(([, { total }]) => total > 0)
     .map(([merchant, { total, count, categoryName, mixedCategories, sources, banks }]) => ({
       merchant,
       total: Math.round(total),
@@ -71,23 +82,20 @@ export function computeSnapshotMetrics(
     }))
     .sort((a, b) => b.total - a.total);
 
-  // By category — with budget comparison
-  const catMap = new Map<string, { name: string; total: number }>();
-  for (const t of expenses) {
-    const e = catMap.get(t.categoryId) ?? { name: t.categoryName, total: 0 };
-    e.total += Math.abs(t.amount);
-    catMap.set(t.categoryId, e);
-  }
-  const byCategory = Array.from(catMap.entries())
-    .map(([categoryId, { name, total }]) => {
+  // By category — with budget comparison. A category whose returns fully offset its
+  // purchases (net >= 0) is dropped, matching the domain's netSpendByCategory.
+  const byCategory = Array.from(categoryNets.entries())
+    .filter(([, net]) => net < 0)
+    .map(([categoryId, net]) => {
+      const categoryTotal = Math.abs(net);
       const budget = budgetsByCategory.get(categoryId) ?? null;
       return {
         categoryId,
-        categoryName: name,
-        total: Math.round(total),
-        pctOfTotal:   totalExpenses > 0 ? Math.round((total / totalExpenses) * 100) : 0,
+        categoryName: categoryNames.get(categoryId) ?? '',
+        total: Math.round(categoryTotal),
+        pctOfTotal:   totalExpenses > 0 ? Math.round((categoryTotal / totalExpenses) * 100) : 0,
         budget,
-        pctOfBudget:  budget ? Math.round((total / budget) * 100) : null,
+        pctOfBudget:  budget ? Math.round((categoryTotal / budget) * 100) : null,
       };
     })
     .sort((a, b) => b.total - a.total);

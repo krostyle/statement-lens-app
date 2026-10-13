@@ -88,6 +88,63 @@ describe('computeSnapshotMetrics', () => {
     expect(byMerchant.total).toBe(90000);
   });
 
+  it('nets a return/credit note (positive amount) against purchases in the same category', () => {
+    const metrics = computeSnapshotMetrics(
+      [
+        makeTx({ categoryId: 'cat-amorcito', categoryName: 'Mi Amorcito', merchant: 'Falabella', amount: -1435756 }),
+        makeTx({ categoryId: 'cat-amorcito', categoryName: 'Mi Amorcito', merchant: 'Falabella', amount: 365896 }),
+      ],
+      new Map(),
+      '2024-01',
+    );
+
+    expect(metrics.totalExpenses).toBe(1069860);
+    const amorcito = metrics.byCategory.find((c) => c.categoryId === 'cat-amorcito')!;
+    expect(amorcito.total).toBe(1069860);
+  });
+
+  it('drops a category entirely when its returns fully offset its purchases (net >= 0)', () => {
+    const metrics = computeSnapshotMetrics(
+      [
+        makeTx({ categoryId: 'cat-1', amount: -10000 }),
+        makeTx({ categoryId: 'cat-1', amount: 15000 }), // return exceeds the purchase
+      ],
+      new Map(),
+      '2024-01',
+    );
+
+    expect(metrics.totalExpenses).toBe(0);
+    expect(metrics.byCategory.find((c) => c.categoryId === 'cat-1')).toBeUndefined();
+  });
+
+  it('nets a return/credit note against the same merchant, floored at 0', () => {
+    const metrics = computeSnapshotMetrics(
+      [
+        makeTx({ merchant: 'Falabella', categoryId: 'cat-1', amount: -50000 }),
+        makeTx({ merchant: 'Falabella', categoryId: 'cat-1', amount: 20000 }),
+      ],
+      new Map(),
+      '2024-01',
+    );
+
+    const falabella = metrics.byMerchant.find((m) => m.merchant === 'Falabella')!;
+    expect(falabella.total).toBe(30000);
+    expect(falabella.count).toBe(1); // only the purchase counts as an occurrence
+  });
+
+  it('omits a merchant entirely when its returns fully offset its purchases', () => {
+    const metrics = computeSnapshotMetrics(
+      [
+        makeTx({ merchant: 'Falabella', amount: -10000 }),
+        makeTx({ merchant: 'Falabella', amount: 10000 }),
+      ],
+      new Map(),
+      '2024-01',
+    );
+
+    expect(metrics.byMerchant.find((m) => m.merchant === 'Falabella')).toBeUndefined();
+  });
+
   it('with no excludedCategoryIds given, behaves exactly as before', () => {
     const metrics = computeSnapshotMetrics(
       [makeTx({ categoryId: 'cat-1', amount: -10000 })],
