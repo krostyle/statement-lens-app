@@ -21,11 +21,12 @@ export interface RawParsedRow {
   isAdditional?: boolean;
 }
 
+// Excel clipboard paste can mangle accented letters into a literal "?" (e.g. "mínimo" → "m?nimo").
 const SKIP_PATTERNS = [
   /saldo\s+(inicial|final|anterior|contable|disponible)/i,
   /^total(es)?\b/i,
   /^subtotal\b/i,
-  /monto\s+(facturado|cancelado|pagado|total|m[ií]nimo)/i,
+  /monto\s+(facturado|cancelado|pagado|total|m[ií?]nimo)/i,
   /cupo\s+(total|disponible|utilizado)/i,
   /^fecha\b/i,
   /sin\s+movimientos/i,
@@ -35,7 +36,7 @@ const SKIP_PATTERNS = [
 
 const CC_PAYMENT_PATTERNS = [
   /^pago\b/i,
-  /pago\s+(recibido|pap|autom[aá]tico)/i,
+  /pago\s+(recibido|pap|autom[aá?]tico)/i,
   /abono\s+pago/i,
 ];
 

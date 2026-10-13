@@ -257,6 +257,25 @@ describe('parseSantanderCCCartola', () => {
     expect(txs.every((t) => t.source === 'checking')).toBe(true);
     expect(txs.every((t) => t.bank === 'santander')).toBe(true);
   });
+
+  it('still classifies as transfer when accents were mangled into "?" (common when pasting from Excel)', () => {
+    const mojibake = [
+      'FECHA\tSUCURSAL\tDESCRIPCIÓN\tN° DOCUMENTO\tCHEQUES Y OTROS CARGOS\tDEPOSITOS Y OTROS ABONOS\tSALDO',
+      '02/09\tNVA P ALTO\tIntereses L?nea de Cr?dito\t6850736\t$1.640\t\t',
+    ].join('\n');
+    const txs = toSnapshotRows(parseSantanderCCCartola(mojibake, '2026'), 'checking', 'santander');
+
+    expect(txs).toHaveLength(1);
+    expect(txs[0].transactionType).toBe('transfer');
+  });
+
+  it('still skips a "monto m?nimo" row when accents were mangled into "?"', () => {
+    const mojibake = [
+      'FECHA\tSUCURSAL\tDESCRIPCIÓN\tN° DOCUMENTO\tCHEQUES Y OTROS CARGOS\tDEPOSITOS Y OTROS ABONOS\tSALDO',
+      '02/09\tNVA P ALTO\tMonto M?nimo a pagar\t6850736\t$1.640\t\t',
+    ].join('\n');
+    expect(parseSantanderCCCartola(mojibake, '2026')).toEqual([]);
+  });
 });
 
 // ─── toSnapshotRows ───────────────────────────────────────────────────────────

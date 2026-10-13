@@ -21,6 +21,11 @@ describe('classifyCheckingType', () => {
   it('classifies own-account transfers as transfer', () => {
     expect(classifyCheckingType('TRASPASO CON LA CUENTA N°1234', -30000)).toBe('transfer');
   });
+
+  it('classifies credit line movements as transfer even when accents were mangled into "?" (common when pasting from Excel)', () => {
+    expect(classifyCheckingType('Intereses L?nea de Cr?dito', -1640)).toBe('transfer');
+    expect(classifyCheckingType('PAGO L?NEA DE CR?DITO', -50000)).toBe('transfer');
+  });
 });
 
 describe('parseCsvSnapshot', () => {

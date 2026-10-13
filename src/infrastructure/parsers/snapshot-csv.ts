@@ -1,5 +1,7 @@
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 
+// Excel clipboard paste can mangle accented letters into a literal "?" (e.g. "Línea" → "L?nea").
+// Every accented vowel below also accepts "?" as a stand-in so these keywords still match.
 /** Patterns that indicate an internal transfer (credit card payment, credit line, own-account). */
 const TRANSFER_PATTERNS = [
   // Credit card payments
@@ -8,17 +10,17 @@ const TRANSFER_PATTERNS = [
   /pago\s+tarj/i,
   /\bpago\s+tc\b/i,
   /\bpag\.?\s*tc\b/i,
-  /traspaso.*t\.?\s*cr[eé]d/i,        // "Traspaso ... T. Crédito"
+  /traspaso.*t\.?\s*cr[eé?]d/i,        // "Traspaso ... T. Crédito"
   // Credit line (Línea de Crédito — accent-safe)
-  /l[íi]nea\s+(de\s+)?cr[eé]d/i,
-  /linea\s+(de\s+)?cr[eé]?d/i,
+  /l[íi?]nea\s+(de\s+)?cr[eé?]d/i,
+  /linea\s+(de\s+)?cr[eé?]?d/i,
   /uso\s+lin/i,
   /pago\s+lin/i,
   /\bl\s*de\s*cr/i,
-  /cr[eé]d\.?\s*hipot/i,
+  /cr[eé?]d\.?\s*hipot/i,
   /\blca\b/i,                          // Línea de Crédito Automática
-  /pago\s+cuota\s+cr[eé]d/i,          // consumer loan installment
-  /traspaso.*l[íi]nea/i,              // "Traspaso ... Línea"
+  /pago\s+cuota\s+cr[eé?]d/i,          // consumer loan installment
+  /traspaso.*l[íi?]nea/i,              // "Traspaso ... Línea"
   // Own-account transfers
   /traspaso\s+con\s+la\s+cuenta/i,    // "TRASPASO CON LA CUENTA N°"
   /trf\s+a\s+yo\b/i,
