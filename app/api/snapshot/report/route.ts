@@ -215,17 +215,8 @@ export async function GET(req: Request) {
     .filter((b) => !excludedCategoryIds.has(b.categoryId))
     .reduce((s, b) => s + b.monthlyAmount, 0);
 
-  const expenses = allTxs.filter((t) => t.transactionType === 'expense' && t.amount < 0);
-  const income   = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
+  const income    = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
   const transfers = allTxs.filter((t) => t.transactionType === 'transfer');
-
-  // Group expenses by categoryId for detail section
-  const txByCategory = new Map<string, SnapshotTransaction[]>();
-  for (const t of expenses) {
-    const arr = txByCategory.get(t.categoryId) ?? [];
-    arr.push(t);
-    txByCategory.set(t.categoryId, arr);
-  }
 
   const budgetPct   = totalBudget > 0 ? Math.round((metrics.totalExpenses / totalBudget) * 100) : null;
   const monthPct    = Math.min(Math.round((metrics.daysElapsed / metrics.daysInMonth) * 100), 100);
@@ -399,32 +390,21 @@ export async function GET(req: Request) {
   </div>` : '';
 
   // ── Category detail ──────────────────────────────────────────────────────────
+  // One flat table, one header — transaction-level detail lives in "Por comercio" below,
+  // so this table stays scannable even with a long list of categories.
   const categoriesHtml = metrics.byCategory.map((cat) => {
-    const catTxs = (txByCategory.get(cat.categoryId) ?? []).sort((a, b) => a.date.localeCompare(b.date));
-    const txRows = catTxs.map((t) => {
-      const bankLabel = BANK_LABELS[t.bank ?? ''] ?? t.bank ?? '';
-      return `<tr class="tx-row">
-        <td class="tx-date">${t.date.slice(5).replace('-', '/')}</td>
-        <td class="tx-merchant">${esc(cleanDesc(t.description))}<span class="tx-meta">${esc(bankLabel)} · ${SOURCE_LABELS[t.source] ?? t.source}</span></td>
-        <td class="tx-amount">${esc(clp(Math.abs(t.amount)))}</td>
-      </tr>`;
-    }).join('');
     const budgeted = cat.budget ?? 0;
     const isOver = budgeted > 0 && cat.total > budgeted;
     const statusBadge = budgeted > 0
       ? (isOver ? `<span class="badge badge-red">Excedido</span>` : `<span class="badge badge-green">OK</span>`)
       : '';
-    return `<tbody class="cat-group">
-      <tr class="cat-row">
-        <td class="cat-name" colspan="2">${statusBadge}${esc(cat.categoryName || 'Sin asignar')}</td>
-        <td class="num">${budgeted > 0 ? esc(clp(budgeted)) : '—'}</td>
-        <td class="num">${esc(clp(cat.total))}</td>
-        <td class="num">${cat.pctOfTotal}% del gasto</td>
-        <td class="num pct ${isOver ? 'text-red' : ''}">${cat.pctOfBudget !== null ? `${cat.pctOfBudget}%` : '—'}</td>
-      </tr>
-      <tr class="tx-subhead"><td class="tx-date">Fecha</td><td class="tx-merchant">Descripción</td><td class="tx-amount">Monto</td><td colspan="3"></td></tr>
-      ${txRows || `<tr><td colspan="6" class="tx-empty">Sin transacciones</td></tr>`}
-    </tbody>`;
+    return `<tr class="cat-row">
+      <td class="cat-name">${statusBadge}${esc(cat.categoryName || 'Sin asignar')}</td>
+      <td class="num">${budgeted > 0 ? esc(clp(budgeted)) : '—'}</td>
+      <td class="num">${esc(clp(cat.total))}</td>
+      <td class="num">${cat.pctOfTotal}%</td>
+      <td class="num ${isOver ? 'text-red' : ''}">${cat.pctOfBudget !== null ? `${cat.pctOfBudget}%` : '—'}</td>
+    </tr>`;
   }).join('');
 
   // ── Transfers section ────────────────────────────────────────────────────────
@@ -467,7 +447,7 @@ export async function GET(req: Request) {
   <title>Mes contable ${esc(formatMonth(month))} — Statement Lens</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; color: #18181b; background: #fff; font-size: 14px; line-height: 1.5; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif; color: #18181b; background: #fff; font-size: 14px; line-height: 1.5; font-variant-numeric: tabular-nums; }
     .page { max-width: 860px; margin: 0 auto; padding: 28px 36px 40px; }
     .action-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding: 10px 14px; background: #f4f4f5; border: 1px solid #e4e4e7; border-radius: 8px; }
     .btn { padding: 7px 14px; border-radius: 6px; border: 1px solid #d4d4d8; background: #fff; cursor: pointer; font-size: 13px; font-family: inherit; color: #18181b; text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
@@ -499,17 +479,14 @@ export async function GET(req: Request) {
     .cat-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .cat-table-head th { font-size: 10px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; background: #f4f4f5; border-top: 1px solid #e5e7eb; border-bottom: 2px solid #d1d5db; text-align: right; }
     .cat-table-head th:first-child { text-align: left; }
-    .cat-row { background: #f9fafb; }
-    .cat-row td { padding: 10px 10px; border-top: 1px solid #d1d5db; font-weight: 600; font-size: 13px; color: #111827; }
-    .cat-name { text-align: left !important; }
-    .tx-subhead td { font-size: 10px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; padding: 5px 10px 3px 28px; background: #fafafa; }
-    .tx-subhead .tx-amount { text-align: right; padding-right: 10px; }
+    .cat-row td { padding: 10px; border-top: 1px solid #e5e7eb; font-size: 13px; color: #111827; }
+    .cat-row:nth-child(even) { background: #fafafa; }
+    .cat-name { text-align: left !important; font-weight: 600; }
     .tx-row td { padding: 4px 10px; border-bottom: 1px solid #f3f4f6; }
     .tx-date { padding-left: 28px !important; width: 60px; white-space: nowrap; color: #9ca3af; font-size: 12px; }
     .tx-merchant { color: #374151; font-size: 12px; }
     .tx-meta { display: block; font-size: 10px; color: #9ca3af; margin-top: 1px; font-weight: 500; }
     .tx-amount { text-align: right; white-space: nowrap; font-size: 12px; color: #374151; padding-right: 10px !important; }
-    .tx-empty { padding: 8px 10px 8px 28px !important; font-size: 12px; color: #9ca3af; font-style: italic; border-bottom: 1px solid #e5e7eb; }
     .num { text-align: right; color: #374151; }
     .pct { font-size: 12px; color: #6b7280; }
     .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; margin-right: 5px; }
@@ -523,7 +500,7 @@ export async function GET(req: Request) {
       .page { padding: 0 16px; max-width: 100%; }
       body { font-size: 12px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       .metrics-grid { grid-template-columns: repeat(4, 1fr); page-break-inside: avoid; }
-      .cat-group { page-break-inside: avoid; }
+      .cat-row { page-break-inside: avoid; }
     }
   </style>
 </head>
@@ -605,14 +582,14 @@ export async function GET(req: Request) {
       <table class="cat-table">
         <thead class="cat-table-head">
           <tr>
-            <th colspan="2" style="text-align:left;">Categoría</th>
+            <th style="text-align:left;">Categoría</th>
             <th>Presupuesto</th>
             <th>Gastado</th>
-            <th>% del total</th>
+            <th>% del gasto</th>
             <th>% presup.</th>
           </tr>
         </thead>
-        ${categoriesHtml}
+        <tbody>${categoriesHtml}</tbody>
       </table>
     </div>
 
