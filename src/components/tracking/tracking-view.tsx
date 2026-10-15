@@ -176,7 +176,11 @@ export function TrackingView() {
   const hasData  = !!data && (data.checkingTxs.length > 0 || data.ccTxs.length > 0);
   const uploads  = data?.uploads ?? [];
   const monthPct = m ? Math.min(Math.round((m.daysElapsed / m.daysInMonth) * 100), 100) : 0;
-  const budgetPct = totalBudget > 0 && m ? Math.round((m.totalExpenses / totalBudget) * 100) : null;
+  // Compared against the projection (includes pending fixed commitments like rent that
+  // haven't posted yet), not just what's been spent so far — otherwise this looks
+  // artificially healthy mid-month, right before those known expenses land.
+  const budgetPct = totalBudget > 0 && m ? Math.round((m.projectedMonthTotal / totalBudget) * 100) : null;
+  const availableForDiscretionary = totalBudget > 0 && m ? totalBudget - m.projectedMonthTotal : null;
 
   return (
     <div className="space-y-6">
@@ -379,17 +383,17 @@ export function TrackingView() {
 
           {/* Progress bars */}
           <div className="rounded-xl border border-zinc-200 bg-white p-4 space-y-4">
-            {/* Total spent — always visible */}
+            {/* Projected vs. budget — always visible */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <div>
-                  <span className="text-zinc-700 font-medium">Total gastado</span>
+                  <span className="text-zinc-700 font-medium">Proyectado</span>
                   {budgetPct !== null && (
                     <span className="ml-2 text-xs text-zinc-400">de {formatCurrency(totalBudget)} en presupuesto</span>
                   )}
                 </div>
                 <div className="text-right">
-                  <span className="font-semibold text-zinc-900">{formatCurrency(m.totalExpenses)}</span>
+                  <span className="font-semibold text-zinc-900">{formatCurrency(m.projectedMonthTotal)}</span>
                   {budgetPct !== null && (
                     <span className={`ml-1.5 text-xs font-medium ${budgetPct > 100 ? 'text-red-500' : budgetPct > 80 ? 'text-amber-500' : 'text-green-600'}`}>
                       ({budgetPct}%)
@@ -398,12 +402,24 @@ export function TrackingView() {
                 </div>
               </div>
               {budgetPct !== null ? (
-                <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
-                    style={{ width: `${Math.min(budgetPct, 100)}%` }}
-                  />
-                </div>
+                <>
+                  <div className="h-2 rounded-full bg-zinc-100 overflow-hidden">
+                    <div
+                      className={`h-full rounded-full transition-all ${budgetPct > 100 ? 'bg-red-500' : budgetPct > 80 ? 'bg-amber-400' : 'bg-brand-600'}`}
+                      style={{ width: `${Math.min(budgetPct, 100)}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-zinc-400">Gastado hasta hoy: {formatCurrency(m.totalExpenses)}</span>
+                    {availableForDiscretionary !== null && (
+                      availableForDiscretionary >= 0 ? (
+                        <span className="text-green-600 font-medium">Disponible para gastos no fijos: {formatCurrency(availableForDiscretionary)}</span>
+                      ) : (
+                        <span className="text-red-500 font-medium">{formatCurrency(Math.abs(availableForDiscretionary))} por sobre el presupuesto proyectado</span>
+                      )
+                    )}
+                  </div>
+                </>
               ) : (
                 <p className="text-xs text-zinc-400">
                   Sin presupuesto definido — configúralo en{' '}

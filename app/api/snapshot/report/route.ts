@@ -219,7 +219,10 @@ export async function GET(req: Request) {
   const income    = allTxs.filter((t) => t.transactionType === 'income'  && t.amount > 0);
   const transfers = allTxs.filter((t) => t.transactionType === 'transfer');
 
-  const budgetPct   = totalBudget > 0 ? Math.round((metrics.totalExpenses / totalBudget) * 100) : null;
+  // Compared against the projection (not just what's posted so far) — otherwise this looks
+  // artificially healthy mid-month, before known fixed commitments (e.g. rent) have posted.
+  const budgetPct   = totalBudget > 0 ? Math.round((metrics.projectedMonthTotal / totalBudget) * 100) : null;
+  const availableForDiscretionary = totalBudget > 0 ? totalBudget - metrics.projectedMonthTotal : null;
   const monthPct    = Math.min(Math.round((metrics.daysElapsed / metrics.daysInMonth) * 100), 100);
   const generatedAt = new Date().toLocaleDateString('es-CL', { day: 'numeric', month: 'long', year: 'numeric' });
 
@@ -297,21 +300,30 @@ export async function GET(req: Request) {
   const barHtml = generateBarChart(chartCategories);
 
   // ── Budget bar ───────────────────────────────────────────────────────────────
+  // Leads with the projection (includes pending fixed commitments like rent), not just
+  // what's posted so far — otherwise this looks artificially healthy mid-month.
   const budgetBarHtml = budgetPct !== null ? (() => {
     const color = budgetPct > 100 ? '#ef4444' : budgetPct > 80 ? '#f97316' : '#3b82f6';
     const capped = Math.min(budgetPct, 100);
+    const availableLine = availableForDiscretionary !== null && availableForDiscretionary >= 0
+      ? `<span class="text-green" style="font-weight:600;">Disponible para gastos no fijos: ${esc(clp(availableForDiscretionary))}</span>`
+      : `<span class="text-red" style="font-weight:600;">${esc(clp(Math.abs(availableForDiscretionary ?? 0)))} por sobre el presupuesto proyectado</span>`;
     return `
     <div class="section">
       <div class="section-title">Presupuesto total</div>
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
         <span style="font-size:13px;color:#374151;">
-          <strong>${esc(clp(metrics.totalExpenses))}</strong>
-          <span style="color:#9ca3af;font-size:11px;margin-left:4px;">de ${esc(clp(totalBudget))} presupuestado</span>
+          <strong>${esc(clp(metrics.projectedMonthTotal))}</strong>
+          <span style="color:#9ca3af;font-size:11px;margin-left:4px;">proyectado de ${esc(clp(totalBudget))} presupuestado</span>
         </span>
         <span style="font-size:16px;font-weight:800;color:${color};">${budgetPct}%</span>
       </div>
-      <div style="height:10px;border-radius:5px;background:#f3f4f6;overflow:hidden;">
+      <div style="height:10px;border-radius:5px;background:#f3f4f6;overflow:hidden;margin-bottom:8px;">
         <div style="height:100%;width:${capped}%;background:${color};border-radius:5px;transition:width .3s;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;">
+        <span style="color:#9ca3af;">Gastado hasta hoy: ${esc(clp(metrics.totalExpenses))}</span>
+        ${availableLine}
       </div>
     </div>`;
   })() : '';

@@ -98,6 +98,40 @@ describe('GET /api/snapshot/report', () => {
     expect(html).toContain('<span class="badge badge-amber">Fijo</span>');
   });
 
+  it('compares the budget bar against the projection (including a pending fixed commitment), not just what has posted so far', async () => {
+    mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
+    vi.mocked(transactionRepo.findTrackingByMonth).mockImplementation(async (_userId, month) =>
+      month === '2024-03'
+        ? ([
+            { id: 'tx-1', date: new Date('2024-03-05'), description: 'Super', merchant: 'Lider', amount: -50000, transactionType: 'expense', categoryId: 'cat-food', accountType: 'credit_card', bank: 'santander' },
+          ] as never)
+        : []
+    );
+    vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
+      { id: 'cat-food', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-arriendo', userId: 'user-1', name: 'Arriendo', color: '#000', icon: null, isDefault: false, excludeFromBudget: false, isFixed: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+    vi.mocked(budgetRepo.findByUserId).mockImplementation(async (_userId, month) =>
+      month === '2024-03'
+        ? ([
+            { id: 'b-1', userId: 'user-1', categoryId: 'cat-food', month: '2024-03', monthlyAmount: 100000, createdAt: new Date(), updatedAt: new Date() },
+            { id: 'b-2', userId: 'user-1', categoryId: 'cat-arriendo', month: '2024-03', monthlyAmount: 450000, createdAt: new Date(), updatedAt: new Date() },
+          ] as never)
+        : []
+    );
+
+    const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
+    const html = await res.text();
+
+    // projected = 50.000 (food, posted) + 450.000 (rent, pending) = 500.000 of 550.000 budgeted → 91%
+    expect(html).toContain('$500.000');
+    expect(html).toContain('proyectado de');
+    expect(html).toContain('$550.000');
+    expect(html).toContain('91%');
+    expect(html).toContain('Gastado hasta hoy: $50.000');
+    expect(html).toContain('Disponible para gastos no fijos: $50.000');
+  });
+
   it('excludes a category flagged excludeFromBudget from totalExpenses, but keeps it in the detail section', async () => {
     mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
     vi.mocked(transactionRepo.findTrackingByMonth).mockImplementation(async (_userId, month) =>
