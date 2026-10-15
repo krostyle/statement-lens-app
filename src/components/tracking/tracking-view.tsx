@@ -59,11 +59,13 @@ interface SnapshotData {
 const BANK_LABEL: Record<string, string> = {
   santander: 'Santander',
   falabella: 'Falabella',
+  liderbci: 'Lider BCI',
 };
 
 const BANKS = [
   { value: 'santander', label: 'Santander' },
   { value: 'falabella', label: 'Falabella' },
+  { value: 'liderbci', label: 'Lider BCI' },
 ];
 
 export function TrackingView() {
@@ -259,7 +261,7 @@ export function TrackingView() {
               <Label>Movimientos</Label>
               <textarea
                 className="w-full h-40 rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs font-mono resize-none focus:outline-none focus:ring-2 focus:ring-brand-600 focus:border-transparent placeholder:text-zinc-400"
-                placeholder={"Pega los movimientos copiados desde el portal del banco.\n\nSantander TC / CC:\nFecha  Tipo  Detalle  Monto cargo  Monto abono\n25/07/2026  FASIL MARKET  -$19.190\n\nFalabella TC (Excel):\nFECHA  DESCRIPCION  TITULAR/ADICIONAL  MONTO  CUOTAS PENDIENTES  VALOR CUOTA\n19-07-2026  COMPRA UBER  Adicional  $5.513  0  $5.513"}
+                placeholder={"Pega los movimientos copiados desde el portal del banco.\n\nSantander TC / CC:\nFecha  Tipo  Detalle  Monto cargo  Monto abono\n25/07/2026  FASIL MARKET  -$19.190\n\nFalabella TC (Excel):\nFECHA  DESCRIPCION  TITULAR/ADICIONAL  MONTO  CUOTAS PENDIENTES  VALOR CUOTA\n19-07-2026  COMPRA UBER  Adicional  $5.513  0  $5.513\n\nLider BCI (Excel):\nFecha  Tienda / Descripción  Cuotas  Monto\n08/10/2026  LIDER DOMICILIO  1  $95.985"}
                 value={csvText}
                 onChange={(e) => setCsvText(e.target.value)}
                 autoFocus
