@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
-import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
+import { getExcludedCategoryIds, getFixedCategoryIds } from '@/src/domain/services/category.service';
 
 export async function PATCH(
   request: Request,
@@ -43,7 +43,7 @@ export async function PATCH(
   const categoryNameMap = new Map(categories.map((c) => [c.id, c.name]));
   const allSnapshot     = allTracking.map((t) => txToSnapshot(t, categoryNameMap));
   const budgetMap       = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-  const metrics         = computeSnapshotMetrics(allSnapshot, budgetMap, month, getExcludedCategoryIds(categories));
+  const metrics         = computeSnapshotMetrics(allSnapshot, budgetMap, month, getExcludedCategoryIds(categories), getFixedCategoryIds(categories));
 
   return NextResponse.json({ metrics });
 }

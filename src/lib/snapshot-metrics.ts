@@ -17,12 +17,17 @@ function daysElapsed(month: string): number {
  * @param excludedCategoryIds Categories whose spend is always fully reimbursed (e.g. an
  *   additional card holder's purchases) — excluded from totalExpenses/dailyAverage/projection,
  *   but still shown in full in byCategory and byMerchant.
+ * @param fixedCategoryIds Committed, non-negotiable categories (e.g. rent). If one hasn't
+ *   posted a transaction yet this month, its full budgeted amount is added to
+ *   projectedMonthTotal — a known future expense shouldn't be invisible just because it
+ *   lands late in the month. Once it posts, the real amount is used instead (no double count).
  */
 export function computeSnapshotMetrics(
   allTxs: SnapshotTransaction[],
   budgetsByCategory: Map<string, number>,
   month: string,
   excludedCategoryIds: Set<string> = new Set(),
+  fixedCategoryIds: Set<string> = new Set(),
 ) {
   // Returns/credit notes (positive amounts) net against purchases — same convention as the
   // domain's netSpendByCategory/getTopMerchants — instead of being ignored outright.
@@ -44,7 +49,21 @@ export function computeSnapshotMetrics(
   const elapsed   = daysElapsed(month);
   const total     = daysInMonth(month);
   const dailyAvg  = elapsed > 0 ? totalExpenses / elapsed : 0;
-  const projected = Math.round(dailyAvg * total);
+
+  // A fixed category that hasn't posted anything yet this month contributes nothing to
+  // totalExpenses/dailyAvg above — so its known, budgeted commitment is missing from the
+  // projection entirely. Add it on top, once, as a flat amount (not scaled by days elapsed).
+  let pendingFixedTotal = 0;
+  for (const categoryId of fixedCategoryIds) {
+    if (excludedCategoryIds.has(categoryId)) continue;
+    const budget = budgetsByCategory.get(categoryId);
+    if (!budget) continue;
+    const net = categoryNets.get(categoryId) ?? 0;
+    const alreadyPosted = net < 0;
+    if (!alreadyPosted) pendingFixedTotal += budget;
+  }
+
+  const projected = Math.round(dailyAvg * total) + pendingFixedTotal;
 
   // By merchant — categoryName is empty string when transactions have mixed categories.
   // A return/credit note reduces that merchant's running total (floored at 0, same as getTopMerchants).

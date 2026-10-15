@@ -2,7 +2,7 @@ import { auth } from '@clerk/nextjs/server';
 import { transactionRepo, categoryRepo, budgetRepo } from '@/src/infrastructure/container';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
-import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
+import { getExcludedCategoryIds, getFixedCategoryIds } from '@/src/domain/services/category.service';
 import { groupByMonth, calculateTotalIncome, calculateTotalExpenses } from '@/src/domain/services/transaction.service';
 import type { MonthlySpend } from '@/src/domain/services/transaction.service';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
@@ -206,11 +206,11 @@ export async function GET(req: Request) {
 
   const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
   const excludedCategoryIds = getExcludedCategoryIds(categories);
-  const fixedCategoryIds = new Set(categories.filter((c) => c.isFixed).map((c) => c.id));
+  const fixedCategoryIds = getFixedCategoryIds(categories);
   const allTxs: SnapshotTransaction[] = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
   const budgetsByCategory = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
 
-  const metrics = computeSnapshotMetrics(allTxs, budgetsByCategory, month, excludedCategoryIds);
+  const metrics = computeSnapshotMetrics(allTxs, budgetsByCategory, month, excludedCategoryIds, fixedCategoryIds);
   // Excluded categories' budgets are left out too, so budgetPct stays comparable to totalExpenses.
   const totalBudget = budgets
     .filter((b) => !excludedCategoryIds.has(b.categoryId))
@@ -229,7 +229,7 @@ export async function GET(req: Request) {
   let comparisonHtml = '';
   if (prevTxs.length > 0) {
     const prevAllTxs = prevTxs.map((tx) => txToSnapshot(tx, categoryNameMap));
-    const prevMetrics = computeSnapshotMetrics(prevAllTxs, new Map(), prevMonth, excludedCategoryIds);
+    const prevMetrics = computeSnapshotMetrics(prevAllTxs, new Map(), prevMonth, excludedCategoryIds, fixedCategoryIds);
     if (prevMetrics.totalExpenses > 0) {
       const spentChange = ((metrics.totalExpenses - prevMetrics.totalExpenses) / prevMetrics.totalExpenses) * 100;
 

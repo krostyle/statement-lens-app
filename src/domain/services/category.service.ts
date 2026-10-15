@@ -29,3 +29,8 @@ export function getCategoryNames(categories: Category[]): string[] {
 export function getExcludedCategoryIds(categories: Category[]): Set<string> {
   return new Set(categories.filter((c) => c.excludeFromBudget).map((c) => c.id));
 }
+
+/** Ids of committed, non-negotiable categories (e.g. rent). */
+export function getFixedCategoryIds(categories: Category[]): Set<string> {
+  return new Set(categories.filter((c) => c.isFixed).map((c) => c.id));
+}

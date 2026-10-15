@@ -9,7 +9,7 @@ import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
 import { computeSnapshotMetrics } from '@/src/lib/snapshot-metrics';
 import { txToSnapshot } from '@/src/lib/snapshot-utils';
-import { getExcludedCategoryIds } from '@/src/domain/services/category.service';
+import { getExcludedCategoryIds, getFixedCategoryIds } from '@/src/domain/services/category.service';
 
 // ─── Auto-categorize rows ─────────────────────────────────────────────────────
 
@@ -80,6 +80,7 @@ export async function POST(request: Request) {
 
     const categoryNameMap        = new Map(categories.map((c) => [c.id, c.name]));
     const excludedCategoryIds    = getExcludedCategoryIds(categories);
+    const fixedCategoryIds       = getFixedCategoryIds(categories);
     const defaultCategoryId      = categories.find((c) => c.name === 'Otros')?.id ?? categories[0]?.id ?? '';
     const additionalCardCategoryId = categories.find((c) => c.name === 'Mi Amorcito')?.id;
     const bankRuleMap            = new Map<string, RuleEntry>();
@@ -196,7 +197,7 @@ export async function POST(request: Request) {
     const ccTxs       = allSnapshot.filter((t) => t.source === 'credit_card');
 
     const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-    const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month, excludedCategoryIds);
+    const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month, excludedCategoryIds, fixedCategoryIds);
 
     const skipped = categorized.length - newRows.length;
     return NextResponse.json({ month, checkingTxs, ccTxs, metrics, uploads, ...(skipped > 0 ? { duplicatesSkipped: skipped } : {}) });
@@ -231,7 +232,7 @@ export async function GET(request: Request) {
   const ccTxs           = allSnapshot.filter((t) => t.source === 'credit_card');
 
   const budgetMap = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
-  const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month, getExcludedCategoryIds(categories));
+  const metrics   = computeSnapshotMetrics(allSnapshot, budgetMap, month, getExcludedCategoryIds(categories), getFixedCategoryIds(categories));
 
   return NextResponse.json({ month, checkingTxs, ccTxs, metrics, uploads });
 }

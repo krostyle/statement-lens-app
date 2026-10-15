@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { DEFAULT_CATEGORIES, getExcludedCategoryIds } from './category.service';
+import { DEFAULT_CATEGORIES, getExcludedCategoryIds, getFixedCategoryIds } from './category.service';
 import type { Category } from '../entities/category';
 
 function makeCategory(overrides: Partial<Category> = {}): Category {
@@ -54,5 +54,19 @@ describe('getExcludedCategoryIds', () => {
 
   it('returns an empty set when no category is flagged', () => {
     expect(getExcludedCategoryIds([makeCategory()])).toEqual(new Set());
+  });
+});
+
+describe('getFixedCategoryIds', () => {
+  it('returns the ids of categories flagged isFixed', () => {
+    const categories = [
+      makeCategory({ id: 'cat-1', isFixed: false }),
+      makeCategory({ id: 'cat-arriendo', isFixed: true }),
+    ];
+    expect(getFixedCategoryIds(categories)).toEqual(new Set(['cat-arriendo']));
+  });
+
+  it('returns an empty set when no category is flagged', () => {
+    expect(getFixedCategoryIds([makeCategory()])).toEqual(new Set());
   });
 });

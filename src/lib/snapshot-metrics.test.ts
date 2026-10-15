@@ -153,4 +153,70 @@ describe('computeSnapshotMetrics', () => {
     );
     expect(metrics.totalExpenses).toBe(10000);
   });
+
+  describe('fixedCategoryIds — projecting a known commitment that hasn\'t posted yet', () => {
+    it('adds the full budget of a fixed category to the projection when nothing has posted for it yet this month', () => {
+      const metrics = computeSnapshotMetrics(
+        [makeTx({ categoryId: 'cat-food', categoryName: 'Alimentación', amount: -20000 })],
+        new Map([['cat-rent', 450000]]), // "Arriendo" budgeted, but no transaction yet
+        '2024-01',
+        new Set(),
+        new Set(['cat-rent']),
+      );
+
+      // Base projection (closed month, 31/31 days) would just be totalExpenses (20000);
+      // the pending rent commitment is added on top.
+      expect(metrics.totalExpenses).toBe(20000);
+      expect(metrics.projectedMonthTotal).toBe(20000 + 450000);
+    });
+
+    it('does not add anything once the fixed category already has a posted transaction (avoids double counting)', () => {
+      const metrics = computeSnapshotMetrics(
+        [
+          makeTx({ categoryId: 'cat-food', categoryName: 'Alimentación', amount: -20000 }),
+          makeTx({ categoryId: 'cat-rent', categoryName: 'Arriendo', amount: -450000 }),
+        ],
+        new Map([['cat-rent', 450000]]),
+        '2024-01',
+        new Set(),
+        new Set(['cat-rent']),
+      );
+
+      expect(metrics.totalExpenses).toBe(470000);
+      expect(metrics.projectedMonthTotal).toBe(470000); // already real, nothing extra added
+    });
+
+    it('does not add anything for a fixed category with no budget set', () => {
+      const metrics = computeSnapshotMetrics(
+        [makeTx({ categoryId: 'cat-food', amount: -20000 })],
+        new Map(), // no budget for cat-rent
+        '2024-01',
+        new Set(),
+        new Set(['cat-rent']),
+      );
+
+      expect(metrics.projectedMonthTotal).toBe(20000);
+    });
+
+    it('ignores a fixed category that is also excludeFromBudget', () => {
+      const metrics = computeSnapshotMetrics(
+        [makeTx({ categoryId: 'cat-food', amount: -20000 })],
+        new Map([['cat-amorcito', 300000]]),
+        '2024-01',
+        new Set(['cat-amorcito']),
+        new Set(['cat-amorcito']),
+      );
+
+      expect(metrics.projectedMonthTotal).toBe(20000);
+    });
+
+    it('with no fixedCategoryIds given, behaves exactly as before', () => {
+      const metrics = computeSnapshotMetrics(
+        [makeTx({ categoryId: 'cat-1', amount: -10000 })],
+        new Map([['cat-rent', 450000]]),
+        '2024-01',
+      );
+      expect(metrics.projectedMonthTotal).toBe(10000);
+    });
+  });
 });
