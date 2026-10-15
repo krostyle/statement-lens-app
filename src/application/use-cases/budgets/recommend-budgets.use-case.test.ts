@@ -52,6 +52,7 @@ const needsCategory: Category = {
   type: 'needs',
   isDefault: true,
   excludeFromBudget: false,
+  isFixed: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };

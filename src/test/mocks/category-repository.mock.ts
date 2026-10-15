@@ -16,6 +16,7 @@ export function createMockCategoryRepo(existing: Category[] = []): ICategoryRepo
         id: `cat-${++idCounter}`,
         ...data,
         excludeFromBudget: data.excludeFromBudget ?? false,
+        isFixed: data.isFixed ?? false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -38,6 +39,7 @@ export function createMockCategoryRepo(existing: Category[] = []): ICategoryRepo
           id: `cat-${++idCounter}`,
           ...d,
           excludeFromBudget: d.excludeFromBudget ?? false,
+          isFixed: d.isFixed ?? false,
           createdAt: new Date(),
           updatedAt: new Date(),
         })

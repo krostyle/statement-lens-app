@@ -5,6 +5,7 @@ export const createCategorySchema = z.object({
   color: z.string().regex(/^#[0-9a-fA-F]{6}$/, 'Color hex inválido').optional().default('#6b7280'),
   icon: z.string().optional(),
   excludeFromBudget: z.boolean().optional(),
+  isFixed: z.boolean().optional(),
 });
 
 export const updateCategorySchema = z.object({
@@ -13,6 +14,7 @@ export const updateCategorySchema = z.object({
   icon: z.string().optional(),
   type: z.enum(['needs', 'wants']).nullable().optional(),
   excludeFromBudget: z.boolean().optional(),
+  isFixed: z.boolean().optional(),
 });
 
 export type CreateCategoryInput = z.infer<typeof createCategorySchema>;

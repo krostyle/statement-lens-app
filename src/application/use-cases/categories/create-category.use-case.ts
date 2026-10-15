@@ -15,6 +15,7 @@ export class CreateCategoryUseCase {
       icon: dto.icon,
       isDefault: false,
       excludeFromBudget: dto.excludeFromBudget ?? false,
+      isFixed: dto.isFixed ?? false,
     });
 
     return {
@@ -25,6 +26,7 @@ export class CreateCategoryUseCase {
       icon: category.icon,
       isDefault: category.isDefault,
       excludeFromBudget: category.excludeFromBudget,
+      isFixed: category.isFixed,
     };
   }
 }

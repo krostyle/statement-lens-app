@@ -13,6 +13,7 @@ describe('toCategoryDTO', () => {
       type: 'needs',
       isDefault: true,
       excludeFromBudget: false,
+      isFixed: false,
       createdAt: new Date('2024-01-01'),
       updatedAt: new Date('2024-01-02'),
     };
@@ -27,6 +28,7 @@ describe('toCategoryDTO', () => {
       icon: 'ShoppingCart',
       isDefault: true,
       excludeFromBudget: false,
+      isFixed: false,
     });
     expect(dto).not.toHaveProperty('createdAt');
     expect(dto).not.toHaveProperty('updatedAt');
@@ -41,6 +43,7 @@ describe('toCategoryDTO', () => {
       icon: null,
       isDefault: false,
       excludeFromBudget: false,
+      isFixed: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

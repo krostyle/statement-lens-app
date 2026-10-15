@@ -28,6 +28,7 @@ model Category {
   type              String?
   isDefault         Boolean        @default(false)
   excludeFromBudget Boolean        @default(false)
+  isFixed           Boolean        @default(false)
   createdAt         DateTime       @default(now())
   updatedAt         DateTime       @updatedAt
   user              UserProfile    @relation(fields: [userId], references: [clerkId], onDelete: Cascade)

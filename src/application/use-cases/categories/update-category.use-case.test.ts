@@ -13,7 +13,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
     findByUserIdAndName: async (userId, name) =>
       store.find((c) => c.userId === userId && c.name === name) ?? null,
     create: async (data: CreateCategoryInput) => {
-      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() };
+      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, isFixed: data.isFixed ?? false, createdAt: new Date(), updatedAt: new Date() };
       store.push(cat);
       return cat;
     },
@@ -35,6 +35,7 @@ const baseCategory: Category = {
   icon: 'ShoppingCart',
   isDefault: false,
   excludeFromBudget: false,
+  isFixed: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 };
@@ -50,6 +51,11 @@ describe('UpdateCategoryUseCase', () => {
     const result = await useCase.execute('cat-1', 'user-1', { name: 'Comida', color: '#ff0000' });
     expect(result.name).toBe('Comida');
     expect(result.color).toBe('#ff0000');
+  });
+
+  it('updates the isFixed flag', async () => {
+    const result = await useCase.execute('cat-1', 'user-1', { isFixed: true });
+    expect(result.isFixed).toBe(true);
   });
 
   it('throws when category not found', async () => {

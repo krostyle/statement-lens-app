@@ -15,6 +15,7 @@ export class ListCategoriesUseCase {
       type: c.type,
       isDefault: c.isDefault,
       excludeFromBudget: c.excludeFromBudget,
+      isFixed: c.isFixed,
     }));
   }
 }

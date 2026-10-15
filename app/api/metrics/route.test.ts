@@ -71,7 +71,7 @@ describe('GET /api/metrics', () => {
   it('excludes a category flagged excludeFromBudget from currentMonthTotal', async () => {
     mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
     vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
-      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
     ]);
     vi.mocked(transactionRepo.findByUserId).mockResolvedValue([
       makeTransaction({ categoryId: 'cat-1', accountingMonth: '2024-03', amount: -10000 }),

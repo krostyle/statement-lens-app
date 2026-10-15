@@ -67,7 +67,7 @@ describe('GET /api/snapshot/report', () => {
         : []
     );
     vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
-      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
     ]);
 
     const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
@@ -77,6 +77,25 @@ describe('GET /api/snapshot/report', () => {
     expect(res.headers.get('Content-Type')).toContain('text/html');
     expect(html).toContain('Marzo 2024');
     expect(html).toContain('Alimentación');
+  });
+
+  it('shows a "Fijo" badge next to a category flagged isFixed', async () => {
+    mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
+    vi.mocked(transactionRepo.findTrackingByMonth).mockImplementation(async (_userId, month) =>
+      month === '2024-03'
+        ? ([
+            { id: 'tx-1', date: new Date('2024-03-05'), description: 'Arriendo depto', merchant: 'Inmobiliaria', amount: -450000, transactionType: 'expense', categoryId: 'cat-arriendo', accountType: 'checking', bank: 'santander' },
+          ] as never)
+        : []
+    );
+    vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
+      { id: 'cat-arriendo', userId: 'user-1', name: 'Arriendo', color: '#f97316', icon: null, isDefault: false, excludeFromBudget: false, isFixed: true, createdAt: new Date(), updatedAt: new Date() },
+    ]);
+
+    const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
+    const html = await res.text();
+
+    expect(html).toContain('<span class="badge badge-amber">Fijo</span>');
   });
 
   it('excludes a category flagged excludeFromBudget from totalExpenses, but keeps it in the detail section', async () => {
@@ -90,8 +109,8 @@ describe('GET /api/snapshot/report', () => {
         : []
     );
     vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
-      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, createdAt: new Date(), updatedAt: new Date() },
-      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
     ]);
 
     const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
@@ -113,7 +132,7 @@ describe('GET /api/snapshot/report', () => {
         : []
     );
     vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
-      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-amorcito', userId: 'user-1', name: 'Mi Amorcito', color: '#000', icon: null, isDefault: false, excludeFromBudget: true, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
     ]);
 
     const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));
@@ -140,7 +159,7 @@ describe('GET /api/snapshot/report', () => {
       return [];
     });
     vi.mocked(categoryRepo.findByUserId).mockResolvedValue([
-      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, createdAt: new Date(), updatedAt: new Date() },
+      { id: 'cat-1', userId: 'user-1', name: 'Alimentación', color: '#f97316', icon: null, isDefault: true, excludeFromBudget: false, isFixed: false, createdAt: new Date(), updatedAt: new Date() },
     ]);
 
     const res = await GET(urlRequest('http://localhost/api/snapshot/report', { month: '2024-03' }));

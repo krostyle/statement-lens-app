@@ -11,6 +11,7 @@ type PrismaCategory = {
   type: string | null;
   isDefault: boolean;
   excludeFromBudget: boolean;
+  isFixed: boolean;
   createdAt: Date;
   updatedAt: Date;
 };

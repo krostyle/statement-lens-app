@@ -20,6 +20,7 @@ export class UpdateCategoryUseCase {
       type: updated.type,
       isDefault: updated.isDefault,
       excludeFromBudget: updated.excludeFromBudget,
+      isFixed: updated.isFixed,
     };
   }
 }

@@ -13,7 +13,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
     findByUserIdAndName: async (userId, name) =>
       store.find((c) => c.userId === userId && c.name === name) ?? null,
     create: async (data: CreateCategoryInput) => {
-      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() };
+      const cat: Category = { id: `cat-${++idCounter}`, ...data, excludeFromBudget: data.excludeFromBudget ?? false, isFixed: data.isFixed ?? false, createdAt: new Date(), updatedAt: new Date() };
       store.push(cat);
       return cat;
     },
@@ -23,7 +23,7 @@ function createMockCategoryRepo(existing: Category[] = []): ICategoryRepository 
       return cat;
     },
     delete: async (id) => { const idx = store.findIndex((c) => c.id === id); store.splice(idx, 1); },
-    createMany: async (data) => { data.forEach((d) => store.push({ id: `cat-${++idCounter}`, ...d, excludeFromBudget: d.excludeFromBudget ?? false, createdAt: new Date(), updatedAt: new Date() })); },
+    createMany: async (data) => { data.forEach((d) => store.push({ id: `cat-${++idCounter}`, ...d, excludeFromBudget: d.excludeFromBudget ?? false, isFixed: d.isFixed ?? false, createdAt: new Date(), updatedAt: new Date() })); },
   };
 }
 
@@ -45,6 +45,16 @@ describe('CreateCategoryUseCase', () => {
     expect(result.name).toBe('Viajes');
     expect(result.userId).toBe('user-1');
     expect(result.isDefault).toBe(false);
+    expect(result.isFixed).toBe(false);
+  });
+
+  it('creates a category marked as a fixed, non-negotiable expense', async () => {
+    const result = await useCase.execute('user-1', {
+      name: 'Arriendo',
+      color: '#84cc16',
+      isFixed: true,
+    });
+    expect(result.isFixed).toBe(true);
   });
 
   it('throws when category name already exists for user', async () => {
@@ -56,6 +66,7 @@ describe('CreateCategoryUseCase', () => {
       icon: 'Plane',
       isDefault: false,
       excludeFromBudget: false,
+      isFixed: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

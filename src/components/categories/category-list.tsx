@@ -12,6 +12,7 @@ import {
 } from "@/src/components/ui/dialog";
 import { CategoryForm } from "./category-form";
 import { Skeleton } from "@/src/components/ui/skeleton";
+import { Badge } from "@/src/components/ui/badge";
 import type { CategoryResponseDTO } from "@/src/application/dtos/category.dto";
 
 function translateApiError(raw: string | undefined): string {
@@ -118,8 +119,11 @@ export function CategoriesView() {
             <div className="h-9 w-9 rounded-lg bg-brand-50 flex items-center justify-center shrink-0">
               <Tag className="h-4 w-4 text-brand-600" />
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 flex items-center gap-2">
               <p className="font-medium text-zinc-900 truncate">{c.name}</p>
+              {c.isFixed && (
+                <Badge className="shrink-0 bg-amber-100 text-amber-700 border-amber-200">Fijo</Badge>
+              )}
             </div>
             <div className="flex gap-1 shrink-0">
               <Button variant="ghost" size="icon" onClick={() => openEdit(c)}>

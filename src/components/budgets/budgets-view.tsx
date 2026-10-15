@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { Pencil, Trash2, Plus, Tag, Wand2, Copy, RefreshCw } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
+import { Badge } from '@/src/components/ui/badge';
 import { Input } from '@/src/components/ui/input';
 import { Label } from '@/src/components/ui/label';
 import {
@@ -365,6 +366,9 @@ export function BudgetsView() {
                         <Tag className="h-3.5 w-3.5 text-brand-600" />
                       </div>
                       <span className="font-medium text-zinc-800">{c.name}</span>
+                      {c.isFixed && (
+                        <Badge className="shrink-0 bg-amber-100 text-amber-700 border-amber-200">Fijo</Badge>
+                      )}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-right">

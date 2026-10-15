@@ -206,6 +206,7 @@ export async function GET(req: Request) {
 
   const categoryNameMap   = new Map(categories.map((c) => [c.id, c.name]));
   const excludedCategoryIds = getExcludedCategoryIds(categories);
+  const fixedCategoryIds = new Set(categories.filter((c) => c.isFixed).map((c) => c.id));
   const allTxs: SnapshotTransaction[] = txs.map((tx) => txToSnapshot(tx, categoryNameMap));
   const budgetsByCategory = new Map(budgets.map((b) => [b.categoryId, b.monthlyAmount]));
 
@@ -438,8 +439,9 @@ export async function GET(req: Request) {
     const statusBadge = budgeted > 0
       ? (isOver ? `<span class="badge badge-red">Excedido</span>` : `<span class="badge badge-green">OK</span>`)
       : '';
+    const fixedBadge = fixedCategoryIds.has(cat.categoryId) ? `<span class="badge badge-amber">Fijo</span>` : '';
     return `<tr class="cat-row">
-      <td class="cat-name">${statusBadge}${esc(cat.categoryName || 'Sin asignar')}</td>
+      <td class="cat-name">${statusBadge}${fixedBadge}${esc(cat.categoryName || 'Sin asignar')}</td>
       <td class="num">${budgeted > 0 ? esc(clp(budgeted)) : '—'}</td>
       <td class="num">${esc(clp(cat.total))}</td>
       <td class="num">${cat.pctOfTotal}%</td>
@@ -532,6 +534,7 @@ export async function GET(req: Request) {
     .badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 10px; font-weight: 800; margin-right: 5px; }
     .badge-red { background: #fee2e2; color: #991b1b; }
     .badge-green { background: #dcfce7; color: #166534; }
+    .badge-amber { background: #fef3c7; color: #92400e; }
     .return-badge { display: inline-block; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; background: #dcfce7; color: #166534; margin-left: 5px; vertical-align: middle; }
     .text-red { color: #dc2626; }
     .text-green { color: #16a34a; }

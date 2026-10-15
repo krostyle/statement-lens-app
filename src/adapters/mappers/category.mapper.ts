@@ -10,5 +10,6 @@ export function toCategoryDTO(c: Category): CategoryResponseDTO {
     icon: c.icon,
     isDefault: c.isDefault,
     excludeFromBudget: c.excludeFromBudget,
+    isFixed: c.isFixed,
   };
 }

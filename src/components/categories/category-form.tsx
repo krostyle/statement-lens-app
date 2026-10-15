@@ -25,6 +25,7 @@ const formSchema = z.object({
   name: z.string().min(1, 'Nombre requerido').max(50),
   type: z.enum(['needs', 'wants']).nullable().optional(),
   excludeFromBudget: z.boolean().optional(),
+  isFixed: z.boolean().optional(),
 });
 type FormInput = z.infer<typeof formSchema>;
 
@@ -46,8 +47,8 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
   } = useForm<FormInput>({
     resolver: zodResolver(formSchema),
     defaultValues: category
-      ? { name: category.name, type: category.type ?? null, excludeFromBudget: category.excludeFromBudget }
-      : { type: null, excludeFromBudget: false },
+      ? { name: category.name, type: category.type ?? null, excludeFromBudget: category.excludeFromBudget, isFixed: category.isFixed }
+      : { type: null, excludeFromBudget: false, isFixed: false },
   });
 
   const onSubmit = async (data: FormInput) => {
@@ -133,6 +134,29 @@ export function CategoryForm({ category, onSuccess, onCancel }: Props) {
               <p className="text-xs text-muted-foreground">
                 Para gastos siempre reembolsados (ej: tarjeta adicional de otra persona). Sigue
                 apareciendo en el desglose por categoría, pero no se suma a tu presupuesto ni a tus métricas.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2.5">
+            <Controller
+              name="isFixed"
+              control={control}
+              render={({ field }) => (
+                <Checkbox
+                  id="isFixed"
+                  checked={field.value ?? false}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  className="mt-0.5"
+                />
+              )}
+            />
+            <div className="space-y-1">
+              <Label htmlFor="isFixed" className="cursor-pointer">
+                Gasto fijo
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Para compromisos que siempre debes considerar (ej: arriendo). Solo es una etiqueta
+                visual — no cambia ningún cálculo ni recomendación de presupuesto.
               </p>
             </div>
           </div>
