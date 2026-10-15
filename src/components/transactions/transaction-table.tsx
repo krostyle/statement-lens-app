@@ -32,6 +32,7 @@ import type { PaginatedTransactionsDTO, TransactionSummaryDTO } from '@/src/appl
 const BANK_LABELS: Record<string, string> = {
   santander: 'Santander',
   falabella: 'Falabella',
+  liderbci: 'Lider BCI',
 };
 
 type ReviewStatus = 'pending' | 'auto' | 'confirmed' | 'manual';
@@ -859,6 +860,7 @@ export function TransactionsView() {
             <SelectItem value="all">Todos los bancos</SelectItem>
             <SelectItem value="santander">Santander</SelectItem>
             <SelectItem value="falabella">Falabella</SelectItem>
+            <SelectItem value="liderbci">Lider BCI</SelectItem>
           </SelectContent>
         </Select>
 
