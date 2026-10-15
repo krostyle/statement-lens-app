@@ -301,6 +301,92 @@ export function parseSantanderCCCartola(text: string, fallbackYear: string): Raw
   return rows;
 }
 
+/**
+ * Parse a LiderBCI card export (Excel/portal copy-paste, tab-separated).
+ *
+ * Expected header (tab-separated, case-insensitive):
+ *   Fecha  Tienda / Descripción  Cuotas  Monto
+ *
+ * Sign convention is the opposite of the other parsers here — it's explicit in the
+ * source, not inferred: positive monto = charge (expense), negative monto = credit
+ * (payment or return). A standalone "PAGO" row is the cardholder paying down the
+ * balance — a transfer, not spend — regardless of its sign.
+ *
+ * Returns [] when the text doesn't match this format.
+ */
+export function parseLiderBCI(text: string, fallbackYear: string, bank: string): SnapshotRow[] {
+  const lines = text.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return [];
+
+  const headerIdx = lines.findIndex(
+    (l) =>
+      l.includes('\t') &&
+      /\bfecha\b/i.test(l) &&
+      /\btienda\b/i.test(l) &&
+      /\bcuotas\b/i.test(l) &&
+      /\bmonto\b/i.test(l),
+  );
+  if (headerIdx === -1) return [];
+
+  const headers  = lines[headerIdx].split('\t').map((h) => h.trim().toLowerCase());
+  const dateCol  = headers.findIndex((h) => h === 'fecha');
+  const descCol  = headers.findIndex((h) => /tienda|descripci[oó?]n/i.test(h));
+  const montoCol = headers.findIndex((h) => /monto/i.test(h));
+  if (dateCol === -1 || descCol === -1 || montoCol === -1) return [];
+
+  const parseAmt = (s: string): number => {
+    const cleaned = s.replace(/[$\s]/g, '').replace(/\./g, '').replace(',', '.');
+    const n = parseFloat(cleaned);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const rows: SnapshotRow[] = [];
+
+  for (const line of lines.slice(headerIdx + 1)) {
+    if (!line.includes('\t')) continue;
+    const parts = line.split('\t');
+
+    const dateStr = (parts[dateCol]  ?? '').trim();
+    const rawDesc = (parts[descCol]  ?? '').trim().replace(/,\s*$/, '');
+    const montoStr = (parts[montoCol] ?? '').trim();
+    if (!dateStr || !rawDesc || !montoStr) continue;
+
+    const m = DATE_RE.exec(dateStr);
+    if (!m) continue;
+    const date = toIsoDate(m[1], m[2], m[3], fallbackYear);
+    const description = fixKnownAccentMojibake(rawDesc);
+
+    const rawAmount = parseAmt(montoStr);
+    if (rawAmount === 0) continue;
+
+    const isPayment = /^pago\b/i.test(description);
+    let amount: number;
+    let transactionType: 'expense' | 'transfer';
+    if (isPayment) {
+      transactionType = 'transfer';
+      amount = rawAmount;
+    } else {
+      transactionType = 'expense';
+      // Positive = charge → store negative. Negative = credit/return → store positive,
+      // so it nets against the matching charge the same way every other parser does.
+      amount = rawAmount > 0 ? -rawAmount : Math.abs(rawAmount);
+    }
+
+    rows.push({
+      id: crypto.randomUUID(),
+      date,
+      description,
+      merchant: description,
+      amount,
+      transactionType,
+      source: 'credit_card',
+      bank,
+    });
+  }
+
+  return rows;
+}
+
 // Known Spanish financial vocabulary we can confidently restore when "?" stands in for
 // an accented vowel. Merchant names aren't in this list on purpose: a "?" there is not
 // recoverable (it could have been any vowel), so those are left as-is rather than guessed.

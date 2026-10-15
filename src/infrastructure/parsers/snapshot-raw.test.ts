@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseFalabellaEstadoCuenta, parseSantanderCCCartola, parseSantanderPortalTab, toSnapshotRows } from './snapshot-raw';
+import { parseFalabellaEstadoCuenta, parseSantanderCCCartola, parseSantanderPortalTab, parseLiderBCI, toSnapshotRows } from './snapshot-raw';
 
 // ─── Falabella TC — Excel/portal tab-separated ────────────────────────────────
 
@@ -275,6 +275,61 @@ describe('parseSantanderCCCartola', () => {
       '02/09\tNVA P ALTO\tMonto M?nimo a pagar\t6850736\t$1.640\t\t',
     ].join('\n');
     expect(parseSantanderCCCartola(mojibake, '2026')).toEqual([]);
+  });
+});
+
+// ─── parseLiderBCI ────────────────────────────────────────────────────────────
+
+const LIDER_SAMPLE = [
+  'Fecha\tTienda / Descripción\tCuotas\tMonto',
+  '08/10/2026\tLIDER DOMICILIO VENTAS Y DISTRIBUCION LTDA,\t\t$95.985',
+  '29/09/2026\tPAGO\t\t$-442.835',
+  '25/09/2026\tGLASS LIDER.CL\t\t$-3.141',
+].join('\n');
+
+describe('parseLiderBCI', () => {
+  it('parses a charge (positive monto) as a negative expense', () => {
+    const rows = parseLiderBCI(LIDER_SAMPLE, '2026', 'liderbci');
+    const row = rows.find((r) => r.description.startsWith('LIDER DOMICILIO'))!;
+
+    expect(row.date).toBe('2026-10-08');
+    expect(row.amount).toBe(-95985);
+    expect(row.transactionType).toBe('expense');
+    expect(row.source).toBe('credit_card');
+    expect(row.bank).toBe('liderbci');
+  });
+
+  it('parses "PAGO" (negative monto) as a transfer, not an expense', () => {
+    const rows = parseLiderBCI(LIDER_SAMPLE, '2026', 'liderbci');
+    const row = rows.find((r) => r.description === 'PAGO')!;
+
+    expect(row.transactionType).toBe('transfer');
+  });
+
+  it('parses a credit/return (negative monto, not "PAGO") as a positive expense so it nets against the charge', () => {
+    const rows = parseLiderBCI(LIDER_SAMPLE, '2026', 'liderbci');
+    const row = rows.find((r) => r.description === 'GLASS LIDER.CL')!;
+
+    expect(row.amount).toBe(3141);
+    expect(row.transactionType).toBe('expense');
+  });
+
+  it('strips a trailing comma left over from the store name', () => {
+    const rows = parseLiderBCI(LIDER_SAMPLE, '2026', 'liderbci');
+    const row = rows.find((r) => r.description.startsWith('LIDER DOMICILIO'))!;
+
+    expect(row.description).toBe('LIDER DOMICILIO VENTAS Y DISTRIBUCION LTDA');
+  });
+
+  it('returns [] when the header is missing or wrong format', () => {
+    expect(parseLiderBCI('Fecha\tDescripcion\tMonto\n08/10/2026\tFoo\t$100', '2026', 'liderbci')).toEqual([]);
+    expect(parseLiderBCI('no hay nada aqui', '2026', 'liderbci')).toEqual([]);
+  });
+
+  it('assigns a unique id to every row', () => {
+    const rows = parseLiderBCI(LIDER_SAMPLE, '2026', 'liderbci');
+    const ids = new Set(rows.map((r) => r.id));
+    expect(ids.size).toBe(rows.length);
   });
 });
 

@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
 import { categoryRepo, transactionRepo, merchantRuleRepo, budgetRepo, rawSnapshotParser, trackingUploadRepo } from '@/src/infrastructure/container';
 import { normalizeMerchant } from '@/src/domain/entities/merchant-rule';
-import { parseFalabellaEstadoCuenta, parseSantanderCCCartola, parseSantanderPortalTab, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
+import { parseFalabellaEstadoCuenta, parseSantanderCCCartola, parseSantanderPortalTab, parseLiderBCI, toSnapshotRows } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotRow } from '@/src/infrastructure/parsers/snapshot-raw';
 import type { SnapshotTransaction } from '@/src/domain/entities/snapshot';
 import type { CreateTransactionInput } from '@/src/domain/entities/transaction';
@@ -109,6 +109,10 @@ export async function POST(request: Request) {
     if (rawRows.length === 0) {
       const tabRows = parseSantanderPortalTab(text, month.slice(0, 4));
       if (tabRows.length > 0) rawRows = toSnapshotRows(tabRows, sourceType, bank);
+    }
+    if (rawRows.length === 0) {
+      const liderRows = parseLiderBCI(text, month.slice(0, 4), bank);
+      if (liderRows.length > 0) rawRows = liderRows;
     }
     if (rawRows.length === 0) {
       rawRows = toSnapshotRows(await rawSnapshotParser.parse(text, sourceType, month), sourceType, bank);

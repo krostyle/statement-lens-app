@@ -19,6 +19,7 @@ vi.mock('@/src/infrastructure/parsers/snapshot-raw', () => ({
   parseFalabellaEstadoCuenta: vi.fn(),
   parseSantanderCCCartola: vi.fn(),
   parseSantanderPortalTab: vi.fn(),
+  parseLiderBCI: vi.fn(),
   toSnapshotRows: vi.fn(),
 }));
 
@@ -35,6 +36,7 @@ import {
   parseFalabellaEstadoCuenta,
   parseSantanderCCCartola,
   parseSantanderPortalTab,
+  parseLiderBCI,
   toSnapshotRows,
 } from '@/src/infrastructure/parsers/snapshot-raw';
 import { GET, POST } from './route';
@@ -65,6 +67,7 @@ beforeEach(() => {
   vi.mocked(parseFalabellaEstadoCuenta).mockReturnValue([]);
   vi.mocked(parseSantanderCCCartola).mockReturnValue([]);
   vi.mocked(parseSantanderPortalTab).mockReturnValue([]);
+  vi.mocked(parseLiderBCI).mockReturnValue([]);
   vi.mocked(toSnapshotRows).mockReturnValue([]);
   vi.mocked(rawSnapshotParser.parse).mockResolvedValue([]);
 });
