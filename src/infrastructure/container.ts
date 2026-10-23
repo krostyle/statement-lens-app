@@ -27,6 +27,7 @@ import { ListMerchantRulesUseCase } from '@/src/application/use-cases/merchant-r
 import { UpsertMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/upsert-merchant-rule.use-case';
 import { DeleteMerchantRuleUseCase } from '@/src/application/use-cases/merchant-rules/delete-merchant-rule.use-case';
 import { FinancialChatUseCase } from '@/src/application/use-cases/chat/financial-chat.use-case';
+import { GetReportDataUseCase } from '@/src/application/use-cases/reports/get-report-data.use-case';
 
 // Repositories
 export const userProfileRepo = new UserProfilePrismaRepository();
@@ -68,6 +69,8 @@ export const deleteMerchantRuleUseCase = new DeleteMerchantRuleUseCase(merchantR
 export const financialChatUseCase = new FinancialChatUseCase(
   transactionRepo, categoryRepo, budgetRepo, userProfileRepo, financialChatService
 );
+
+export const getReportDataUseCase = new GetReportDataUseCase(transactionRepo, categoryRepo, budgetRepo);
 
 // Raw repos (needed in some API routes)
 export { categoryRepo, transactionRepo };

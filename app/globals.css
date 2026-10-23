@@ -144,3 +144,11 @@ body {
     @apply bg-background text-foreground;
   }
 }
+/* Printing: only the report sheet (and whatever else opts out with print:hidden) goes to paper. */
+@media print {
+  @page { size: A4; margin: 14mm 12mm; }
+  html, body { background: #fff !important; }
+  body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  [data-slot="sidebar"], [data-slot="sidebar-gap"] { display: none !important; }
+  [data-slot="sidebar-wrapper"], [data-slot="sidebar-inset"] { display: block !important; min-height: 0 !important; }
+}

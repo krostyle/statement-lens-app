@@ -11,14 +11,14 @@ export default async function DashboardLayout({ children }: { children: React.Re
   return (
     <SidebarProvider defaultOpen={defaultOpen}>
       <AppSidebar />
-      <SidebarInset className="bg-zinc-50">
+      <SidebarInset className="bg-zinc-50 print:bg-white">
         {/* Top bar — always visible; trigger collapses sidebar on all screen sizes */}
-        <header className="sticky top-0 z-10 flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4">
+        <header className="sticky top-0 z-30 flex h-12 shrink-0 items-center gap-3 border-b border-zinc-200 bg-white px-4 print:hidden">
           <SidebarTrigger className="text-zinc-600" />
           {/* App name only on mobile (sidebar shows it on desktop) */}
           <span className="text-sm font-semibold text-zinc-800 lg:hidden">Statement Lens</span>
         </header>
-        <div className="flex-1 overflow-y-auto p-6 md:p-8">
+        <div className="flex-1 overflow-y-auto p-6 md:p-8 print:overflow-visible print:p-0">
           {children}
         </div>
       </SidebarInset>

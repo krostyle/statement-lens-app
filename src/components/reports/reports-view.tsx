@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ExternalLink, BarChart2 } from 'lucide-react';
+import Link from 'next/link';
+import { SlidersHorizontal, BarChart2 } from 'lucide-react';
 import { Button } from '@/src/components/ui/button';
 import { Skeleton } from '@/src/components/ui/skeleton';
 
@@ -55,9 +56,11 @@ function MonthList({
                   <p className="text-xs text-zinc-400">{month}</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => window.open(href(month), '_blank')}>
-                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
-                Ver reporte
+              <Button asChild variant="outline" size="sm">
+                <Link href={href(month)}>
+                  <SlidersHorizontal className="h-3.5 w-3.5 mr-1.5" />
+                  Armar reporte
+                </Link>
               </Button>
             </div>
           ))}
@@ -83,14 +86,14 @@ export function ReportsView() {
       <div>
         <h2 className="text-sm font-semibold text-zinc-700 mb-1">Reportes mensuales</h2>
         <p className="text-sm text-zinc-500">
-          Gasto por categoría y por comercio, presupuesto, comparación con el mes anterior y tendencia de los últimos meses.
+          Elige un mes para armar su reporte: qué secciones y gráficos incluir, filtros por banco, medio de pago o categoría, y cómo agrupar y ordenar los gastos antes de imprimir o guardar como PDF.
         </p>
       </div>
       <MonthList
         months={months}
         loading={loading}
         emptyText="No hay cartolas de seguimiento cargadas aún. Sube una en la página de Seguimiento para generar tu primer reporte."
-        href={(m) => `/api/snapshot/report?month=${m}`}
+        href={(m) => `/reports/${m}`}
       />
     </div>
   );
