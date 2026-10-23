@@ -197,7 +197,9 @@ export function ReportBuilder({ month }: { month: string }) {
 
       {data && model && (
         <div className="gap-6 p-4 md:p-6 lg:grid lg:grid-cols-[320px_minmax(0,1fr)] print:block print:p-0">
-          <aside className="mb-6 lg:sticky lg:top-[6.5rem] lg:mb-0 lg:h-[calc(100svh-8rem)] print:hidden">
+          {/* self-start: a grid item stretches to the row height by default, which makes sticky a
+              no-op. Top offset = app header (3rem) + builder toolbar (~3.3rem) + breathing room. */}
+          <aside className="mb-6 lg:sticky lg:top-[7.5rem] lg:mb-0 lg:h-[calc(100svh-8.5rem)] lg:self-start print:hidden">
             <ReportConfigPanel
               config={config}
               onChange={setConfig}
