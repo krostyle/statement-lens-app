@@ -202,6 +202,37 @@ describe('POST /api/snapshot', () => {
     expect(transactionRepo.createManyAndReturn).toHaveBeenCalledWith([]);
   });
 
+  it('does NOT skip an installment row recurring in a new month even if date+amount+description match a previous month', async () => {
+    mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
+    vi.mocked(parseFalabellaEstadoCuenta).mockReturnValue([{ date: '2026-09-26', description: 'COMPRA EN CUOTAS SODIMAC', amount: -29688, installmentTotal: 5 } as never]);
+    vi.mocked(toSnapshotRows).mockReturnValue([
+      {
+        id: 'row-1',
+        date: '2026-09-26',
+        description: 'COMPRA EN CUOTAS SODIMAC',
+        merchant: 'COMPRA EN CUOTAS SODIMAC',
+        amount: -29688,
+        transactionType: 'expense',
+        source: 'credit_card',
+        bank: 'falabella',
+        installmentTotal: 5,
+      },
+    ] as never);
+    // Same cuota, already saved last month under accountingMonth 2026-10, with identical date/amount/description.
+    vi.mocked(transactionRepo.findByUserId).mockResolvedValue([
+      { date: new Date('2026-09-26T12:00:00.000Z'), amount: -29688, description: 'COMPRA EN CUOTAS SODIMAC', accountingMonth: '2026-10', installmentTotal: 5 } as never,
+    ]);
+
+    const res = await POST(formRequest({ month: '2026-11', bank: 'falabella', sourceType: 'credit_card', csvText: 'irrelevant' }));
+    const json = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(json.duplicatesSkipped).toBeUndefined();
+    expect(transactionRepo.createManyAndReturn).toHaveBeenCalledWith([
+      expect.objectContaining({ description: 'COMPRA EN CUOTAS SODIMAC', amount: -29688, accountingMonth: '2026-11' }),
+    ]);
+  });
+
   it('falls back to the AI parser when deterministic parsers find nothing', async () => {
     mockAuth.mockResolvedValue({ userId: 'user-1' } as never);
     vi.mocked(rawSnapshotParser.parse).mockResolvedValue([{ date: '2024-03-05', description: 'AI PARSED', amount: -1000 } as never]);

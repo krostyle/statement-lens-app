@@ -151,13 +151,28 @@ export async function POST(request: Request) {
     // identity is (date + amount + description) — the accounting month must
     // never be part of the match, or rows legitimately belonging to another
     // month would never be recognized as already-saved.
+    //
+    // Installment rows are the exception: an ongoing cuota is reported with the
+    // *same* date, amount (valor cuota) and description on every monthly
+    // statement while it's active, so that identity alone would make every
+    // later month's recurrence look like a duplicate of the first month it was
+    // billed and silently drop it. For those, the accounting month must be part
+    // of the key, since each month's occurrence is a distinct real charge.
     const existingTracking = await transactionRepo.findByUserId(userId, {
       bank, accountType: sourceType, origin: 'tracking',
     });
+    const dedupKey = (isInstallment: boolean, accountingMonth: string, date: string, amount: number, description: string) =>
+      isInstallment
+        ? `${accountingMonth}|${date}|${amount}|${description}`
+        : `${date}|${amount}|${description}`;
     const existingKeys = new Set(
-      existingTracking.map((t) => `${t.date.toISOString().slice(0, 10)}|${t.amount}|${t.description}`),
+      existingTracking.map((t) =>
+        dedupKey(!!t.installmentTotal && t.installmentTotal > 1, t.accountingMonth, t.date.toISOString().slice(0, 10), t.amount, t.description),
+      ),
     );
-    const newRows = unique.filter((tx) => !existingKeys.has(`${tx.date}|${tx.amount}|${tx.description}`));
+    const newRows = unique.filter((tx) =>
+      !existingKeys.has(dedupKey(!!tx.installmentTotal && tx.installmentTotal > 1, month, tx.date, tx.amount, tx.description)),
+    );
 
     // Create the upload record first to get its ID for linking
     const upload = await trackingUploadRepo.create({
